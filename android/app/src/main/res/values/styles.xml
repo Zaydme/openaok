@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fullscreen, edge to edge round the camera cut-out. No focus
+         highlight: a key from a real keyboard takes the phone out of touch
+         mode, and the system would then frame the game in its accent
+         colour. -->
+    <style name="AppTheme" parent="android:Theme.NoTitleBar.Fullscreen">
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:defaultFocusHighlightEnabled">false</item>
+    </style>
+</resources>

@@ -1,0 +1,2 @@
+rootProject.name = 'OpenAoK'
+include ':app'

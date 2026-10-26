@@ -1,0 +1,120 @@
+plugins {
+    id 'com.android.application'
+}
+
+// The game's data, staged under game/ in the APK's assets in the layout the
+// engine reads beside its build directory: assets/ (prepared from the CD by
+// tools/data/prepare_data.py) and the CD's fonts, movies, music, campaigns and
+// bonus scenario. The launcher copies it to the app's storage on first run;
+// manifest.txt lists every file with its size.
+def repoRoot = file("$rootDir/..")
+def stagedData = layout.buildDirectory.dir("gamedata")
+
+tasks.register('prepareGameData', Exec) {
+    workingDir repoRoot
+    commandLine 'python3', 'tools/data/prepare_data.py'
+}
+
+// Arial, which the CD does not carry: the building machine's own, or Liberation
+// Sans, which has Arial's metrics.
+def arialCandidates = [
+    ['/System/Library/Fonts/Supplemental/Arial.ttf', '/System/Library/Fonts/Supplemental/Arial Bold.ttf'],
+    ['/Library/Fonts/Arial.ttf', '/Library/Fonts/Arial Bold.ttf'],
+    ['C:/Windows/Fonts/arial.ttf', 'C:/Windows/Fonts/arialbd.ttf'],
+    ['/usr/share/fonts/truetype/msttcorefonts/Arial.ttf', '/usr/share/fonts/truetype/msttcorefonts/Arial_Bold.ttf'],
+    ['/usr/share/fonts/truetype/msttcorefonts/arial.ttf', '/usr/share/fonts/truetype/msttcorefonts/arialbd.ttf'],
+    ['/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf', '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf'],
+    ['/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf', '/usr/share/fonts/liberation-sans/LiberationSans-Bold.ttf'],
+]
+def arial = arialCandidates.find { pair -> pair.every { new File(it).exists() } }
+
+tasks.register('stageGameData', Sync) {
+    dependsOn 'prepareGameData'
+    into stagedData.map { it.dir("game") }
+    from(new File(repoRoot, "assets")) {
+        include 'extracted_data/**', 'original/**', 'sprites/terrain/blendmasks.png'
+        exclude '**/.DS_Store'
+        into 'assets'
+    }
+    from(new File(repoRoot, "original_game_1999")) {
+        include 'SYSTEM/FONTS/**', 'GOODIES/**', 'GAME/AVI/**', 'GAME/SOUND/**', 'GAME/CAMPAIGN/**'
+        exclude '**/.DS_Store'
+        into 'original_game_1999'
+    }
+    if (arial != null) {
+        from(arial[0]) { into 'fonts'; rename { 'Arial.ttf' } }
+        from(arial[1]) { into 'fonts'; rename { 'Arial Bold.ttf' } }
+    } else {
+        logger.warn('No Arial or Liberation Sans found on this machine; the game will draw without Arial.')
+    }
+    doLast {
+        def root = stagedData.get().dir("game").asFile
+        def lines = []
+        root.eachFileRecurse(groovy.io.FileType.FILES) { f ->
+            def rel = root.toPath().relativize(f.toPath()).toString().replace('\\', '/')
+            if (rel != 'manifest.txt') lines << "${f.length()}\t${rel}"
+        }
+        lines.sort()
+        new File(root, 'manifest.txt').text = lines.join('\n') + '\n'
+    }
+}
+
+android {
+    namespace 'org.openaok.game'
+    compileSdk 36
+    ndkVersion '28.2.13676358'
+
+    defaultConfig {
+        applicationId 'org.openaok.game'
+        minSdk 29
+        targetSdk 36
+        versionCode 1
+        versionName '0.1'
+        externalNativeBuild {
+            cmake {
+                arguments '-DANDROID_STL=c++_static'
+                abiFilters 'arm64-v8a'
+            }
+        }
+    }
+
+    buildTypes {
+        // The one to install: optimised native code (CMake's Release), signed
+        // with the debug key so it installs without a keystore of its own.
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    externalNativeBuild {
+        cmake {
+            path 'jni/CMakeLists.txt'
+            version '3.31.6'
+        }
+    }
+
+    sourceSets {
+        main {
+            assets.srcDirs += [stagedData.get().asFile]
+        }
+    }
+
+    // Already compressed: stored as they are, which keeps the first-run copy
+    // quick.
+    androidResources {
+        noCompress += ['mp3', 'avi', 'MP3', 'AVI', 'ttf', 'TTF']
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
+
+tasks.named('preBuild') { dependsOn 'stageGameData' }

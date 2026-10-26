@@ -1,0 +1,20 @@
+// The Android build of the game: SDL2's own Java glue (app/src/main/java/
+// org/libsdl/app, from SDL 2.32.10's android-project), a small launcher that
+// copies the game's data out of the APK on first run, and the engine's
+// unchanged sources built as libmain.so with CMake (app/jni).
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.13.0'
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}

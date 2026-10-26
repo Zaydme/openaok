@@ -1,0 +1,28 @@
+# Your copy of the 1999 game, and everything prepared from it
+/original_game_1999/
+/assets/original/
+/assets/extracted_data/
+/assets/sprites/
+/assets/.prepared
+*.iso
+*.ISO
+
+# Builds
+/build/
+/build-*/
+/android/deps/
+/android/.gradle/
+/android/build/
+/android/app/build/
+/android/app/.cxx/
+/android/local.properties
+
+# Local tools and notes
+/scratch/
+/.claude/
+/.kilo/
+/.cache/
+/venv/
+__pycache__/
+.DS_Store
+/.vscode/
