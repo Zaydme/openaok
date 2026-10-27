@@ -85,55 +85,82 @@ void Setup(entt::registry& registry, int width, int height, Core::Reveal reveal)
     registry.ctx().insert_or_assign<Map>(std::move(map));
 }
 
+// The tiles within `r` of (cx, cy) marked seen by `bit`: row by row, out from
+// the middle row, a row's tiles within the radius being one run, out to the
+// widest dx whose dx * dx + dy * dy stays within r * r, the same above and
+// below the middle.
+void Stamp(const Map& map, std::vector<uint16_t>& tiles, int cx, int cy, int r, uint16_t bit) {
+    const int r2 = r * r;
+    int half = r;
+    for (int dy = 0; dy <= r; ++dy) {
+        while (half > 0 && half * half + dy * dy > r2) --half;
+        const int x0 = std::max(0, cx - half);
+        const int x1 = std::min(map.width - 1, cx + half);
+        for (const int y : {cy - dy, cy + dy}) {
+            if (y < 0 || y >= map.height || (dy == 0 && y != cy)) continue;
+            uint16_t* row = &tiles[static_cast<size_t>(Index(map, 0, y))];
+            for (int x = x0; x <= x1; ++x) row[x] |= bit;
+            if (dy == 0) break;
+        }
+    }
+}
+
 void Update(entt::registry& registry) {
     auto* map = registry.ctx().find<Map>();
     if (map == nullptr || map->reveal == Core::Reveal::AllVisible) return;
-    std::fill(map->visible.begin(), map->visible.end(), 0);
 
     auto seers = registry.view<const Components::Transform, const Components::Sight,
                                const Components::Owner>();
-    for (auto e : seers) {
+    auto seer = [&](entt::entity e, Map::FixedSeer& out) {
         const Core::PlayerId player = seers.get<const Components::Owner>(e).player_id;
-        if (player == Core::PLAYER_GAIA || player >= 16) continue;
-        const uint16_t bit = Bit(player);
+        if (player == Core::PLAYER_GAIA || player >= 16) return false;
         const auto& at = seers.get<const Components::Transform>(e).position;
-        const int cx = Physics::TileOf(at.x);
-        const int cy = Physics::TileOf(at.y);
-        const int r = seers.get<const Components::Sight>(e).radius;
-        const int r2 = r * r;
-        // Row by row, out from the middle row: a row's tiles within the radius
-        // are one run, out to the widest dx whose dx * dx + dy * dy stays
-        // within r * r, the same above and below the middle.
-        int half = r;
-        for (int dy = 0; dy <= r; ++dy) {
-            while (half > 0 && half * half + dy * dy > r2) --half;
-            const int x0 = std::max(0, cx - half);
-            const int x1 = std::min(map->width - 1, cx + half);
-            for (const int y : {cy - dy, cy + dy}) {
-                if (y < 0 || y >= map->height || (dy == 0 && y != cy)) continue;
-                uint16_t* row = &map->visible[static_cast<size_t>(Index(*map, 0, y))];
-                for (int x = x0; x <= x1; ++x) row[x] |= bit;
-                if (dy == 0) break;
-            }
+        out = Map::FixedSeer{entt::to_integral(e), Physics::TileOf(at.x), Physics::TileOf(at.y),
+                             seers.get<const Components::Sight>(e).radius, player};
+        return true;
+    };
+    // The buildings' sight, stamped again only when they have changed; then
+    // everything else's over it.
+    map->fixed_now.clear();
+    for (auto e : seers) {
+        Map::FixedSeer s;
+        if (registry.all_of<Components::Building>(e) && seer(e, s)) map->fixed_now.push_back(s);
+    }
+    if (map->fixed_now != map->fixed_seers || map->fixed_visible.size() != map->visible.size()) {
+        map->fixed_seers.swap(map->fixed_now);
+        map->fixed_visible.assign(map->visible.size(), 0);
+        for (const auto& s : map->fixed_seers) {
+            Stamp(*map, map->fixed_visible, s.x, s.y, s.radius, Bit(static_cast<Core::PlayerId>(s.player)));
         }
+    }
+    std::copy(map->fixed_visible.begin(), map->fixed_visible.end(), map->visible.begin());
+    for (auto e : seers) {
+        Map::FixedSeer s;
+        if (registry.all_of<Components::Building>(e) || !seer(e, s)) continue;
+        Stamp(*map, map->visible, s.x, s.y, s.radius, Bit(static_cast<Core::PlayerId>(s.player)));
     }
     // Allies' sight, for those with Cartography: only what each ally sees
     // and has explored itself, not what it is shown in turn.
     uint16_t shared[Core::kMaxPlayers];
     if (SharedSight(registry, shared)) {
+        // A player gains a tile that any player it is shown by sees, or has
+        // explored. Which players gain, from a tile's mask, is the union of
+        // what its low byte gives and what its high byte gives.
+        uint16_t low[256] = {};
+        uint16_t high[256] = {};
+        for (int p = 1; p < Core::kMaxPlayers; ++p) {
+            if (shared[p] == 0) continue;
+            const uint16_t bit = Bit(static_cast<Core::PlayerId>(p));
+            for (int x = 1; x < 256; ++x) {
+                if (x & (shared[p] & 0xFF)) low[x] = static_cast<uint16_t>(low[x] | bit);
+                if (x & (shared[p] >> 8)) high[x] = static_cast<uint16_t>(high[x] | bit);
+            }
+        }
         for (size_t i = 0; i < map->visible.size(); ++i) {
             const uint16_t sees = map->visible[i];
             const uint16_t knows = map->explored[i];
-            uint16_t gains = 0;
-            for (int p = 1; p < Core::kMaxPlayers; ++p) {
-                if (shared[p] == 0) continue;
-                if (sees & shared[p]) gains = static_cast<uint16_t>(gains | Bit(static_cast<Core::PlayerId>(p)));
-                if (knows & shared[p]) {
-                    map->explored[i] = static_cast<uint16_t>(map->explored[i] |
-                                                             Bit(static_cast<Core::PlayerId>(p)));
-                }
-            }
-            map->visible[i] = static_cast<uint16_t>(sees | gains);
+            map->explored[i] = static_cast<uint16_t>(knows | low[knows & 0xFF] | high[knows >> 8]);
+            map->visible[i] = static_cast<uint16_t>(sees | low[sees & 0xFF] | high[sees >> 8]);
         }
     }
     for (size_t i = 0; i < map->visible.size(); ++i) map->explored[i] |= map->visible[i];

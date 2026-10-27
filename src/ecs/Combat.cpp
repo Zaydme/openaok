@@ -1,4 +1,5 @@
 #include "ecs/Combat.h"
+#include "ecs/Nearby.h"
 
 #include <algorithm>
 #include <vector>
@@ -135,28 +136,29 @@ bool CanReach(const entt::registry& registry, const Physics::Grid& grid, entt::e
 // The best target in reach for `self`: the highest combat level first, then
 // the nearest, then the lowest entity id, so the choice is the same on every
 // machine.
+// `candidates` holds everything with a place, health and an owner, by where it
+// stands.
 entt::entity FindTarget(const entt::registry& registry, const Physics::Grid& grid,
-                        entt::entity self, Core::Fixed32 reach, const R::UnitRules& own) {
+                        entt::entity self, Core::Fixed32 reach, const R::UnitRules& own,
+                        const Nearby::Buckets& candidates) {
     entt::entity best = entt::null;
     int best_level = -1;
     Core::Fixed32 best_gap{};
-    auto candidates = registry.view<const Components::Transform, const Components::Health,
-                                    const Components::Owner>();
     // Nothing in reach is farther from `self`'s middle, on either axis, than
     // the reach and both sides' extents: a footprint or a body reaches at most
     // four tiles from its middle.
     const auto& here = registry.get<Components::Transform>(self).position;
     const Core::Fixed32 box = reach + kFarthestExtents;
-    for (auto other : candidates) {
-        const auto& there = candidates.get<const Components::Transform>(other).position;
+    Nearby::ForEachNear(candidates, here, box, [&](entt::entity other) {
+        const auto& there = registry.get<Components::Transform>(other).position;
         if (Core::FixedMath::Abs(there.x - here.x) > box || Core::FixedMath::Abs(there.y - here.y) > box) {
-            continue;
+            return;
         }
-        if (other == self || !Alive(registry, other)) continue;
-        if (!Hostile(registry, self, other)) continue;
+        if (other == self || !Alive(registry, other)) return;
+        if (!Hostile(registry, self, other)) return;
         const Core::Fixed32 gap = Gap(registry, self, other);
-        if (gap > reach) continue;
-        if (!CanReach(registry, grid, self, other, own)) continue;
+        if (gap > reach) return;
+        if (!CanReach(registry, grid, self, other, own)) return;
         const R::UnitRules* rules = DefendingRules(registry, other);
         const int level = rules != nullptr ? rules->combat_level : 0;
         const bool better =
@@ -168,7 +170,7 @@ entt::entity FindTarget(const entt::registry& registry, const Physics::Grid& gri
             best_level = level;
             best_gap = gap;
         }
-    }
+    });
     return best;
 }
 
@@ -485,6 +487,12 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
     std::vector<std::pair<entt::entity, entt::entity>> volleys;   // shooter, target
     std::vector<entt::entity> spent;   // demolition ships that have detonated
 
+    // What can be fought, by where it stands; nothing moves during the pass.
+    static Nearby::Buckets candidates;
+    Nearby::Build(candidates,
+                  registry.view<const Components::Transform, const Components::Health, const Components::Owner>(),
+                  grid.GetWidth(), grid.GetHeight());
+
     auto fighters = registry.view<Combat, Components::Transform>();
     for (auto self : fighters) {
         auto& combat = fighters.get<Combat>(self);
@@ -525,7 +533,7 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
             const Core::Fixed32 look =
                 combat.stance == Components::Stance::StandGround
                     ? rules->max_range + kMeleeReach : SearchReach(*rules, building);
-            const entt::entity found = FindTarget(registry, grid, self, look, *rules);
+            const entt::entity found = FindTarget(registry, grid, self, look, *rules, candidates);
             if (found != entt::null) Engage(registry, self, found, false);
             break;
         }

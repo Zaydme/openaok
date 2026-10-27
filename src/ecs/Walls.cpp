@@ -1,4 +1,5 @@
 #include "ecs/Walls.h"
+#include "ecs/Nearby.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -602,12 +603,14 @@ void SiteArt(entt::registry& registry, entt::entity site) {
     sprite->slp_frame = sprite->construction_offset;
 }
 
-void Update(entt::registry& registry) {
+void Update(entt::registry& registry, const Physics::Grid& grid) {
     auto gates = registry.view<Components::Gate, Components::Building, Components::SpritePieces,
                                Components::Identity, Components::Transform, Components::Owner>();
     if (gates.begin() == gates.end()) return;
     auto units = registry.view<const Components::Transform, const Components::Owner,
                                const Components::Health>();
+    static Nearby::Buckets near;
+    Nearby::Build(near, units, grid.GetWidth(), grid.GetHeight());
     for (auto gate : gates) {
         auto& state = gates.get<Components::Gate>(gate);
         const Core::PlayerId owner = gates.get<Components::Owner>(gate).player_id;
@@ -616,23 +619,26 @@ void Update(entt::registry& registry) {
             const auto bounds = Buildings::FootprintBounds(
                 gates.get<Components::Transform>(gate).position,
                 gates.get<Components::Identity>(gate).unit_id);
-            for (auto unit : units) {
+            // The buckets around the footprint grown by the reach.
+            const auto& middle = gates.get<Components::Transform>(gate).position;
+            const Core::Fixed32 reach =
+                std::max({bounds.max_x - middle.x, middle.x - bounds.min_x, bounds.max_y - middle.y,
+                          middle.y - bounds.min_y}) + kOpenReach;
+            Nearby::ForEachNear(near, middle, reach, [&](entt::entity unit) {
+                if (open) return;
                 // Outside the gate's footprint grown by the reach on either
                 // axis is farther than the reach: the cheap test first.
                 const auto& at = units.get<const Components::Transform>(unit).position;
                 if (at.x < bounds.min_x - kOpenReach || at.x > bounds.max_x + kOpenReach ||
                     at.y < bounds.min_y - kOpenReach || at.y > bounds.max_y + kOpenReach) {
-                    continue;
+                    return;
                 }
-                if (bounds.DistanceFrom(at) > kOpenReach) continue;
-                if (registry.all_of<Components::Building>(unit)) continue;
-                if (!Friends(registry, owner, units.get<const Components::Owner>(unit).player_id)) {
-                    continue;
-                }
-                if (!Combat::Alive(registry, unit)) continue;
+                if (bounds.DistanceFrom(at) > kOpenReach) return;
+                if (registry.all_of<Components::Building>(unit)) return;
+                if (!Friends(registry, owner, units.get<const Components::Owner>(unit).player_id)) return;
+                if (!Combat::Alive(registry, unit)) return;
                 open = true;
-                break;
-            }
+            });
         }
         if (open == state.open) continue;
         state.open = open;

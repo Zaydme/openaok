@@ -1,4 +1,5 @@
 #include "ecs/Animals.h"
+#include "ecs/Nearby.h"
 #include "ecs/Navigation.h"
 
 #include <vector>
@@ -55,6 +56,35 @@ bool HasTask(const R::UnitRules& rules, int action) {
     return false;
 }
 
+// By unit id, whether that unit can ever graze: its own rules have a Graze
+// task, or an upgrade can make its rules those of one that does, however
+// many upgrades away. A player's rules are the dat's, changed only by effects,
+// and only an upgrade changes a unit's tasks.
+const std::vector<bool>& MayGraze() {
+    static const std::vector<bool> may = [] {
+        const R::Tables& tables = R::Get();
+        std::vector<bool> out(tables.units.size(), false);
+        for (size_t id = 0; id < tables.units.size(); ++id) {
+            out[id] = tables.units[id].valid && HasTask(tables.units[id], R::TaskAction::Graze);
+        }
+        for (bool changed = true; changed;) {
+            changed = false;
+            for (const R::Effect& effect : tables.effects) {
+                for (const R::EffectCommand& c : effect.commands) {
+                    if (c.type != R::EffectType::UpgradeUnit || c.a < 0 || c.b < 0) continue;
+                    if (static_cast<size_t>(c.a) >= out.size() || static_cast<size_t>(c.b) >= out.size()) continue;
+                    if (out[static_cast<size_t>(c.b)] && !out[static_cast<size_t>(c.a)]) {
+                        out[static_cast<size_t>(c.a)] = true;
+                        changed = true;
+                    }
+                }
+            }
+        }
+        return out;
+    }();
+    return may;
+}
+
 // Something that can claim a herdable: a living unit of a player's, out in
 // the world -- not a building, not a body, not another herdable.
 bool Claims(const entt::registry& registry, entt::entity entity) {
@@ -83,10 +113,12 @@ void WalkTo(entt::registry& registry, const Physics::Grid& grid, entt::entity an
 
 // Each herdable checks who is about: its owner's units keep it; failing
 // those, the nearest unit of another player's within its sight takes it.
-void Herd(entt::registry& registry, uint64_t tick) {
+void Herd(entt::registry& registry, const Physics::Grid& grid, uint64_t tick) {
     std::vector<std::pair<entt::entity, Core::PlayerId>> changes;
     auto herd = registry.view<Components::Grazer, Components::Transform, Components::Owner>();
-    auto units = registry.view<Components::Transform, Components::Owner>();
+    auto units = registry.view<const Components::Transform, Components::Owner>();
+    static Nearby::Buckets near;
+    bool built = false;
     for (auto animal : herd) {
         if ((tick + entt::to_integral(animal)) % kHerdCheckTicks != 0) continue;
         if (!Herdable(registry, animal) || !Combat::Alive(registry, animal)) continue;
@@ -95,25 +127,34 @@ void Herd(entt::registry& registry, uint64_t tick) {
         const auto& at = herd.get<Components::Transform>(animal).position;
         const Core::PlayerId owner = herd.get<Components::Owner>(animal).player_id;
 
+        if (!built) {
+            Nearby::Build(near, units, grid.GetWidth(), grid.GetHeight());
+            built = true;
+        }
         bool kept = false;
         entt::entity nearest = entt::null;
         Core::Fixed32 nearest_d{};
-        for (auto unit : units) {
+        Nearby::ForEachNear(near, at, rules->los, [&](entt::entity unit) {
+            if (kept) return;
             const Core::PlayerId player = units.get<Components::Owner>(unit).player_id;
-            if (player == Core::PLAYER_GAIA || !Claims(registry, unit)) continue;
-            const auto& p = units.get<Components::Transform>(unit).position;
+            if (player == Core::PLAYER_GAIA) return;
+            // Out of sight on either axis is out of sight: the cheap test first.
+            const auto& p = units.get<const Components::Transform>(unit).position;
+            if (Core::FixedMath::Abs(p.x - at.x) > rules->los || Core::FixedMath::Abs(p.y - at.y) > rules->los) {
+                return;
+            }
             const Core::Fixed32 d = Core::FixedMath::Distance(p.x - at.x, p.y - at.y);
-            if (d > rules->los) continue;
+            if (d > rules->los || !Claims(registry, unit)) return;
             if (player == owner) {
                 kept = true;
-                break;
+                return;
             }
             if (nearest == entt::null || d < nearest_d ||
                 (d == nearest_d && unit < nearest)) {
                 nearest = unit;
                 nearest_d = d;
             }
-        }
+        });
         if (!kept && nearest != entt::null) {
             changes.emplace_back(animal, units.get<Components::Owner>(nearest).player_id);
         }
@@ -168,7 +209,10 @@ void Update(entt::registry& registry, const Physics::Grid& grid, int32_t dt_ms) 
     std::vector<entt::entity> fresh;
     auto animals = registry.view<Components::Identity, Components::Transform>(
         entt::exclude<Components::Grazer, Components::Building>);
+    const std::vector<bool>& may_graze = MayGraze();
     for (auto e : animals) {
+        const int id = animals.get<Components::Identity>(e).unit_id;
+        if (id < 0 || static_cast<size_t>(id) >= may_graze.size() || !may_graze[static_cast<size_t>(id)]) continue;
         const R::UnitRules* rules = RulesOf(registry, e);
         if (rules != nullptr && HasTask(*rules, R::TaskAction::Graze)) fresh.push_back(e);
     }
@@ -179,7 +223,7 @@ void Update(entt::registry& registry, const Physics::Grid& grid, int32_t dt_ms) 
         registry.emplace<Components::Grazer>(e, grazer);
     }
 
-    if (const Events::Log* log = Events::Read(registry)) Herd(registry, log->tick);
+    if (const Events::Log* log = Events::Read(registry)) Herd(registry, grid, log->tick);
 
     auto grazers = registry.view<Components::Grazer, Components::Transform>();
     std::vector<std::pair<entt::entity, Components::Vector2D>> steps;

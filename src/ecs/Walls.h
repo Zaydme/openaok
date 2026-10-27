@@ -113,7 +113,7 @@ bool SpawnArt(entt::registry& registry, entt::entity building);
 void SiteArt(entt::registry& registry, entt::entity site);
 
 // Once a tick: each gate drawn raised while a unit it opens for is at it.
-void Update(entt::registry& registry);
+void Update(entt::registry& registry, const Physics::Grid& grid);
 
 // What placing a wall or a gate from the build menu would put up, for the
 // interface's preview: each piece's art, the tile it stands for, where it is

@@ -295,7 +295,7 @@ void Simulation::Update(int32_t dt_ms) {
     Missiles::Update(registry, grid, dt_ms);
     Mortality::Update(registry, grid, dt_ms);
     Buildings::Update(registry, grid);
-    Walls::Update(registry);
+    Walls::Update(registry, grid);
     Production::Update(registry, grid, dt_ms);
     Systems::AnimationSystem::Update(registry, dt_ms);
     // A scenario's triggers, before the victory they can declare is looked at;

@@ -29,6 +29,21 @@ struct Map {
     // all in sight ("polo"), a bit each (ecs/Cheats).
     uint16_t explore_all = 0;
     uint16_t see_all = 0;
+
+    // What the buildings see, which changes only when one comes, goes, moves
+    // or changes hands: kept between ticks with the buildings it was made
+    // from, and stamped again when they differ.
+    struct FixedSeer {
+        uint32_t entity = 0;
+        int x = 0;
+        int y = 0;
+        int radius = 0;
+        int player = 0;
+        bool operator==(const FixedSeer&) const = default;
+    };
+    std::vector<FixedSeer> fixed_seers;
+    std::vector<FixedSeer> fixed_now;   // this tick's, compared with the above
+    std::vector<uint16_t> fixed_visible;
 };
 
 // `reveal` is the lobby's choice: fog as normal, the map explored from the
