@@ -30,6 +30,11 @@ bool CheckDeterminism(int ticks);
 // drop site, hand it over. Prints "gathering=".
 bool CheckGathering();
 
+// A lumberjack sent at a standing tree: the felling stroke with no wood cut,
+// then the tree lying as its felled graphic, then wood cut from it.
+// Prints "felling=".
+bool CheckFelling();
+
 // The approach planner on its own, away from any worker using it.
 // Prints "planner=".
 bool CheckApproachPlanner();

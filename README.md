@@ -63,6 +63,10 @@ bar, the panel and the text can each be drawn larger (Options → Top Bar Size,
 Panel Size, Text Size), and in widescreen the interface reaches the screen's
 edges.
 
+<p align="center">
+  <img src="docs/images/switch-controls.svg" width="900" alt="The Switch's controls: the left stick moves the pointer, the right stick scrolls the map, A and B are the left and right mouse buttons, plus is the game menu, minus is chat, and the other buttons are the game's hotkeys">
+</p>
+
 ## What works
 
 - **Random maps** from the original map scripts: lands, terrain, elevation,
@@ -165,10 +169,6 @@ running Android 10 or later. The first launch copies the game data to the phone.
 The APK carries your game data, so keep it to your own devices.
 
 ## Building for the Nintendo Switch
-
-<p align="center">
-  <img src="docs/images/switch-controls.svg" width="900" alt="The Switch's controls: the left stick moves the pointer, the right stick scrolls the map, A and B are the left and right mouse buttons, plus is the game menu, minus is chat, and the other buttons are the game's hotkeys">
-</p>
 
 OpenAoK runs as homebrew, from the Homebrew Menu, on a Switch that runs custom
 firmware. The game is one file, `OpenAoK.nro`, which holds none of the game's

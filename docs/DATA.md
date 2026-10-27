@@ -93,6 +93,11 @@ CD's files change or `--force` is given. Everything it writes is ignored by git.
 - **Fish store resource 17**, which the fishing ship's gather task turns into
   food.
 - **A gather task's work value multiplies the gatherer's rate.**
+- **A tree is felled before it is cut.** The lumberjack's gather task (110)
+  names a proceeding graphic, the felling stroke, and a working graphic,
+  chopping the trunk on the ground. The felled tree is drawn as its dying
+  graphic, in one of its shapes, and keeps its wood; when that runs out it
+  becomes its dead unit, the stump.
 - **A fish trap is a farm with no foundation terrain.**
 - **A transport carries whatever has a Garrison task naming its class (20).**
 - **A trader's task names where it trades**: the trade cart the Market, the cog

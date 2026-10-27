@@ -25,7 +25,7 @@ CD = os.path.join(ROOT, 'original_game_1999')
 ASSETS = os.path.join(ROOT, 'assets')
 ORIGINAL = os.path.join(ASSETS, 'original')
 STAMP = os.path.join(ASSETS, '.prepared')
-STAMP_VERSION = 1
+STAMP_VERSION = 2
 
 # Paths on the CD, as the CD spells them.
 REQUIRED = [

@@ -12,6 +12,7 @@
 #include "ecs/components/Sprite.h"
 #include "ecs/BuildingGeometry.h"
 #include "ecs/DropSites.h"
+#include "ecs/Felling.h"
 #include "ecs/Navigation.h"
 #include "ecs/VillagerJobs.h"
 #include "ecs/components/Animation.h"
@@ -600,6 +601,19 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                         ? registry.get<Components::Owner>(entity).player_id
                         : Core::PLAYER_GAIA;
                 const auto* job = GathererRules(registry, entity, worker, owner);
+
+                // A standing tree is felled first: its strokes, then it lies
+                // on the ground, and only then is its wood cut.
+                if (Felling::Standing(registry, worker.target_resource)) {
+                    if (worker.felling != worker.target_resource) {
+                        worker.felling = worker.target_resource;
+                        worker.fell_ms = Felling::FellingMs(job);
+                    }
+                    worker.fell_ms -= fixed_dt_ms;
+                    if (worker.fell_ms > 0) break;
+                    Felling::Fell(registry, worker.target_resource);
+                }
+                worker.felling = entt::null;
                 const Core::Fixed32 per_second =
                     ((job && job->work_rate.value > 0) ? job->work_rate : Core::Fixed32(1)) *
                     TaskValue(registry, job, worker.target_resource);

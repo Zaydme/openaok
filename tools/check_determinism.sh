@@ -35,6 +35,7 @@ ARRIVAL="$(echo "$OUTPUT" | grep '^arrived=')"
 BUILDING="$(echo "$OUTPUT" | grep '^building=')"
 PLANNER="$(echo "$OUTPUT" | grep '^planner=')"
 GATHERING="$(echo "$OUTPUT" | grep '^gathering=')"
+FELLING="$(echo "$OUTPUT" | grep '^felling=')"
 PRODUCTION="$(echo "$OUTPUT" | grep '^production=')"
 TECHS="$(echo "$OUTPUT" | grep '^techs=')"
 COMBAT="$(echo "$OUTPUT" | grep '^combat=')"
@@ -125,6 +126,16 @@ if [ "$GATHERING" = "gathering=ok" ]; then
 else
     echo "GATHERING FAILED" >&2
     echo "  $GATHERING" >&2
+    STATUS=1
+fi
+
+# A tree felled with a stroke before its wood is cut, then lying as its felled
+# graphic.
+if [ "$FELLING" = "felling=ok" ]; then
+    echo "felling OK"
+else
+    echo "FELLING FAILED" >&2
+    echo "  $FELLING" >&2
     STATUS=1
 fi
 

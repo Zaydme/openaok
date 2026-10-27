@@ -55,6 +55,10 @@ struct Worker {
     Core::Fixed32 repair_progress{};
     
     entt::entity target_resource = entt::null;
+    // The standing tree being felled, before its wood is cut (ecs/Felling),
+    // and the milliseconds of felling left: entt::null when none.
+    entt::entity felling = entt::null;
+    int32_t fell_ms = 0;
     // Where `target_resource` stands -- or stood, once it is gone: where the
     // villager looks for another of the same when it has run out or someone
     // else has finished it.

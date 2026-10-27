@@ -45,7 +45,6 @@ computer players' finer play, and polish.
    - Editor: Map Copy, garrisons on the Units tab, the AI script list, the
      Campaign Editor.
 4. **World**
-   - Trees falling when cut.
    - The grass the original paints under cliffs.
    - Spreading crowds of units more evenly.
 5. **Performance**: eight players on a giant map, late game, at a steady

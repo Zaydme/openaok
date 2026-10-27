@@ -1,6 +1,7 @@
 #include "AnimationSystem.h"
 
 #include <algorithm>
+#include "ecs/Felling.h"
 #include "ecs/components/Building.h"
 #include "ecs/components/Animation.h"
 #include "ecs/components/Combat.h"
@@ -144,7 +145,14 @@ void AnimationSystem::Update(entt::registry& registry, int32_t dt_ms) {
                     // Doing the job wins over standing and over walking: a
                     // villager that has arrived and started swinging is not
                     // walking any more even if a stale route is still attached.
-                    if (worker->working && available(Components::AnimState::Work)) {
+                    // Felling a standing tree is the felling stroke, the
+                    // lumberjack's attack graphic; the trunk on the ground
+                    // is the work graphic.
+                    if (worker->state == Core::UnitState::Gathering &&
+                        Felling::Standing(registry, worker->target_resource) &&
+                        available(Components::AnimState::Attack)) {
+                        wanted = Components::AnimState::Attack;
+                    } else if (worker->working && available(Components::AnimState::Work)) {
                         wanted = Components::AnimState::Work;
                     }
                 }

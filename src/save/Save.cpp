@@ -40,6 +40,7 @@
 #include "ecs/components/Projectile.h"
 #include "ecs/components/RallyPoint.h"
 #include "ecs/components/Relic.h"
+#include "ecs/components/Felled.h"
 #include "ecs/components/Resource.h"
 #include "ecs/components/Selectable.h"
 #include "ecs/components/Sight.h"
@@ -193,6 +194,7 @@ void EachComponent(F&& f) {
     f.template operator()<C::Corpse>("Corpse");
     f.template operator()<C::Duty>("Duty");
     f.template operator()<C::Dying>("Dying");
+    f.template operator()<C::Felled>("Felled");
     f.template operator()<C::Garrison>("Garrison");
     f.template operator()<C::Garrisoned>("Garrisoned");
     f.template operator()<C::Gate>("Gate");

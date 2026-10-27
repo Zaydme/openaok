@@ -49,10 +49,11 @@ def main():
             # A hunt task (action 110) kills its target, then gathers the
             # carcass: its proceeding graphic is the kill, its working graphic
             # the gathering. Shepherds and hunters (VMSHE, VFHUN ...) gather
-            # carcasses, so they use the working graphic; every other task
-            # uses the proceeding one.
+            # carcasses and lumberjacks (VMLUM, VFLUM) felled trees, so they
+            # use the working graphic, their attack graphic being the kill;
+            # every other task uses the proceeding one.
             working = task.get('working', -1)
-            if (task.get('action') == 110 and unit.get('name', '')[2:] in ('SHE', 'HUN') and
+            if (task.get('action') == 110 and unit.get('name', '')[2:] in ('SHE', 'HUN', 'LUM') and
                     working >= 0 and str(working) in graphics):
                 work = working
             if work < 0 or str(work) not in graphics:

@@ -1,5 +1,7 @@
 #include "verify/Harness.h"
 
+#include "ecs/Felling.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -125,7 +127,8 @@ bool CheckGathering() {
                                           "graphic";
                     } else if (!w.working) {
                         animation_fault = "gathering without being at work";
-                    } else if (an.state != ECS::Components::AnimState::Work) {
+                    } else if (!ECS::Felling::Standing(reg, w.target_resource) &&
+                               an.state != ECS::Components::AnimState::Work) {
                         animation_fault = "at work but not playing the work "
                                           "animation";
                     } else if (sp.slp_id != an.slp[work]) {
