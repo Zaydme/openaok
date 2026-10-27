@@ -14,7 +14,8 @@
 // own: a sheep found (capsheep.wav), a farm or fish trap run out
 // (farmdied.wav), a relic picked up (puprelic.wav). Interface sounds
 // by their interfac.drs file ids (audio/InterfaceSounds.h), heard only by the
-// player they concern.
+// player they concern -- but for a Wonder, begun (mstart.wav), finished
+// (mdone.wav) or destroyed (mkilled.wav), which every player hears.
 namespace Audio::Notices {
 
 // Where the taunts are: the Taunt folder beside Data.

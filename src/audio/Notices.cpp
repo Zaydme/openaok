@@ -6,6 +6,7 @@
 #include <system_error>
 
 #include "audio/InterfaceSounds.h"
+#include "core/ConfigManager.h"
 #include "ecs/Chat.h"
 #include "ecs/Flares.h"
 #include "ecs/Triggers.h"
@@ -26,6 +27,10 @@ uint64_t g_heard_display = 0;
 // Where a scenario's narration and sounds lie: Sound/scenario, beside the
 // taunts' folder.
 std::string g_scenario_sounds;
+
+bool IsWonder(int unit_id) {
+    return unit_id >= 0 && unit_id == Core::ConfigManager::Get().GetUnitIdByName("WNDR");
+}
 
 // A scenario's sound, by the name its trigger gives ("j1a"): the MP3 of that
 // name in Sound/scenario, the names lower case as the disc has them.
@@ -73,6 +78,15 @@ void Hear(const entt::registry& registry, const ECS::Events::Event& event,
           Core::PlayerId listener) {
     (void)registry;
     switch (event.kind) {
+    case ECS::Events::Kind::Begun:
+        if (IsWonder(event.id)) HAL::Audio::Play(InterfaceSound::kWonderStarted, 1.0f, 0.0f);
+        break;
+    case ECS::Events::Kind::Built:
+        if (IsWonder(event.id)) HAL::Audio::Play(InterfaceSound::kWonderDone, 1.0f, 0.0f);
+        break;
+    case ECS::Events::Kind::Died:
+        if (IsWonder(event.id)) HAL::Audio::Play(InterfaceSound::kWonderKilled, 1.0f, 0.0f);
+        break;
     case ECS::Events::Kind::Traded:
         if (event.player != listener) return;
         HAL::Audio::Play(event.amount > 0 ? InterfaceSound::kBuy : InterfaceSound::kSell,

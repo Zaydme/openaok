@@ -12,6 +12,7 @@
 #include "ecs/components/Sprite.h"
 #include "ecs/BuildingGeometry.h"
 #include "ecs/DropSites.h"
+#include "ecs/Events.h"
 #include "ecs/Felling.h"
 #include "ecs/Navigation.h"
 #include "ecs/VillagerJobs.h"
@@ -909,6 +910,14 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                     const Core::Fixed32 before = raising->progress;
                     raising->progress =
                         Core::FixedMath::Min(Core::Fixed32(1), raising->progress + share);
+                    if (before.value == 0 && raising->progress.value > 0) {
+                        Events::Emit(registry, {.kind = Events::Kind::Begun,
+                                                .subject = worker.target_building,
+                                                .player = site_owner ? site_owner->player_id
+                                                                     : Core::PLAYER_GAIA,
+                                                .id = identity ? identity->unit_id : -1,
+                                                .at = site.position});
+                    }
                     const int gained = (raising->progress * Core::Fixed32(health.max_hp)).ToInt() -
                                        (before * Core::Fixed32(health.max_hp)).ToInt();
                     health.current_hp = std::min(health.max_hp, health.current_hp + gained);

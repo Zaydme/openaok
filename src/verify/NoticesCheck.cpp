@@ -1,6 +1,7 @@
 #include "verify/Harness.h"
 
 #include <cstdio>
+#include <cstdlib>
 #include <functional>
 #include <string>
 
@@ -16,6 +17,7 @@
 #include "ecs/components/Resource.h"
 #include "ecs/components/Transform.h"
 #include "ecs/components/Worker.h"
+#include "physics/Grid.h"
 
 namespace Verify {
 
@@ -33,6 +35,34 @@ bool Hears(ECS::Simulation& sim, ECS::Events::Kind kind, int seconds,
         if (log == nullptr) return false;
         for (const auto& e : log->events) {
             if (e.tick == log->tick && e.kind == kind && match(e)) return true;
+        }
+    }
+    return false;
+}
+
+// Half the side of the open square a Wonder's site is put in: its five tiles
+// and room round them for the builder.
+constexpr int kWonderClearing = 5;
+
+// The open square of ground nearest (x, y), `half` tiles either side of its
+// middle, searched outward ring by ring.
+bool OpenGround(const Physics::Grid& grid, int x, int y, int half, int& out_x, int& out_y) {
+    for (int ring = 8; ring < 40; ++ring) {
+        for (int dy = -ring; dy <= ring; ++dy) {
+            for (int dx = -ring; dx <= ring; ++dx) {
+                if (std::abs(dx) != ring && std::abs(dy) != ring) continue;
+                bool clear = true;
+                for (int oy = -half; oy <= half && clear; ++oy) {
+                    for (int ox = -half; ox <= half && clear; ++ox) {
+                        clear = grid.IsWalkable(x + dx + ox, y + dy + oy);
+                    }
+                }
+                if (clear) {
+                    out_x = x + dx;
+                    out_y = y + dy;
+                    return true;
+                }
+            }
         }
     }
     return false;
@@ -104,6 +134,24 @@ bool CheckNotices() {
                 return e.subject == farm && e.player == us && e.id == farm_id;
             });
             if (!exhausted) verdict = "a farm run out was not told";
+        }
+    }
+
+    // A Wonder's site, begun: the villager's first work on it.
+    if (verdict == "ok") {
+        const int wonder_id = cfg.GetUnitIdByName("WNDR");
+        int wx = 0, wy = 0;
+        const bool open = OpenGround(grid, home.x.ToInt(), home.y.ToInt(), kWonderClearing, wx, wy);
+        const entt::entity site =
+            open ? ECS::Buildings::Place(reg, grid, wonder_id, us, wx, wy, false) : entt::null;
+        if (site == entt::null) {
+            verdict = "a Wonder's site could not be placed";
+        } else {
+            queue.PushCommand(Core::RepairCommand{{villager}, site, us});
+            const bool begun = Hears(sim, ECS::Events::Kind::Begun, 60, [&](const auto& e) {
+                return e.subject == site && e.player == us && e.id == wonder_id;
+            });
+            if (!begun) verdict = "a Wonder begun was not told";
         }
     }
 

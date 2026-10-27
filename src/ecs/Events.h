@@ -57,6 +57,9 @@ enum class Kind : uint8_t {
     Exhausted,
     // A unit of `player`'s (subject) has picked up a relic (`other`).
     PickedUp,
+    // The first work was done on a building site (subject) of `player`'s;
+    // `id` is its unit.
+    Begun,
 };
 
 struct Event {

@@ -48,6 +48,8 @@ constexpr int kPanelH = 51;
 // LANGUAGE.DLL's words for what happened.
 constexpr int kAdvancedBase = 3035;          // + age: "%s advanced to the Feudal Age."
 constexpr int kDefeated = 3014;              // "%s defeated."
+constexpr int kYouBeganWonder = 3058;        // "You have started building a Wonder!"
+constexpr int kTheyBeganWonder = 3019;       // "%s started building a Wonder!"
 constexpr int kYouCompletedWonder = 3020;    // "...You will win if it stands for %d years!"
 constexpr int kAllyCompletedWonder = 3021;
 constexpr int kEnemyCompletedWonder = 3022;
@@ -139,6 +141,15 @@ void Hear(const entt::registry& registry, const ECS::Events::Event& event,
         for (int age = 1; age <= 3; ++age) {
             if (event.id == ECS::Techs::AgeTech(registry, event.player, age)) {
                 Post(Format(kAdvancedBase + age, UIRenderer::PlayerName(registry, event.player)));
+            }
+        }
+        break;
+    case Kind::Begun:
+        if (event.id == Core::ConfigManager::Get().GetUnitIdByName("WNDR")) {
+            if (event.player == viewer) {
+                Post(Core::Strings::Get(kYouBeganWonder));
+            } else {
+                Post(Format(kTheyBeganWonder, UIRenderer::PlayerName(registry, event.player)));
             }
         }
         break;
