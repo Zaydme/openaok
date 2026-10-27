@@ -37,6 +37,7 @@ PLANNER="$(echo "$OUTPUT" | grep '^planner=')"
 GATHERING="$(echo "$OUTPUT" | grep '^gathering=')"
 FELLING="$(echo "$OUTPUT" | grep '^felling=')"
 NOTICES="$(echo "$OUTPUT" | grep '^notices=')"
+FLAG="$(echo "$OUTPUT" | grep '^flag=')"
 PRODUCTION="$(echo "$OUTPUT" | grep '^production=')"
 TECHS="$(echo "$OUTPUT" | grep '^techs=')"
 COMBAT="$(echo "$OUTPUT" | grep '^combat=')"
@@ -148,6 +149,15 @@ if [ "$NOTICES" = "notices=ok" ]; then
 else
     echo "NOTICES FAILED" >&2
     echo "  $NOTICES" >&2
+    STATUS=1
+fi
+
+# A scenario's flag seeing round itself, drawn with a frame it has.
+if [ "$FLAG" = "flag=ok" ]; then
+    echo "flag OK"
+else
+    echo "FLAG FAILED" >&2
+    echo "  $FLAG" >&2
     STATUS=1
 fi
 

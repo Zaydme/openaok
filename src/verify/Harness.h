@@ -41,6 +41,10 @@ bool CheckFelling();
 // "notices=".
 bool CheckNotices();
 
+// A scenario's flag of a player's: seeing round itself, and drawn with a frame
+// its graphic has. Prints "flag=".
+bool CheckFlag();
+
 // The approach planner on its own, away from any worker using it.
 // Prints "planner=".
 bool CheckApproachPlanner();

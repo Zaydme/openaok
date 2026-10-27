@@ -27,6 +27,7 @@
 #include "ecs/components/Mortal.h"
 #include "ecs/components/Owner.h"
 #include "ecs/components/Resource.h"
+#include "ecs/components/Sight.h"
 #include "ecs/components/Sprite.h"
 #include "ecs/components/Transform.h"
 #include "scenario/Scenario.h"
@@ -163,14 +164,22 @@ entt::entity PlaceObject(entt::registry& registry, Physics::Grid& grid, int unit
         if (auto* sprite = registry.try_get<C::Sprite>(entity)) {
             if (!art.Animated()) {
                 sprite->slp_frame = frame % std::max(1, art.angle_count);
-            } else {
+            } else if (art.angle_count > 1) {
                 sprite->facing = FacingOf(rotation);
             }
         }
     } else {
         registry.emplace<C::Identity>(entity, unit_id);
     }
-    if (owner != Core::PLAYER_GAIA) registry.emplace_or_replace<C::Owner>(entity, owner);
+    if (owner != Core::PLAYER_GAIA) {
+        registry.emplace_or_replace<C::Owner>(entity, owner);
+        // A player's own map object sees as far as the dat says: a flag
+        // shows itself and the ground round it.
+        const R::UnitRules* rules = R::Unit(unit_id);
+        if (rules != nullptr && rules->los.ToInt() > 0) {
+            registry.emplace_or_replace<C::Sight>(entity, rules->los.ToInt());
+        }
+    }
 
     Core::ResourceType type = Core::ResourceType::Food;
     int amount = 0;

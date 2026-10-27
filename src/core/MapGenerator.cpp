@@ -293,7 +293,9 @@ void PlaceObjectArt(entt::registry& registry, entt::entity entity,
         // Start part-way in, so a flock does not move as one body.
         sprite.current_frame = static_cast<int>(rng.NextInt(
             static_cast<uint32_t>(art.frame_count)));
-        sprite.facing = static_cast<Direction>(rng.NextInt(8));
+        // A graphic of one angle, a flag's, has no facings to turn through.
+        const auto facing = static_cast<Direction>(rng.NextInt(8));
+        sprite.facing = art.angle_count > 1 ? facing : Direction::South;
 
         ECS::Components::Animation anim{};
         anim.slp[static_cast<int>(ECS::Components::AnimState::Idle)] = art.slp_id;
