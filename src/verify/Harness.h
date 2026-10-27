@@ -45,6 +45,10 @@ bool CheckNotices();
 // its graphic has. Prints "flag=".
 bool CheckFlag();
 
+// Gaia's village taken by the first player to see it; its wild animals and
+// relic carts not. Prints "capture=".
+bool CheckCapture();
+
 // The approach planner on its own, away from any worker using it.
 // Prints "planner=".
 bool CheckApproachPlanner();

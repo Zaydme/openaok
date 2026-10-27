@@ -38,6 +38,7 @@ GATHERING="$(echo "$OUTPUT" | grep '^gathering=')"
 FELLING="$(echo "$OUTPUT" | grep '^felling=')"
 NOTICES="$(echo "$OUTPUT" | grep '^notices=')"
 FLAG="$(echo "$OUTPUT" | grep '^flag=')"
+CAPTURE="$(echo "$OUTPUT" | grep '^capture=')"
 PRODUCTION="$(echo "$OUTPUT" | grep '^production=')"
 TECHS="$(echo "$OUTPUT" | grep '^techs=')"
 COMBAT="$(echo "$OUTPUT" | grep '^combat=')"
@@ -158,6 +159,15 @@ if [ "$FLAG" = "flag=ok" ]; then
 else
     echo "FLAG FAILED" >&2
     echo "  $FLAG" >&2
+    STATUS=1
+fi
+
+# Gaia's village taken by the first player to see it.
+if [ "$CAPTURE" = "capture=ok" ]; then
+    echo "capture OK"
+else
+    echo "CAPTURE FAILED" >&2
+    echo "  $CAPTURE" >&2
     STATUS=1
 fi
 

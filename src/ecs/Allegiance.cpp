@@ -1,5 +1,6 @@
 #include "ecs/Allegiance.h"
 
+#include <utility>
 #include <vector>
 
 #include "core/Rules.h"
@@ -8,7 +9,9 @@
 #include "ecs/Players.h"
 #include "ecs/Production.h"
 #include "ecs/Trade.h"
+#include "ecs/Vision.h"
 #include "ecs/components/Building.h"
+#include "ecs/components/Capturable.h"
 #include "ecs/components/Combat.h"
 #include "ecs/components/Duty.h"
 #include "ecs/components/Garrison.h"
@@ -24,6 +27,16 @@
 namespace ECS::Allegiance {
 
 namespace R = Core::Rules;
+
+namespace {
+
+// The dat's classes of what Gaia keeps whoever sees it: artifacts (1), prey
+// (9) and predators (10), miscellaneous objects (11), terrain (14), birds
+// (38), salvage (40) and resource (41) heaps, relics (42), and livestock
+// (58), which is herded instead (ecs/Animals).
+constexpr int kNeverTaken[] = {1, 9, 10, 11, 14, 38, 40, 41, 42, 58};
+
+} // namespace
 
 void Change(entt::registry& registry, const Physics::Grid& grid, entt::entity entity,
             Core::PlayerId player) {
@@ -100,6 +113,36 @@ void Change(entt::registry& registry, const Physics::Grid& grid, entt::entity en
     Events::Emit(registry, {.kind = Events::Kind::Converted, .subject = entity,
                             .player = player, .id = was,
                             .at = at != nullptr ? at->position : Components::Vector2D{}});
+}
+
+bool Takeable(int unit_id) {
+    const Core::Rules::UnitRules* rules = Core::Rules::Unit(unit_id);
+    if (rules == nullptr) return false;
+    for (int cls : kNeverTaken) {
+        if (rules->cls == cls) return false;
+    }
+    return true;
+}
+
+void Capture(entt::registry& registry, const Physics::Grid& grid) {
+    std::vector<std::pair<entt::entity, Core::PlayerId>> taken;
+    auto gaia = registry.view<Components::Capturable, Components::Transform, Components::Owner>();
+    for (auto entity : gaia) {
+        if (gaia.get<Components::Owner>(entity).player_id != Core::PLAYER_GAIA) continue;
+        const auto& at = gaia.get<Components::Transform>(entity).position;
+        const int x = Physics::TileOf(at.x);
+        const int y = Physics::TileOf(at.y);
+        for (Core::PlayerId player = 1; player < Core::kMaxPlayers; ++player) {
+            if (Players::Find(registry, player) == nullptr) continue;
+            if (!Vision::Visible(registry, player, x, y)) continue;
+            taken.emplace_back(entity, player);
+            break;
+        }
+    }
+    for (const auto& [entity, player] : taken) {
+        registry.remove<Components::Capturable>(entity);
+        Change(registry, grid, entity, player);
+    }
 }
 
 } // namespace ECS::Allegiance

@@ -104,6 +104,11 @@ void Hear(const entt::registry& registry, const ECS::Events::Event& event,
         if (event.player != listener) return;
         HAL::Audio::Play(InterfaceSound::kCapturedSheep, 1.0f, 0.0f);
         break;
+    case ECS::Events::Kind::Converted:
+        // One of Gaia's become the listener's.
+        if (event.player != listener || event.id != Core::PLAYER_GAIA) return;
+        HAL::Audio::Play(InterfaceSound::kCapturedGaia, 1.0f, 0.0f);
+        break;
     case ECS::Events::Kind::Exhausted:
         if (event.player != listener) return;
         HAL::Audio::Play(InterfaceSound::kFarmDied, 1.0f, 0.0f);

@@ -11,6 +11,7 @@
 #include "core/MapGenerator.h"
 #include "core/Random.h"
 #include "core/Rules.h"
+#include "ecs/Allegiance.h"
 #include "ecs/Buildings.h"
 #include "ecs/Diplomacy.h"
 #include "ecs/Garrisons.h"
@@ -21,6 +22,7 @@
 #include "ecs/Units.h"
 #include "ecs/Vision.h"
 #include "ecs/components/Building.h"
+#include "ecs/components/Capturable.h"
 #include "ecs/components/Garrison.h"
 #include "ecs/components/Health.h"
 #include "ecs/components/Identity.h"
@@ -136,6 +138,14 @@ entt::entity PlaceCliff(entt::registry& registry, Physics::Grid& grid, int unit_
     sprite.height = 0;
     registry.emplace<C::Sprite>(cliff, sprite);
     return cliff;
+}
+
+// One of Gaia's villagers, soldiers or buildings: the first player to see it
+// takes it (ecs/Allegiance).
+void MayBeTaken(entt::registry& registry, entt::entity entity, int unit_id, Core::PlayerId owner) {
+    if (entity != entt::null && owner == Core::PLAYER_GAIA && Allegiance::Takeable(unit_id)) {
+        registry.emplace_or_replace<C::Capturable>(entity);
+    }
 }
 
 // A map object: a tree, a mine, a rock, a flag, an animal, a bridge.
@@ -254,7 +264,10 @@ entt::entity Place(entt::registry& registry, Physics::Grid& grid, int unit_id,
         // centre is in. A bridge or a ruin has none, and is a map object.
         const auto* ui = Core::ConfigManager::Get().GetUnitInterface(unit_id);
         if (ui != nullptr && ui->footprint > 0) {
-            return Buildings::Place(registry, grid, unit_id, owner, tile_x, tile_y, true);
+            const entt::entity building =
+                Buildings::Place(registry, grid, unit_id, owner, tile_x, tile_y, true);
+            MayBeTaken(registry, building, unit_id, owner);
+            return building;
         }
         return PlaceObject(registry, grid, unit_id, owner, at, rotation, frame);
     }
@@ -263,6 +276,7 @@ entt::entity Place(entt::registry& registry, Physics::Grid& grid, int unit_id,
         if (unit != entt::null) {
             if (auto* sprite = registry.try_get<C::Sprite>(unit)) sprite->facing = FacingOf(rotation);
         }
+        MayBeTaken(registry, unit, unit_id, owner);
         return unit;
     }
     return PlaceObject(registry, grid, unit_id, owner, at, rotation, frame);

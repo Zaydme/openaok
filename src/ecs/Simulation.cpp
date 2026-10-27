@@ -11,6 +11,7 @@
 #include "core/Random.h"
 #include "core/Rules.h"
 #include "core/Types.h"
+#include "ecs/Allegiance.h"
 #include "ecs/Animals.h"
 #include "ecs/Buildings.h"
 #include "ecs/Duties.h"
@@ -304,6 +305,8 @@ void Simulation::Update(int32_t dt_ms) {
     Victory::Update(registry, grid, dt_ms);
 
     CalculateVision();
+    // What of Gaia's the players now see, the first of them takes.
+    Allegiance::Capture(registry, grid);
     // Last, after everything else that tick.
     Score::Update(registry);
 }
