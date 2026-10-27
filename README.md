@@ -166,17 +166,42 @@ The APK carries your game data, so keep it to your own devices.
 
 ## Building for the Nintendo Switch
 
-OpenAoK runs as homebrew on a Switch that runs custom firmware. The `.nro` is
-built with devkitPro's toolchain or its Docker image, and the game's data is a
-folder made from your CD and copied to the SD card. See
-[switch/README.md](switch/README.md). In short:
+<p align="center">
+  <img src="docs/images/switch-controls.svg" width="900" alt="The Switch's controls: the left stick moves the pointer, the right stick scrolls the map, A and B are the left and right mouse buttons, plus is the game menu, minus is chat, and the other buttons are the game's hotkeys">
+</p>
+
+OpenAoK runs as homebrew, from the Homebrew Menu, on a Switch that runs custom
+firmware. The game is one file, `OpenAoK.nro`, which holds none of the game's
+data; the data is a folder made on a computer from your own CD and copied to
+the SD card beside it.
+
+**1. Build the `.nro`** with Docker, or with devkitPro's Switch toolchain
+(`switch-dev`, `switch-sdl2`, `switch-freetype`) when `DEVKITPRO` is set:
 
 ```sh
-switch/build.sh                                  # build-switch/OpenAoK.nro
-python3 switch/package.py --out /path/to/sd/card # switch/openaok/ on the card
+switch/build.sh               # writes build-switch/OpenAoK.nro
 ```
 
-Then hold R while starting any game, and choose OpenAoK in the Homebrew Menu.
+On a Mac, Docker can be `brew install colima docker && colima start`.
+
+**2. Make the SD card's folder.** With your CD in `original_game_1999/` and the
+card in the computer:
+
+```sh
+python3 switch/package.py --out "/Volumes/SWITCH SD"
+```
+
+It prepares the game's data as `build.sh` does, and writes `switch/openaok/`
+on the card: `OpenAoK.nro` and `game/`, about 390 MB. Run it again after an
+update; only what changed is copied. Without `--out` it writes to
+`build-switch/sd/`, to copy to the card yourself.
+
+**3. Play.** Put the card back, hold R while starting any game, which opens the
+Homebrew Menu with all of the console's memory, and choose OpenAoK.
+
+In handheld mode the touch screen plays as on a phone; the controller plays as a
+mouse and the game's hotkeys, as above. Chat and a saved game's name bring up
+the system keyboard. More in [switch/README.md](switch/README.md).
 
 ## Playing
 

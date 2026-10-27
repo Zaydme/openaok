@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="670" viewBox="0 0 1600 670" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif">
+<title>The controls of OpenAoK on the Nintendo Switch</title>
+<rect x="0" y="0" width="1600" height="670" rx="28" fill="#191714"/>
+<text x="800" y="70" text-anchor="middle" font-size="30" font-weight="700" fill="#e0b95f">OpenAoK on the Nintendo Switch</text>
+<rect x="412" y="170" width="93" height="16" rx="8" fill="#433d37" stroke="#5c534a"/>
+<text x="458.5" y="182.5" text-anchor="middle" font-size="11" font-weight="700" fill="#a89e8c">ZL</text>
+<rect x="400" y="186" width="115" height="16" rx="8" fill="#4f4841" stroke="#5c534a"/>
+<text x="457.5" y="198.5" text-anchor="middle" font-size="11" font-weight="700" fill="#a89e8c">L</text>
+<rect x="1095" y="170" width="93" height="16" rx="8" fill="#433d37" stroke="#5c534a"/>
+<text x="1141.5" y="182.5" text-anchor="middle" font-size="11" font-weight="700" fill="#a89e8c">ZR</text>
+<rect x="1085" y="186" width="115" height="16" rx="8" fill="#4f4841" stroke="#5c534a"/>
+<text x="1142.5" y="198.5" text-anchor="middle" font-size="11" font-weight="700" fill="#a89e8c">R</text>
+<path d="M520,200 H430 A80,80 0 0 0 350,280 V440 A80,80 0 0 0 430,520 H520 Z" fill="#3a3530" stroke="#5c534a" stroke-width="2"/>
+<path d="M1080,200 H1170 A80,80 0 0 1 1250,280 V440 A80,80 0 0 1 1170,520 H1080 Z" fill="#3a3530" stroke="#5c534a" stroke-width="2"/>
+<rect x="520" y="200" width="560" height="320" rx="6" fill="#2c2925" stroke="#4b453e" stroke-width="2"/>
+<rect x="542" y="218" width="516" height="284" rx="4" fill="#0b0c0e"/>
+<text x="800" y="280" text-anchor="middle" font-size="22" font-weight="700" fill="#e0b95f">Touch screen</text>
+<text x="792" y="322" text-anchor="end" font-size="19" font-weight="700" fill="#ece6da">Tap</text>
+<text x="808" y="322" font-size="19" fill="#a89e8c">left click</text>
+<text x="792" y="358" text-anchor="end" font-size="19" font-weight="700" fill="#ece6da">Hold</text>
+<text x="808" y="358" font-size="19" fill="#a89e8c">right click</text>
+<text x="792" y="394" text-anchor="end" font-size="19" font-weight="700" fill="#ece6da">Drag one finger</text>
+<text x="808" y="394" font-size="19" fill="#a89e8c">select, lay a wall</text>
+<text x="792" y="430" text-anchor="end" font-size="19" font-weight="700" fill="#ece6da">Drag two fingers</text>
+<text x="808" y="430" font-size="19" fill="#a89e8c">scroll the map</text>
+<circle cx="495" cy="226" r="11" fill="#1b1917" stroke="#e0b95f" stroke-width="1.6"/>
+<rect x="488" y="224" width="14" height="4" fill="#e0b95f"/>
+<circle cx="435" cy="290" r="34" fill="#2a2622" stroke="#5c534a" stroke-width="2"/>
+<circle cx="435" cy="290" r="24" fill="#1b1917" stroke="#e0b95f" stroke-width="1.6"/>
+<circle cx="435" cy="290" r="15" fill="none" stroke="#3d3833" stroke-width="2"/>
+<circle cx="435" cy="372" r="15" fill="#1b1917" stroke="#e0b95f" stroke-width="1.6"/>
+<polygon points="435.0,366.0 441.0,376.0 429.0,376.0" fill="#e0b95f"/>
+<circle cx="435" cy="438" r="15" fill="#1b1917" stroke="#e0b95f" stroke-width="1.6"/>
+<polygon points="435.0,444.0 441.0,434.0 429.0,434.0" fill="#e0b95f"/>
+<circle cx="402" cy="405" r="15" fill="#1b1917" stroke="#e0b95f" stroke-width="1.6"/>
+<polygon points="396.0,405.0 406.0,399.0 406.0,411.0" fill="#e0b95f"/>
+<circle cx="468" cy="405" r="15" fill="#1b1917" stroke="#e0b95f" stroke-width="1.6"/>
+<polygon points="474.0,405.0 464.0,399.0 464.0,411.0" fill="#e0b95f"/>
+<rect x="463" y="469" width="18" height="18" rx="4" fill="#2a2622" stroke="#5c534a"/>
+<circle cx="1105" cy="226" r="11" fill="#1b1917" stroke="#e0b95f" stroke-width="1.6"/>
+<rect x="1098" y="224" width="14" height="4" fill="#e0b95f"/><rect x="1103" y="219" width="4" height="14" fill="#e0b95f"/>
+<circle cx="1165" cy="266" r="15" fill="#1b1917" stroke="#e0b95f" stroke-width="1.6"/>
+<text x="1165" y="271" text-anchor="middle" font-size="14" font-weight="700" fill="#e0b95f">X</text>
+<circle cx="1199" cy="300" r="15" fill="#1b1917" stroke="#e0b95f" stroke-width="1.6"/>
+<text x="1199" y="305" text-anchor="middle" font-size="14" font-weight="700" fill="#e0b95f">A</text>
+<circle cx="1165" cy="334" r="15" fill="#1b1917" stroke="#e0b95f" stroke-width="1.6"/>
+<text x="1165" y="339" text-anchor="middle" font-size="14" font-weight="700" fill="#e0b95f">B</text>
+<circle cx="1131" cy="300" r="15" fill="#1b1917" stroke="#e0b95f" stroke-width="1.6"/>
+<text x="1131" y="305" text-anchor="middle" font-size="14" font-weight="700" fill="#e0b95f">Y</text>
+<circle cx="1165" cy="410" r="34" fill="#2a2622" stroke="#5c534a" stroke-width="2"/>
+<circle cx="1165" cy="410" r="24" fill="#1b1917" stroke="#e0b95f" stroke-width="1.6"/>
+<circle cx="1165" cy="410" r="15" fill="none" stroke="#3d3833" stroke-width="2"/>
+<circle cx="1128" cy="478" r="10" fill="#2a2622" stroke="#5c534a"/>
+<text x="310" y="150" text-anchor="end" font-size="18"><tspan fill="#ece6da">Shift, while held</tspan><tspan dx="10" font-weight="700" fill="#e0b95f">ZL</tspan></text>
+<path d="M320,144 L340,144 L412,176" fill="none" stroke="#9c8860" stroke-width="1.5"/>
+<circle cx="412" cy="176" r="3" fill="#9c8860"/>
+<text x="310" y="199" text-anchor="end" font-size="18"><tspan fill="#ece6da">Go to the Town Center</tspan><tspan dx="10" font-weight="700" fill="#e0b95f">L</tspan></text>
+<path d="M320,193 L400,193" fill="none" stroke="#9c8860" stroke-width="1.5"/>
+<circle cx="400" cy="193" r="3" fill="#9c8860"/>
+<text x="310" y="245" text-anchor="end" font-size="18"><tspan fill="#ece6da">Chat, or the keyboard</tspan><tspan dx="10" font-weight="700" fill="#e0b95f">−</tspan></text>
+<path d="M320,239 L340,239 L484,228" fill="none" stroke="#9c8860" stroke-width="1.5"/>
+<circle cx="484" cy="228" r="3" fill="#9c8860"/>
+<text x="310" y="296" text-anchor="end" font-size="18"><tspan fill="#ece6da">Move the pointer</tspan><tspan dx="10" font-weight="700" fill="#e0b95f">Left stick</tspan></text>
+<path d="M320,290 L401,290" fill="none" stroke="#9c8860" stroke-width="1.5"/>
+<circle cx="401" cy="290" r="3" fill="#9c8860"/>
+<text x="310" y="368" text-anchor="end" font-size="18"><tspan fill="#ece6da">Pause</tspan><tspan dx="10" font-weight="700" fill="#e0b95f">D-pad ↑</tspan></text>
+<path d="M320,362 L420,368" fill="none" stroke="#9c8860" stroke-width="1.5"/>
+<circle cx="420" cy="368" r="3" fill="#9c8860"/>
+<text x="310" y="411" text-anchor="end" font-size="18"><tspan fill="#ece6da">Slower, faster</tspan><tspan dx="10" font-weight="700" fill="#e0b95f">D-pad ← →</tspan></text>
+<path d="M320,405 L387,405" fill="none" stroke="#9c8860" stroke-width="1.5"/>
+<circle cx="387" cy="405" r="3" fill="#9c8860"/>
+<text x="310" y="454" text-anchor="end" font-size="18"><tspan fill="#ece6da">Go to the selected unit</tspan><tspan dx="10" font-weight="700" fill="#e0b95f">D-pad ↓</tspan></text>
+<path d="M320,448 L420,448" fill="none" stroke="#9c8860" stroke-width="1.5"/>
+<circle cx="420" cy="448" r="3" fill="#9c8860"/>
+<text x="1290" y="150" font-size="18"><tspan font-weight="700" fill="#e0b95f">ZR</tspan><tspan dx="10" fill="#ece6da">Last notification</tspan></text>
+<path d="M1280,144 L1260,144 L1188,176" fill="none" stroke="#9c8860" stroke-width="1.5"/>
+<circle cx="1188" cy="176" r="3" fill="#9c8860"/>
+<text x="1290" y="199" font-size="18"><tspan font-weight="700" fill="#e0b95f">R</tspan><tspan dx="10" fill="#ece6da">Next idle military unit</tspan></text>
+<path d="M1280,193 L1200,193" fill="none" stroke="#9c8860" stroke-width="1.5"/>
+<circle cx="1200" cy="193" r="3" fill="#9c8860"/>
+<text x="1290" y="240" font-size="18"><tspan font-weight="700" fill="#e0b95f">+</tspan><tspan dx="10" fill="#ece6da">Game menu</tspan></text>
+<path d="M1280,234 L1260,234 L1116,227" fill="none" stroke="#9c8860" stroke-width="1.5"/>
+<circle cx="1116" cy="227" r="3" fill="#9c8860"/>
+<text x="1290" y="272" font-size="18"><tspan font-weight="700" fill="#e0b95f">X</tspan><tspan dx="10" fill="#ece6da">Next idle villager</tspan></text>
+<path d="M1280,266 L1180,266" fill="none" stroke="#9c8860" stroke-width="1.5"/>
+<circle cx="1180" cy="266" r="3" fill="#9c8860"/>
+<text x="1290" y="306" font-size="18"><tspan font-weight="700" fill="#e0b95f">A</tspan><tspan dx="10" fill="#ece6da">Left click; hold to drag</tspan></text>
+<path d="M1280,300 L1214,300" fill="none" stroke="#9c8860" stroke-width="1.5"/>
+<circle cx="1214" cy="300" r="3" fill="#9c8860"/>
+<text x="1290" y="340" font-size="18"><tspan font-weight="700" fill="#e0b95f">B</tspan><tspan dx="10" fill="#ece6da">Right click</tspan></text>
+<path d="M1280,334 L1180,334" fill="none" stroke="#9c8860" stroke-width="1.5"/>
+<circle cx="1180" cy="334" r="3" fill="#9c8860"/>
+<text x="1290" y="377" font-size="18"><tspan font-weight="700" fill="#e0b95f">Y</tspan><tspan dx="10" fill="#ece6da">Escape: back out</tspan></text>
+<path d="M1280,371 L1131,371 L1131,315" fill="none" stroke="#9c8860" stroke-width="1.5"/>
+<circle cx="1131" cy="315" r="3" fill="#9c8860"/>
+<text x="1290" y="416" font-size="18"><tspan font-weight="700" fill="#e0b95f">Right stick</tspan><tspan dx="10" fill="#ece6da">Scroll the map</tspan></text>
+<path d="M1280,410 L1199,410" fill="none" stroke="#9c8860" stroke-width="1.5"/>
+<circle cx="1199" cy="410" r="3" fill="#9c8860"/>
+<text x="800" y="588" text-anchor="middle" font-size="18" fill="#a89e8c">The buttons press the game’s own default hotkeys. With the pointer moved by the stick,</text>
+<text x="800" y="618" text-anchor="middle" font-size="18" fill="#a89e8c">the screen’s edges scroll the map as with a mouse. Start OpenAoK by holding R while starting any game.</text>
+</svg>

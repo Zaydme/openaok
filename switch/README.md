@@ -12,14 +12,17 @@ computer from your own CD and copy to the SD card beside it.
 - On a computer: your copy of the original CD in `original_game_1999/`, and
   the tools that prepare it (Python 3, CMake, a C++ compiler and `cabextract`;
   see the main README).
-- To build the `.nro` yourself: devkitPro's Switch toolchain (`switch-dev`,
-  `switch-sdl2` and `switch-freetype`), or Docker. A released `OpenAoK.nro` can
-  be used instead.
+- To build the `.nro` yourself, one of:
+  - Docker. On a Mac: `brew install colima docker && colima start`.
+  - devkitPro's Switch toolchain: install
+    [devkitPro's pacman](https://devkitpro.org/wiki/Getting_Started), then
+    `sudo dkp-pacman -S switch-dev switch-sdl2 switch-freetype`.
 
 ## Build
 
 ```sh
-switch/build.sh
+switch/build.sh           # build
+switch/build.sh --clean   # wipe build-switch/ first
 ```
 
 writes `build-switch/OpenAoK.nro`. It uses devkitPro's toolchain when
@@ -31,10 +34,17 @@ cmake -S . -B build-switch -DCMAKE_TOOLCHAIN_FILE=$DEVKITPRO/cmake/Switch.cmake
 cmake --build build-switch
 ```
 
+The build needs none of the game's data. GitHub Actions builds the `.nro` on
+every push (`.github/workflows/switch.yml`), and a version tag (`v*`) publishes
+it as a release: a zip of `switch/openaok/OpenAoK.nro` and the licenses.
+
 ## Make the SD card's folder
 
+With the card in the computer (on a Mac, `/Volumes/` and the card's name):
+
 ```sh
-python3 switch/package.py --out /path/to/the/sd/card
+python3 switch/package.py --out "/Volumes/SWITCH SD"
+python3 switch/package.py --nro OpenAoK.nro --out "/Volumes/SWITCH SD"   # a released .nro
 ```
 
 prepares the game's data from `original_game_1999/` as `build.sh` does, and
@@ -42,12 +52,14 @@ writes:
 
 ```
 switch/openaok/OpenAoK.nro        the game
-switch/openaok/game/              its data, about 350 MB
+switch/openaok/game/              its data: 354 MB, about 390 MB on a FAT32 card
 ```
 
 Without `--out` the folder is written to `build-switch/sd/`, to copy to the
 card's root yourself. Run it again after an update: only what changed is
-copied. The folder holds your copy of the game, so keep it to your own console.
+copied. On a Mac it removes the `._` files macOS leaves beside each file on a
+FAT32 card. The folder holds your copy of the game, so keep it to your own
+console.
 
 ## Play
 
@@ -60,6 +72,10 @@ The profile, saved games and scenarios are kept in `switch/openaok/` (`Profile`,
 prints goes to `switch/openaok/openaok.log`.
 
 ## Controls
+
+<p align="center">
+  <img src="../docs/images/switch-controls.svg" width="900" alt="The Switch's controls, as the tables below list them">
+</p>
 
 In handheld mode the touch screen plays as on a phone:
 
