@@ -33,13 +33,14 @@ bool IsWonder(int unit_id) {
 }
 
 // A scenario's sound, by the name its trigger gives ("j1a"): the MP3 of that
-// name in Sound/scenario, the names lower case as the disc has them.
+// name in Sound/scenario, the names lower case as the disc has them. It is
+// spoken on the narration channel, so a new one takes over from the last.
 void PlayScenarioSound(const std::string& name) {
     if (name.empty() || g_scenario_sounds.empty()) return;
     std::string file = name;
     std::transform(file.begin(), file.end(), file.begin(),
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    HAL::Audio::PlayMp3(g_scenario_sounds + file + ".mp3", 1.0f);
+    HAL::Audio::PlayNarration(g_scenario_sounds + file + ".mp3");
 }
 
 } // namespace
@@ -148,7 +149,8 @@ void HearMessages(const entt::registry& registry, Core::PlayerId listener) {
 
     // A scenario's sounds: what a Play Sound effect plays, and the narration
     // a Display Instructions or Send Chat effect carries -- each an MP3 of
-    // Sound/scenario.
+    // Sound/scenario, one at a time.
+    HAL::Audio::PumpNarration();
     if (const ECS::Triggers::Display* display = ECS::Triggers::ReadDisplay(registry)) {
         uint64_t latest = 0;
         for (const ECS::Triggers::Shown& line : display->lines) latest = std::max(latest, line.tick);

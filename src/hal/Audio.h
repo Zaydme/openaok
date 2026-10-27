@@ -54,8 +54,9 @@ bool MusicPlaying();
 void PumpMusic();
 void SetMusicVolume(float volume);
 
-// The narration channel: a campaign slide show's spoken MP3, streamed like
-// the music but on a channel of its own under the sound volume.
+// The narration channel: a campaign slide show's spoken MP3, or a scenario's,
+// streamed like the music but on a channel of its own under the sound volume.
+// One at a time: a new one stops the last.
 bool PlayNarration(const std::string& path);
 void StopNarration();
 bool NarrationPlaying();
