@@ -28,11 +28,11 @@
 //   building that researched it;
 // * a unit of the player's converted away (123), where it stands;
 // * a sheep found, a farm run out or a fish trap, a relic picked up.
-// All but the flares and the conversions are also written over the left of
-// the battlefield (rendering/Messages) in LANGUAGE.DLL's words: "--Villager
-// Created--", "--House Built--", "--Loom Research Complete--", "--Warning:
-// You are being attacked by %s!!!--" and the rest. None of the notifications
-// once the player is defeated.
+// While the game's Help is on, all but the flares and the conversions are also
+// written over the left of the battlefield (rendering/Messages) in
+// LANGUAGE.DLL's words: "--Villager Created--", "--House Built--", "--Loom
+// Research Complete--", "--Warning: You are being attacked by %s!!!--" and the
+// rest. None of the notifications once the player is defeated.
 //
 // And, from the same news: what becomes the player's -- converted by its
 // monks -- flashes green as an order's target does.

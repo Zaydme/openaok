@@ -76,8 +76,10 @@ constexpr int kFishTrapExpired = 37163;
 constexpr int kRelicPickedUp = 37164;
 constexpr int kWildAnimals = 37165;
 
-// A notification's line, with the name its words take, if any.
+// A notification's line, with the name its words take, if any; written only
+// while the game's Help is on.
 void Caption(int string_id, const std::string& name = std::string()) {
+    if (!UIRenderer::HelpShown()) return;
     char text[256];
     std::snprintf(text, sizeof(text), Core::Strings::Get(string_id).c_str(), name.c_str());
     Messages::Post(text);

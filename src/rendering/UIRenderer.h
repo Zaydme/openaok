@@ -214,6 +214,9 @@ public:
     // Advanced commands: the military tasks, the stances, the formations and
     // the mini-map's modes stay hidden until they are turned on.
     static bool AdvancedCommands();
+    // Whether the game's Help is on: the rollover help, and the
+    // notifications' lines (rendering/Alerts).
+    static bool HelpShown();
     // The mini-map's mode: 0 normal, 1 combat, 2 economic.
     static int MinimapMode();
 
