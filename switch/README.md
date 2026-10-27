@@ -67,6 +67,12 @@ Hold R while starting any game: the Homebrew Menu opens with all of the
 console's memory, which OpenAoK needs. Choose OpenAoK. Started from the Album
 instead, it says so and returns to the menu.
 
+On its first start after a copy, OpenAoK reads every data file and checks it
+against `game/manifest.txt`, which `package.py` writes: a few seconds, with the
+progress on the screen. A file that is missing or damaged on the card is named,
+and copying the folder again mends it. Turn the Switch off before taking the
+card out.
+
 The profile, saved games and scenarios are kept in `switch/openaok/` (`Profile`,
 `SaveGame`, `Scenario`), beside the data rather than in it. What the engine
 prints goes to `switch/openaok/openaok.log`.
@@ -113,6 +119,20 @@ Chat and a saved game's name bring up the system keyboard; OK finishes the
 line, and backing out of the keyboard cancels it. On the Options and
 Multiplayer screens and in the scenario editor, − brings up the keyboard for
 the field being typed into.
+
+## Running from a computer
+
+`switch/send.py` sends a freshly built `.nro` over Wi-Fi and prints what the
+game prints, as devkitPro's `nxlink` does. In the Homebrew Menu press Y for its
+network loader, then:
+
+```sh
+python3 switch/send.py                        # finds the Switch on the network
+python3 switch/send.py --host 192.168.1.28    # or names it
+python3 switch/send.py -- --game --map Arabia # with the game's own options
+```
+
+The `.nro` replaces `switch/openaok/OpenAoK.nro` on the card, beside the data.
 
 ## Not yet
 

@@ -11,7 +11,11 @@
 #include <cstdio>
 #include <cstdlib>
 #include <exception>
+#include <fstream>
+#include <sstream>
 #include <typeinfo>
+#include <vector>
+#include <zlib.h>
 #endif
 
 namespace HAL::Platform {
@@ -22,6 +26,8 @@ namespace {
 
 // The folder the .nro is in, ending in a slash.
 std::string g_root = "sdmc:/switch/openaok/";
+// Whether the network is open, for nxlink.
+bool g_network = false;
 
 // A message on the console's own text screen, until + is pressed.
 void Tell(const char* message) {
@@ -43,7 +49,92 @@ bool Exists(const std::string& path) {
     return stat(path.c_str(), &info) == 0;
 }
 
-void Stop() { socketExit(); }
+// A file's CRC-32, or false when it cannot be read whole.
+bool Checksum(const std::string& path, unsigned long& crc, long long& size) {
+    FILE* file = std::fopen(path.c_str(), "rb");
+    if (file == nullptr) return false;
+    static unsigned char block[1 << 18];
+    crc = crc32(0L, Z_NULL, 0);
+    size = 0;
+    size_t got = 0;
+    while ((got = std::fread(block, 1, sizeof block, file)) > 0) {
+        crc = crc32(crc, block, static_cast<uInt>(got));
+        size += static_cast<long long>(got);
+    }
+    std::fclose(file);
+    return true;
+}
+
+// The game's data against game/manifest.txt, which switch/package.py writes:
+// every file's CRC-32, size and path. Read in full once after each copy, with
+// its progress on the screen; the manifest's own time and size, kept in
+// game/build/checked.txt, mark a copy already checked. False when a file is
+// missing or damaged, after saying which.
+bool CheckData(const std::string& game) {
+    struct stat manifest_info;
+    const std::string manifest = game + "manifest.txt";
+    if (stat(manifest.c_str(), &manifest_info) != 0) return true;
+    const std::string stamp_path = game + "build/checked.txt";
+    std::ostringstream stamp;
+    stamp << static_cast<long long>(manifest_info.st_mtime) << ' '
+          << static_cast<long long>(manifest_info.st_size);
+    {
+        std::ifstream in(stamp_path);
+        std::string last;
+        if (std::getline(in, last) && last == stamp.str()) return true;
+    }
+
+    struct Entry {
+        unsigned long crc;
+        long long size;
+        std::string path;
+    };
+    std::vector<Entry> entries;
+    {
+        std::ifstream in(manifest);
+        std::string line;
+        while (std::getline(in, line)) {
+            std::istringstream row(line);
+            Entry entry;
+            row >> std::hex >> entry.crc >> std::dec >> entry.size;
+            std::getline(row >> std::ws, entry.path);
+            if (!entry.path.empty()) entries.push_back(entry);
+        }
+    }
+
+    consoleInit(nullptr);
+    std::printf("\n\n  OpenAoK\n\n  Checking the game's files, once after they are copied...\n\n");
+    std::vector<std::string> bad;
+    for (size_t i = 0; i < entries.size(); ++i) {
+        unsigned long crc = 0;
+        long long size = 0;
+        if (!Checksum(game + entries[i].path, crc, size) || crc != entries[i].crc || size != entries[i].size) {
+            bad.push_back(entries[i].path);
+        }
+        if (i % 16 == 0 || i + 1 == entries.size()) {
+            std::printf("\r  %zu of %zu", i + 1, entries.size());
+            consoleUpdate(nullptr);
+        }
+    }
+    consoleExit(nullptr);
+    if (bad.empty()) {
+        mkdir((game + "build").c_str(), 0777);
+        std::ofstream(stamp_path) << stamp.str() << '\n';
+        return true;
+    }
+    std::string message = "These files are missing or damaged on the SD card:\n\n";
+    for (size_t i = 0; i < bad.size() && i < 12; ++i) message += "    " + bad[i] + "\n";
+    if (bad.size() > 12) message += "    and " + std::to_string(bad.size() - 12) + " more\n";
+    message += "\n  Copy the folder to the card again with switch/package.py, then\n"
+               "  turn the Switch off before taking the card out.";
+    Tell(message.c_str());
+    return false;
+}
+
+void Stop() {
+    if (g_network) socketExit();
+    g_network = false;
+}
 
 // An exception nothing caught: its name and message in the log before the
 // game stops.
@@ -57,6 +148,9 @@ void Stopped() {
             std::fprintf(stderr, "[Platform] stopped by an exception\n");
         }
     }
+    // Ending here skips the exit handlers; the network must be closed, or
+    // the Homebrew Menu cannot start again.
+    Stop();
     std::abort();
 }
 
@@ -81,10 +175,12 @@ bool Start(int argc, char* argv[]) {
              "  your own CD with switch/package.py, and copy it here.");
         return false;
     }
+    if (!CheckData(game)) return false;
     // The network is opened only for nxlink: a game that ends without closing
     // it leaves the Homebrew Menu unable to start.
     if (__nxlink_host.s_addr != 0) {
         socketInitializeDefault();
+        g_network = true;
         std::atexit(Stop);
     }
     if (__nxlink_host.s_addr == 0 || nxlinkStdio() < 0) {

@@ -8,6 +8,8 @@ It prepares the game's data as build.sh does, and writes
 
   DIR/switch/openaok/OpenAoK.nro      the game (build-switch/OpenAoK.nro, or --nro)
   DIR/switch/openaok/game/            the game's data, laid out as the source tree is
+  DIR/switch/openaok/game/manifest.txt  every data file's checksum, size and path,
+                                      which the game checks on its first start
 
 DIR is build-switch/sd by default; give the SD card's own folder to write
 straight to it. Files already there and unchanged are left alone, and what the
@@ -20,6 +22,7 @@ import os
 import shutil
 import subprocess
 import sys
+import zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -46,6 +49,7 @@ ARIAL = [
 copied = 0
 kept = 0
 size = 0
+written = []   # (destination, source) of every file
 
 
 def copy(src, dst):
@@ -54,6 +58,7 @@ def copy(src, dst):
     global copied, kept, size
     info = os.stat(src)
     size += info.st_size
+    written.append((dst, src))
     if os.path.exists(dst):
         there = os.stat(dst)
         if there.st_size == info.st_size and abs(there.st_mtime - info.st_mtime) <= 2:
@@ -75,6 +80,26 @@ def copy_tree(src, dst):
                 continue
             path = os.path.join(folder, name)
             copy(path, os.path.join(dst, os.path.relpath(path, src)))
+
+
+def checksum(path):
+    crc = 0
+    with open(path, 'rb') as f:
+        for block in iter(lambda: f.read(1 << 20), b''):
+            crc = zlib.crc32(block, crc)
+    return crc & 0xffffffff
+
+
+def write_manifest(game):
+    """One line per data file: its CRC-32, its size and its path under game/."""
+    lines = []
+    for dst, src in written:
+        rel = os.path.relpath(dst, game)
+        if rel.startswith('..'):
+            continue
+        lines.append('%08x %d %s' % (checksum(src), os.path.getsize(src), rel.replace(os.sep, '/')))
+    with open(os.path.join(game, 'manifest.txt'), 'w') as f:
+        f.write('\n'.join(sorted(lines, key=lambda line: line.split(' ', 2)[2])) + '\n')
 
 
 def remove_apple_double(folder):
@@ -124,6 +149,7 @@ def main():
         print('note: no %s yet; build it with switch/build.sh, or put a released OpenAoK.nro beside game/.'
               % os.path.relpath(args.nro, ROOT))
 
+    write_manifest(game)
     remove_apple_double(folder)
     print('==> %s: %d files copied, %d already there, %d MB in all'
           % (folder, copied, kept, size // (1024 * 1024)))
