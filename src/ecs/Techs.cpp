@@ -148,7 +148,7 @@ std::vector<int> ResearchableAt(const entt::registry& registry, Core::PlayerId p
     return out;
 }
 
-void Complete(entt::registry& registry, Core::PlayerId player_id, int tech_id) {
+void Complete(entt::registry& registry, Core::PlayerId player_id, int tech_id, entt::entity by) {
     Players::Player* player = Players::Find(registry, player_id);
     if (player == nullptr || tech_id < 0 ||
         tech_id >= static_cast<int>(player->techs.size())) {
@@ -158,8 +158,8 @@ void Complete(entt::registry& registry, Core::PlayerId player_id, int tech_id) {
     const bool news = player->techs[tech_id].state != Players::TechState::Done;
     Research(registry, *player, tech_id);
     if (news) {
-        Events::Emit(registry, {.kind = Events::Kind::Researched, .player = player_id,
-                                .id = tech_id});
+        Events::Emit(registry, {.kind = Events::Kind::Researched, .subject = by,
+                                .player = player_id, .id = tech_id});
     }
     Cascade(registry, player_id);
 }

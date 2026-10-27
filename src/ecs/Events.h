@@ -25,7 +25,9 @@ enum class Kind : uint8_t {
     Born,        // a unit stepped out of a building: subject, its owner
     Struck,      // subject took a blow from `other`, an enemy
     Built,       // a building was finished: subject
-    Researched,  // `id` is the technology, `player` the researcher
+    // `id` is the technology, `player` the researcher, subject the building
+    // that researched it (null for one that came of itself).
+    Researched,
     Died,        // subject began to die
     Converting,  // a monk (`other`) has begun converting subject, `player`'s
     Converted,   // subject now belongs to `player`; `id` is who had it

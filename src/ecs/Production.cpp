@@ -218,6 +218,7 @@ void Update(entt::registry& registry, const Physics::Grid& grid, int32_t dt_ms) 
     struct Discovery {
         int tech_id;
         Core::PlayerId player;
+        entt::entity building;
     };
     std::vector<Arrival> arrivals;
     std::vector<Discovery> discoveries;
@@ -266,7 +267,7 @@ void Update(entt::registry& registry, const Physics::Grid& grid, int32_t dt_ms) 
             const int32_t needed_ms = instant ? 0 : DurationMs(registry, owner, front);
             queue.progress_ms = std::min(queue.progress_ms + dt_ms, needed_ms);
             if (queue.progress_ms < needed_ms) continue;
-            discoveries.push_back({front.id, owner});
+            discoveries.push_back({front.id, owner, building});
             PopFront(queue);
             continue;
         }
@@ -334,7 +335,7 @@ void Update(entt::registry& registry, const Physics::Grid& grid, int32_t dt_ms) 
         }
     }
     for (const Discovery& discovery : discoveries) {
-        Techs::Complete(registry, discovery.player, discovery.tech_id);
+        Techs::Complete(registry, discovery.player, discovery.tech_id, discovery.building);
     }
 }
 

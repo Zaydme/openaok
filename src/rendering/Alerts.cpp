@@ -47,13 +47,6 @@ struct State {
     bool wrapped = false;  // every slot has been used
     uint64_t heard = 0;    // the last tick of the event log taken
     uint64_t flares = 0;   // the last flare taken, by its tick
-    // What the player's buildings were researching when last looked: the
-    // building a finished technology came from.
-    struct Research {
-        entt::entity building = entt::null;
-        int tech = -1;
-    };
-    std::vector<Research> researching;
 };
 State g;
 
@@ -110,15 +103,6 @@ ECS::Components::Vector2D WhereIs(const entt::registry& registry, entt::entity e
     return at->position;
 }
 
-// The building of the player's that researched `tech`: the one that had it
-// at the front of its queue when last looked.
-entt::entity ResearcherOf(const entt::registry& registry, int tech) {
-    for (const State::Research& r : g.researching) {
-        if (r.tech == tech && registry.valid(r.building)) return r.building;
-    }
-    return entt::null;
-}
-
 // The building of the player's a unit came out of: the producing building
 // nearest the tile it stepped out onto, which is beside its own.
 entt::entity TrainerOf(const entt::registry& registry, Core::PlayerId viewer,
@@ -170,8 +154,8 @@ void Take(const entt::registry& registry, const ECS::Events::Event& event, Core:
         // What a building of the player's researched; what comes of itself,
         // a building's own technology, says nothing.
         if (event.player != viewer || out) return;
-        const entt::entity maker = ResearcherOf(registry, event.id);
-        if (maker == entt::null) return;
+        const entt::entity maker = event.subject;
+        if (maker == entt::null || !registry.valid(maker)) return;
         Caption(kResearchComplete, Core::Rules::TechLabel(event.id));
         Raise(maker, WhereIs(registry, maker, event.at));
         return;
@@ -209,17 +193,6 @@ void Take(const entt::registry& registry, const ECS::Events::Event& event, Core:
     }
 }
 
-// What the player's buildings are researching now.
-void LookAtQueues(const entt::registry& registry, Core::PlayerId viewer) {
-    g.researching.clear();
-    auto queues = registry.view<ECS::Components::ProductionQueue, ECS::Components::Owner>();
-    for (auto building : queues) {
-        if (queues.get<ECS::Components::Owner>(building).player_id != viewer) continue;
-        const auto& queue = queues.get<ECS::Components::ProductionQueue>(building);
-        if (queue.count <= 0 || !queue.items[0].tech) continue;
-        g.researching.push_back({building, queue.items[0].id});
-    }
-}
 
 } // namespace
 
@@ -280,7 +253,6 @@ void Update(const entt::registry& registry, Core::PlayerId viewer) {
         }
         g.flares = newest;
     }
-    LookAtQueues(registry, viewer);
 }
 
 void Draw(SDL_Renderer* sdl_r, const SDL_FRect& well, int map_w, int map_h) {

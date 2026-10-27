@@ -48,8 +48,10 @@ std::vector<int> ResearchableAt(const entt::registry& registry, Core::PlayerId p
                                 int building_unit_id);
 
 // Completes a technology: marks it done, applies its effect, then researches
-// whatever that unlocks automatically.
-void Complete(entt::registry& registry, Core::PlayerId player, int tech_id);
+// whatever that unlocks automatically. `by` is the building that researched
+// it; null for one that comes of itself or from a scenario.
+void Complete(entt::registry& registry, Core::PlayerId player, int tech_id,
+              entt::entity by = entt::null);
 
 // A building of `unit_id` has been finished: research its own technology, if
 // it has one the player has not.

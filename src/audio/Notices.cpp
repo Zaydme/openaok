@@ -7,6 +7,7 @@
 
 #include "audio/InterfaceSounds.h"
 #include "core/ConfigManager.h"
+#include "ecs/Techs.h"
 #include "ecs/Chat.h"
 #include "ecs/Flares.h"
 #include "ecs/Triggers.h"
@@ -77,8 +78,22 @@ std::string TauntFile(int taunt) {
 
 void Hear(const entt::registry& registry, const ECS::Events::Event& event,
           Core::PlayerId listener) {
-    (void)registry;
     switch (event.kind) {
+    case ECS::Events::Kind::Researched: {
+        // The listener's own research at a building: resdone.wav for an
+        // age, resdone2.wav for anything else. Another player's age reached
+        // comes with the message sound, as its line does.
+        bool age = false;
+        for (int a = 1; a <= 3; ++a) age |= event.id == ECS::Techs::AgeTech(registry, event.player, a);
+        if (event.player == listener) {
+            if (event.subject == entt::null) return;
+            HAL::Audio::Play(age ? InterfaceSound::kResearchDone : InterfaceSound::kResearchDone2,
+                             1.0f, 0.0f);
+        } else if (age) {
+            HAL::Audio::Play(InterfaceSound::kChatReceived, 1.0f, 0.0f);
+        }
+        break;
+    }
     case ECS::Events::Kind::Begun:
         if (IsWonder(event.id)) HAL::Audio::Play(InterfaceSound::kWonderStarted, 1.0f, 0.0f);
         break;

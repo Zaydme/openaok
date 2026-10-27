@@ -19,6 +19,7 @@
 #include "ecs/components/Building.h"
 #include "ecs/components/Identity.h"
 #include "ecs/components/Owner.h"
+#include "ecs/components/ProductionQueue.h"
 #include "ecs/components/Resource.h"
 #include "ecs/components/Transform.h"
 #include "ecs/components/Worker.h"
@@ -213,6 +214,35 @@ bool CheckNotices() {
             if (first != 1) verdict = "production halted for want of houses was not told once";
             else if (second != 0) verdict = "a second building halted was told again";
             else if (again != 1) verdict = "production halted anew was not told";
+        }
+    }
+
+    // Research finished at a building is told with that building: Loom at
+    // the Town Center.
+    if (verdict == "ok") {
+        constexpr int kLoom = 22;
+        entt::entity tc = entt::null;
+        auto buildings = reg.view<ECS::Components::Building, ECS::Components::Identity,
+                                  ECS::Components::Owner>();
+        for (auto b : buildings) {
+            if (buildings.get<ECS::Components::Identity>(b).unit_id == cfg.GetUnitIdByName("RTWC") &&
+                buildings.get<ECS::Components::Owner>(b).player_id == us) {
+                tc = b;
+            }
+        }
+        ECS::Players::Player* me = ECS::Players::Find(reg, us);
+        if (tc == entt::null || me == nullptr) {
+            verdict = "no Town Center to research at";
+        } else {
+            ECS::Players::AddStock(*me, Core::ResourceType::Gold, 500);
+            ECS::Players::AddStock(*me, Core::ResourceType::Food, 500);
+            auto& queue_at = reg.get<ECS::Components::ProductionQueue>(tc);
+            while (queue_at.count > 0) ECS::Production::Cancel(reg, tc, queue_at.count - 1, us);
+            ECS::Production::EnqueueTech(reg, tc, kLoom, us);
+            const bool named = Hears(sim, ECS::Events::Kind::Researched, 60, [&](const auto& e) {
+                return e.id == kLoom && e.player == us && e.subject == tc;
+            });
+            if (!named) verdict = "research finished was not told with its building";
         }
     }
 
