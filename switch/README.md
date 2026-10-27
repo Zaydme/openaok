@@ -55,8 +55,11 @@ switch/openaok/OpenAoK.nro        the game
 switch/openaok/game/              its data: 354 MB, about 390 MB on a FAT32 card
 ```
 
-Without `--out` the folder is written to `build-switch/sd/`, to copy to the
-card's root yourself. Run it again after an update: only what changed is
+Write to the card through a good card reader, or through Hekate's USB mass
+storage (Tools → USB Tools → SD Card), which writes through the Switch's own card
+slot: some USB card readers damage what they write to large cards. Without
+`--out` the folder is written to `build-switch/sd/`, to copy to the card's root
+yourself. Run it again after an update: only what changed is
 copied. On a Mac it removes the `._` files macOS leaves beside each file on a
 FAT32 card. The folder holds your copy of the game, so keep it to your own
 console.
@@ -70,8 +73,8 @@ instead, it says so and returns to the menu.
 On its first start after a copy, OpenAoK reads every data file and checks it
 against `game/manifest.txt`, which `package.py` writes: a few seconds, with the
 progress on the screen. A file that is missing or damaged on the card is named,
-and copying the folder again mends it. Turn the Switch off before taking the
-card out.
+and copying the folder again mends it, through another card reader or Hekate's
+USB mass storage if it happens again.
 
 The profile, saved games and scenarios are kept in `switch/openaok/` (`Profile`,
 `SaveGame`, `Scenario`), beside the data rather than in it. What the engine

@@ -125,8 +125,9 @@ bool CheckData(const std::string& game) {
     std::string message = "These files are missing or damaged on the SD card:\n\n";
     for (size_t i = 0; i < bad.size() && i < 12; ++i) message += "    " + bad[i] + "\n";
     if (bad.size() > 12) message += "    and " + std::to_string(bad.size() - 12) + " more\n";
-    message += "\n  Copy the folder to the card again with switch/package.py, then\n"
-               "  turn the Switch off before taking the card out.";
+    message += "\n  Copy the folder to the card again with switch/package.py. Some USB card\n"
+               "  readers damage what they write: Hekate's USB mass storage (Tools, USB\n"
+               "  Tools, SD Card) writes through the Switch's own card slot.";
     Tell(message.c_str());
     return false;
 }
