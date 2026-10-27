@@ -11,8 +11,12 @@
 #include "ecs/Animals.h"
 #include "ecs/Buildings.h"
 #include "ecs/Events.h"
+#include "ecs/Players.h"
+#include "ecs/Production.h"
 #include "ecs/Simulation.h"
 #include "ecs/Units.h"
+#include "ecs/components/Building.h"
+#include "ecs/components/Identity.h"
 #include "ecs/components/Owner.h"
 #include "ecs/components/Resource.h"
 #include "ecs/components/Transform.h"
@@ -24,6 +28,20 @@ namespace Verify {
 namespace {
 
 constexpr int kTicksPerSecond = 1000 / 16;
+
+// How many events of `kind` of `player`'s the log holds over `seconds`.
+int Count(ECS::Simulation& sim, ECS::Events::Kind kind, Core::PlayerId player, int seconds) {
+    int n = 0;
+    for (int t = 0; t < seconds * kTicksPerSecond; ++t) {
+        sim.Update(16);
+        const auto* log = ECS::Events::Read(sim.GetRegistry());
+        if (log == nullptr) return n;
+        for (const auto& e : log->events) {
+            if (e.tick == log->tick && e.kind == kind && e.player == player) ++n;
+        }
+    }
+    return n;
+}
 
 // Runs the world up to `seconds`, until the log holds an event of `kind`
 // that `match` takes.
@@ -152,6 +170,48 @@ bool CheckNotices() {
                 return e.subject == site && e.player == us && e.id == wonder_id;
             });
             if (!begun) verdict = "a Wonder begun was not told";
+        }
+    }
+
+    // Production halted for want of houses: told once, by the first
+    // building to wait, then not again until every one has gone on.
+    if (verdict == "ok") {
+        ECS::Players::Player* me = ECS::Players::Find(reg, us);
+        const int villager_id = cfg.GetUnitIdByName("VMBAS");
+        const int militia_id = cfg.GetUnitIdByName("SPRMN");
+        entt::entity tc = entt::null;
+        auto buildings = reg.view<ECS::Components::Building, ECS::Components::Identity,
+                                  ECS::Components::Owner>();
+        for (auto b : buildings) {
+            if (buildings.get<ECS::Components::Identity>(b).unit_id == cfg.GetUnitIdByName("RTWC") &&
+                buildings.get<ECS::Components::Owner>(b).player_id == us) {
+                tc = b;
+            }
+        }
+        int bx = 0, by = 0;
+        const bool open = OpenGround(grid, home.x.ToInt(), home.y.ToInt(), 3, bx, by);
+        const entt::entity barracks =
+            open ? ECS::Buildings::Place(reg, grid, cfg.GetUnitIdByName("BRKS"), us, bx, by, true)
+                 : entt::null;
+        if (me == nullptr || tc == entt::null || barracks == entt::null) {
+            verdict = "no Town Center or Barracks to train at";
+        } else {
+            ECS::Players::AddStock(*me, Core::ResourceType::Food, 1000);
+            const Core::Fixed32 room = ECS::Players::Resource(*me, Core::Rules::Res::PopulationHeadroom);
+            ECS::Players::SetResource(*me, Core::Rules::Res::PopulationHeadroom, Core::Fixed32(0));
+            ECS::Production::Enqueue(reg, tc, villager_id, us);
+            const int first = Count(sim, ECS::Events::Kind::Halted, us, 2);
+            ECS::Production::Enqueue(reg, barracks, militia_id, us);
+            const int second = Count(sim, ECS::Events::Kind::Halted, us, 2);
+            ECS::Players::SetResource(*me, Core::Rules::Res::PopulationHeadroom, room + Core::Fixed32(10));
+            Count(sim, ECS::Events::Kind::Halted, us, 2);
+            ECS::Players::SetResource(*me, Core::Rules::Res::PopulationHeadroom, Core::Fixed32(0));
+            ECS::Production::Enqueue(reg, tc, villager_id, us);
+            const int again = Count(sim, ECS::Events::Kind::Halted, us, 60);
+            ECS::Players::SetResource(*me, Core::Rules::Res::PopulationHeadroom, room);
+            if (first != 1) verdict = "production halted for want of houses was not told once";
+            else if (second != 0) verdict = "a second building halted was told again";
+            else if (again != 1) verdict = "production halted anew was not told";
         }
     }
 

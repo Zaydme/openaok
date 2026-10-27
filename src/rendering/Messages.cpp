@@ -49,6 +49,11 @@ constexpr int kPanelH = 51;
 constexpr int kAdvancedBase = 3035;          // + age: "%s advanced to the Feudal Age."
 constexpr int kDefeated = 3014;              // "%s defeated."
 constexpr int kYouBeganWonder = 3058;        // "You have started building a Wonder!"
+// "You need more houses to continue unit production.", and at the game's
+// population limit "Unit production halted because you are at your
+// population limit."
+constexpr int kNeedMoreHouses = 3075;
+constexpr int kHaltedAtLimit = 3076;
 constexpr int kTheyBeganWonder = 3019;       // "%s started building a Wonder!"
 constexpr int kYouCompletedWonder = 3020;    // "...You will win if it stands for %d years!"
 constexpr int kAllyCompletedWonder = 3021;
@@ -151,6 +156,11 @@ void Hear(const entt::registry& registry, const ECS::Events::Event& event,
             } else {
                 Post(Format(kTheyBeganWonder, UIRenderer::PlayerName(registry, event.player)));
             }
+        }
+        break;
+    case Kind::Halted:
+        if (event.player == viewer) {
+            Post(Core::Strings::Get(event.amount != 0 ? kHaltedAtLimit : kNeedMoreHouses));
         }
         break;
     case Kind::Built:

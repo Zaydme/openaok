@@ -241,6 +241,14 @@ void Update(entt::registry& registry, const Physics::Grid& grid, int32_t dt_ms) 
     auto producers = registry.view<Components::ProductionQueue, Components::Building,
                                    Components::Identity, Components::Owner,
                                    Components::Transform>();
+    // The players some of whose buildings already wait for room. The first
+    // to wait tells the player; the rest say nothing until all have gone on.
+    bool waiting[Core::kMaxPlayers] = {};
+    for (auto building : producers) {
+        if (producers.get<Components::ProductionQueue>(building).housed) {
+            waiting[producers.get<Components::Owner>(building).player_id % Core::kMaxPlayers] = true;
+        }
+    }
     for (auto building : producers) {
         auto& queue = producers.get<Components::ProductionQueue>(building);
         if (queue.count <= 0) continue;
@@ -276,6 +284,14 @@ void Update(entt::registry& registry, const Physics::Grid& grid, int32_t dt_ms) 
             const int p = population_of(owner);
             const int cost = Population::CostOf(*rules);
             if (used[p] + cost > capacity[p]) {
+                if (!queue.housed && !waiting[p]) {
+                    waiting[p] = true;
+                    const bool at_limit = capacity[p] >= Players::PopulationLimit(registry);
+                    Events::Emit(registry, {.kind = Events::Kind::Halted, .subject = building,
+                                            .player = owner, .id = front.id,
+                                            .at = producers.get<Components::Transform>(building).position,
+                                            .amount = at_limit ? 1 : 0});
+                }
                 queue.housed = true;
                 continue;
             }

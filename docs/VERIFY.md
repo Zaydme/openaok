@@ -28,7 +28,7 @@ that the script reads.
 | `movement` | Every unit given an order reaches it |
 | `planner` | Standing spots spread along a building's sides |
 | `gathering` | A villager's round trip to a resource and a drop site; farms |
-| `notices` | The news the interface notifies the player of: a sheep claimed, a farm run out, a Wonder begun, a relic picked up |
+| `notices` | The news the interface notifies the player of: a sheep claimed, a farm run out, a Wonder begun, production halted, a relic picked up |
 | `building` | A crew raising a Town Center; demolition |
 | `production` | Prices, refusals, births beside the building, the population cap, cancelling, rally points |
 | `techs` | Civilisation bonuses and tech trees, ages, research, upgrades in place |

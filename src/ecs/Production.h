@@ -20,7 +20,8 @@
 // only ever holds what the player could afford at the time. Population is
 // checked when a unit *starts* training and booked from then on; a unit that
 // cannot start waits at the front of the queue -- "you need more houses" --
-// and starts the moment there is room. A technology, once queued, is marked as
+// and starts the moment there is room. The first of a player's buildings to
+// wait while none other does tells the player (Events::Kind::Halted). A technology, once queued, is marked as
 // being researched so it cannot be queued twice. Cancelling refunds the full
 // price.
 namespace ECS::Production {

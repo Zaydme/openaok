@@ -60,6 +60,11 @@ enum class Kind : uint8_t {
     // The first work was done on a building site (subject) of `player`'s;
     // `id` is its unit.
     Begun,
+    // `player`'s production has stopped for want of room: subject, the
+    // first of its buildings to wait while none other was, cannot start the
+    // unit `id`. `amount` is 1 when the player is at the game's population
+    // limit, which more houses do not lift.
+    Halted,
 };
 
 struct Event {

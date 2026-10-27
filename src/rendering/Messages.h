@@ -7,8 +7,8 @@
 
 // The lines written over the left of the battlefield: what the other
 // players say, the ages they reach, Wonders begun, finished and destroyed,
-// relics, defeats, the refusals ("Not enough wood."), and the notifications
-// (rendering/Alerts).
+// relics, defeats, production halted for want of houses, the refusals ("Not
+// enough wood."), and the notifications (rendering/Alerts).
 //
 // Georgia 9 bold (12 px), white with the black outline of text over the
 // world. Eight line panels 20 apart from 20 pixels into the map view, four in

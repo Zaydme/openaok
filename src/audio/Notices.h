@@ -12,7 +12,8 @@
 // chat message that is a number from 1 to 30 plays the recorded line of
 // that number, Taunt/01 Yes.mp3 ... 30 Wololo.mp3. And the notifications'
 // own: a sheep found (capsheep.wav), a farm or fish trap run out
-// (farmdied.wav), a relic picked up (puprelic.wav). Interface sounds
+// (farmdied.wav), a relic picked up (puprelic.wav), production halted for
+// want of houses (needhous.wav). Interface sounds
 // by their interfac.drs file ids (audio/InterfaceSounds.h), heard only by the
 // player they concern -- but for a Wonder, begun (mstart.wav), finished
 // (mdone.wav) or destroyed (mkilled.wav), which every player hears.
