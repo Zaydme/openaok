@@ -23,6 +23,7 @@
 #include "ecs/Players.h"
 #include "ecs/Repairs.h"
 #include "ecs/Resources.h"
+#include "ecs/Victory.h"
 #include "ecs/Vision.h"
 #include "ecs/components/Combat.h"
 #include "pathfinding/ApproachPlanner.h"
@@ -911,6 +912,7 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                     raising->progress =
                         Core::FixedMath::Min(Core::Fixed32(1), raising->progress + share);
                     if (before.value == 0 && raising->progress.value > 0) {
+                        Victory::Begun(registry, worker.target_building);
                         Events::Emit(registry, {.kind = Events::Kind::Begun,
                                                 .subject = worker.target_building,
                                                 .player = site_owner ? site_owner->player_id

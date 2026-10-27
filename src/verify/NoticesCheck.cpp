@@ -16,6 +16,7 @@
 #include "ecs/Production.h"
 #include "ecs/Simulation.h"
 #include "ecs/Techs.h"
+#include "ecs/Vision.h"
 #include "ecs/Units.h"
 #include "ecs/components/Building.h"
 #include "ecs/components/Identity.h"
@@ -158,7 +159,8 @@ bool CheckNotices() {
         }
     }
 
-    // A Wonder's site, begun: the villager's first work on it.
+    // A Wonder's site, begun: the villager's first work on it is told, and
+    // from then every player sees its ground.
     if (verdict == "ok") {
         const int wonder_id = cfg.GetUnitIdByName("WNDR");
         int wx = 0, wy = 0;
@@ -168,11 +170,22 @@ bool CheckNotices() {
         if (site == entt::null) {
             verdict = "a Wonder's site could not be placed";
         } else {
+            // Whether every player in the game but us has seen its ground.
+            auto seen_by_all = [&](bool all) {
+                for (Core::PlayerId p = 1; p < Core::kMaxPlayers; ++p) {
+                    if (p == us || ECS::Players::Find(reg, p) == nullptr) continue;
+                    if (ECS::Vision::Explored(reg, p, wx, wy) != all) return false;
+                }
+                return true;
+            };
+            const bool unseen_before = seen_by_all(false);
             queue.PushCommand(Core::RepairCommand{{villager}, site, us});
             const bool begun = Hears(sim, ECS::Events::Kind::Begun, 60, [&](const auto& e) {
                 return e.subject == site && e.player == us && e.id == wonder_id;
             });
             if (!begun) verdict = "a Wonder begun was not told";
+            else if (!unseen_before) verdict = "a Wonder's site was seen by the others before it was begun";
+            else if (!seen_by_all(true)) verdict = "a Wonder begun is not seen by every player";
         }
     }
 

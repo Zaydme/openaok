@@ -36,9 +36,10 @@ bool CheckGathering();
 bool CheckFelling();
 
 // What the interface notifies the player of and the simulation has to tell
-// it: a sheep claimed, a farm run out, a Wonder begun, production halted for
-// want of houses, research finished at a building, Spies known for what it
-// does, a building site found taken, a relic picked up. Prints "notices=".
+// it: a sheep claimed, a farm run out, a Wonder begun and seen by every
+// player, production halted for want of houses, research finished at a
+// building, Spies known for what it does, a building site found taken, a
+// relic picked up. Prints "notices=".
 bool CheckNotices();
 
 // A scenario's flag of a player's: seeing round itself, and drawn with a frame

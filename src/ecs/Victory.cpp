@@ -11,7 +11,9 @@
 #include "ecs/Events.h"
 #include "ecs/Mortality.h"
 #include "ecs/Score.h"
+#include "ecs/BuildingGeometry.h"
 #include "ecs/Timeline.h"
+#include "ecs/Vision.h"
 #include "ecs/components/Building.h"
 #include "ecs/components/Health.h"
 #include "ecs/components/Garrison.h"
@@ -207,6 +209,21 @@ bool HasKing(const entt::registry& registry, Core::PlayerId player) {
         if (Combat::Alive(registry, k)) return true;
     }
     return false;
+}
+
+void Begun(entt::registry& registry, entt::entity site) {
+    const State* state = registry.ctx().find<State>();
+    const auto* identity = registry.try_get<Components::Identity>(site);
+    const auto* at = registry.try_get<Components::Transform>(site);
+    if (state == nullptr || identity == nullptr || at == nullptr || identity->unit_id != state->wonder_id) {
+        return;
+    }
+    Buildings::ForEachFootprintTile(identity->unit_id, Physics::TileOf(at->position.x),
+                                    Physics::TileOf(at->position.y), [&](int x, int y) {
+        for (Core::PlayerId player = 1; player < Core::kMaxPlayers; ++player) {
+            Vision::Explore(registry, player, x, y, 0);
+        }
+    });
 }
 
 void Win(entt::registry& registry, Core::PlayerId player) {

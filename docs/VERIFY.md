@@ -29,7 +29,7 @@ that the script reads.
 | `planner` | Standing spots spread along a building's sides |
 | `gathering` | A villager's round trip to a resource and a drop site; farms |
 | `flag`, `capture` | A player's flag in a scenario seeing round itself and drawn; Gaia's villagers and buildings taken by the first player to see them, its animals and relic carts not |
-| `notices` | The news the interface notifies the player of: a sheep claimed, a farm run out, a Wonder begun, production halted, a building site found taken, a relic picked up |
+| `notices` | The news the interface notifies the player of: a sheep claimed, a farm run out, a Wonder begun and seen by every player, production halted, a building site found taken, a relic picked up |
 | `building` | A crew raising a Town Center; demolition |
 | `production` | Prices, refusals, births beside the building, the population cap, cancelling, rally points |
 | `techs` | Civilisation bonuses and tech trees, ages, research, upgrades in place |

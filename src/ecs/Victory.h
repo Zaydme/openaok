@@ -53,6 +53,10 @@ void Setup(entt::registry& registry, const Core::GameSetup& setup);
 // player's is.
 void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms);
 
+// The first work done on a building site: a Wonder's ground is shown to
+// every player from then on, so all of them see it go up.
+void Begun(entt::registry& registry, entt::entity site);
+
 // `player`'s side wins at once, everyone else losing ("i r winner").
 void Win(entt::registry& registry, Core::PlayerId player);
 
