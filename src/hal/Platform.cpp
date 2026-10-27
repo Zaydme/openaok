@@ -10,6 +10,8 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <exception>
+#include <typeinfo>
 #endif
 
 namespace HAL::Platform {
@@ -43,6 +45,21 @@ bool Exists(const std::string& path) {
 
 void Stop() { socketExit(); }
 
+// An exception nothing caught: its name and message in the log before the
+// game stops.
+void Stopped() {
+    if (std::exception_ptr thrown = std::current_exception()) {
+        try {
+            std::rethrow_exception(thrown);
+        } catch (const std::exception& error) {
+            std::fprintf(stderr, "[Platform] stopped by %s: %s\n", typeid(error).name(), error.what());
+        } catch (...) {
+            std::fprintf(stderr, "[Platform] stopped by an exception\n");
+        }
+    }
+    std::abort();
+}
+
 } // namespace
 
 bool Start(int argc, char* argv[]) {
@@ -64,17 +81,23 @@ bool Start(int argc, char* argv[]) {
              "  your own CD with switch/package.py, and copy it here.");
         return false;
     }
-    socketInitializeDefault();
-    std::atexit(Stop);
+    // The network is opened only for nxlink: a game that ends without closing
+    // it leaves the Homebrew Menu unable to start.
     if (__nxlink_host.s_addr != 0) {
-        nxlinkStdio();
-    } else {
+        socketInitializeDefault();
+        std::atexit(Stop);
+    }
+    if (__nxlink_host.s_addr == 0 || nxlinkStdio() < 0) {
         const std::string log = g_root + "openaok.log";
         std::remove(log.c_str());
         std::freopen(log.c_str(), "a", stdout);
         std::freopen(log.c_str(), "a", stderr);
+        // Line by line, and errors at once, so a game that stops short leaves
+        // its last words in the log.
         std::setvbuf(stdout, nullptr, _IOLBF, 0);
+        std::setvbuf(stderr, nullptr, _IONBF, 0);
     }
+    std::set_terminate(Stopped);
     const std::string run = game + "build";
     mkdir(run.c_str(), 0777);
     if (chdir(run.c_str()) != 0) {
