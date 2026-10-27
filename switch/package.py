@@ -49,14 +49,14 @@ size = 0
 
 
 def copy(src, dst):
-    """Copies one file unless an identical one is there; the data only, so a
-    card formatted FAT gets no macOS metadata files."""
+    """Copies one file unless an identical one is there. FAT keeps a file's
+    time to two seconds."""
     global copied, kept, size
     info = os.stat(src)
     size += info.st_size
     if os.path.exists(dst):
         there = os.stat(dst)
-        if there.st_size == info.st_size and int(there.st_mtime) == int(info.st_mtime):
+        if there.st_size == info.st_size and abs(there.st_mtime - info.st_mtime) <= 2:
             kept += 1
             return
     os.makedirs(os.path.dirname(dst), exist_ok=True)
@@ -75,6 +75,20 @@ def copy_tree(src, dst):
                 continue
             path = os.path.join(folder, name)
             copy(path, os.path.join(dst, os.path.relpath(path, src)))
+
+
+def remove_apple_double(folder):
+    """macOS keeps files' extended attributes on a FAT card as a ._ file beside
+    each one, which the Switch has no use for."""
+    if sys.platform != 'darwin':
+        return
+    beside = os.path.join(os.path.dirname(folder), '._' + os.path.basename(folder))
+    if os.path.isfile(beside):
+        os.remove(beside)
+    for parent, _, files in os.walk(folder):
+        for name in files:
+            if name.startswith('._'):
+                os.remove(os.path.join(parent, name))
 
 
 def main():
@@ -110,6 +124,7 @@ def main():
         print('note: no %s yet; build it with switch/build.sh, or put a released OpenAoK.nro beside game/.'
               % os.path.relpath(args.nro, ROOT))
 
+    remove_apple_double(folder)
     print('==> %s: %d files copied, %d already there, %d MB in all'
           % (folder, copied, kept, size // (1024 * 1024)))
 
