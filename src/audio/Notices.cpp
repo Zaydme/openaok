@@ -82,6 +82,18 @@ void Hear(const entt::registry& registry, const ECS::Events::Event& event,
         if (event.player != listener) return;
         HAL::Audio::Play(InterfaceSound::kTribute, 1.0f, 0.0f);
         break;
+    case ECS::Events::Kind::Claimed:
+        if (event.player != listener) return;
+        HAL::Audio::Play(InterfaceSound::kCapturedSheep, 1.0f, 0.0f);
+        break;
+    case ECS::Events::Kind::Exhausted:
+        if (event.player != listener) return;
+        HAL::Audio::Play(InterfaceSound::kFarmDied, 1.0f, 0.0f);
+        break;
+    case ECS::Events::Kind::PickedUp:
+        if (event.player != listener) return;
+        HAL::Audio::Play(InterfaceSound::kRelicPickedUp, 1.0f, 0.0f);
+        break;
     default:
         break;
     }

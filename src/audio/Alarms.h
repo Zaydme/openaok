@@ -23,8 +23,18 @@ void Hear(const entt::registry& registry, const ECS::Events::Event& event,
 // Forgets every battle, for a new world.
 void Reset();
 
-// The alarms that have sounded and not yet been taken, oldest first: what
-// was struck and where. The minimap shows each (rendering/Alerts).
-bool TakeRaised(entt::entity& subject, ECS::Components::Vector2D& at);
+// An alarm that has sounded: what was struck, where, and by whom -- a
+// player, or Gaia for a wild animal; `conversion` for a monk at work.
+struct Raised {
+    entt::entity subject = entt::null;
+    ECS::Components::Vector2D at{};
+    Core::PlayerId by = Core::PLAYER_GAIA;
+    bool conversion = false;
+};
+
+// The alarms that have sounded and not yet been taken, oldest first. The
+// minimap shows each, and the message lines name the attack
+// (rendering/Alerts).
+bool TakeRaised(Raised& alarm);
 
 } // namespace Audio::Alarms

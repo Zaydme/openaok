@@ -3,8 +3,10 @@
 #include "core/ConfigManager.h"
 #include "core/Rules.h"
 #include "ecs/Buildings.h"
+#include "ecs/Events.h"
 #include "ecs/components/Building.h"
 #include "ecs/components/Identity.h"
+#include "ecs/components/Owner.h"
 #include "ecs/components/Sprite.h"
 #include "ecs/components/Transform.h"
 
@@ -16,6 +18,13 @@ void Exhaust(entt::registry& registry, Physics::Grid& grid, entt::entity resourc
     // A farm is a building: its own teardown handles its art, its owner's
     // books and its ground.
     if (registry.all_of<Components::Building>(resource)) {
+        const auto* owner = registry.try_get<Components::Owner>(resource);
+        const auto* identity = registry.try_get<Components::Identity>(resource);
+        const auto* at = registry.try_get<Components::Transform>(resource);
+        Events::Emit(registry, {.kind = Events::Kind::Exhausted, .subject = resource,
+                                .player = owner != nullptr ? owner->player_id : Core::PLAYER_GAIA,
+                                .id = identity != nullptr ? identity->unit_id : -1,
+                                .at = at != nullptr ? at->position : Components::Vector2D{}});
         Buildings::Destroy(registry, grid, resource);
         return;
     }

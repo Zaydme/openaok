@@ -160,9 +160,13 @@ void Herd(entt::registry& registry, const Physics::Grid& grid, uint64_t tick) {
         }
     }
     for (const auto& [animal, player] : changes) {
-        registry.get<Components::Owner>(animal).player_id = player;
+        auto& owner = registry.get<Components::Owner>(animal);
+        const Core::PlayerId was = owner.player_id;
+        owner.player_id = player;
         // A sheep changing hands stops wherever it was being led.
         registry.remove<Components::Path>(animal);
+        Events::Emit(registry, {.kind = Events::Kind::Claimed, .subject = animal, .player = player,
+                                .id = was, .at = registry.get<Components::Transform>(animal).position});
     }
 }
 

@@ -3,20 +3,27 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdio>
+#include <string>
 #include <vector>
 
 #include "audio/Alarms.h"
 #include "core/ConfigManager.h"
+#include "core/Rules.h"
+#include "core/Strings.h"
 #include "ecs/BuildingGeometry.h"
 #include "ecs/Events.h"
 #include "ecs/Flares.h"
+#include "ecs/Players.h"
 #include "ecs/Victory.h"
+#include "ecs/VillagerJobs.h"
 #include "ecs/components/Building.h"
 #include "ecs/components/Identity.h"
 #include "ecs/components/Owner.h"
 #include "ecs/components/ProductionQueue.h"
 #include "hal/GraphicCache.h"
 #include "rendering/EntityRenderer.h"
+#include "rendering/Messages.h"
 #include "rendering/UIRenderer.h"
 
 namespace Rendering::Alerts {
@@ -64,6 +71,30 @@ constexpr Stage kStages[] = {
 // The classes whose finished buildings raise no notice: walls (27) and 50.
 constexpr int kWallClass = 27;
 constexpr int kQuietClass = 50;
+
+// LANGUAGE.DLL's line for each notification, written with it.
+constexpr int kResearchComplete = 37157;  // "--%s Research Complete--"
+constexpr int kBuilt = 37158;             // "--%s Built--"
+constexpr int kCreated = 37159;           // "--%s Created--"
+constexpr int kAttackedBy = 37160;        // "--Warning: You are being attacked by %s!!!--"
+constexpr int kSheepFound = 37161;
+constexpr int kFarmExhausted = 37162;
+constexpr int kFishTrapExpired = 37163;
+constexpr int kRelicPickedUp = 37164;
+constexpr int kWildAnimals = 37165;
+
+// A notification's line, with the name its words take, if any.
+void Caption(int string_id, const std::string& name = std::string()) {
+    char text[256];
+    std::snprintf(text, sizeof(text), Core::Strings::Get(string_id).c_str(), name.c_str());
+    Messages::Post(text);
+}
+
+// What a unit or building of `player`'s is called: the unit its slot has
+// become, as the object panel names it.
+const std::string& NameOf(const entt::registry& registry, Core::PlayerId player, int unit_id) {
+    return Core::ConfigManager::Get().GetUnitName(ECS::Players::ArtOf(registry, player, unit_id));
+}
 
 // Where a thing is: a building's middle, anything else's position.
 ECS::Components::Vector2D WhereIs(const entt::registry& registry, entt::entity entity,
@@ -116,6 +147,7 @@ void Take(const entt::registry& registry, const ECS::Events::Event& event, Core:
     switch (event.kind) {
     case ECS::Events::Kind::Born: {
         if (event.player != viewer || out) return;
+        Caption(kCreated, NameOf(registry, viewer, event.id));
         // At the building that trained it; the unit's own place were none
         // found.
         const entt::entity maker = TrainerOf(registry, viewer, event.at);
@@ -130,15 +162,41 @@ void Take(const entt::registry& registry, const ECS::Events::Event& event, Core:
         if (event.player != viewer || out) return;
         const auto* ui = Core::ConfigManager::Get().GetUnitInterface(event.id);
         if (ui != nullptr && (ui->unit_class == kWallClass || ui->unit_class == kQuietClass)) return;
+        Caption(kBuilt, NameOf(registry, viewer, event.id));
         Raise(event.subject, WhereIs(registry, event.subject, event.at));
         return;
     }
     case ECS::Events::Kind::Researched: {
+        // What a building of the player's researched; what comes of itself,
+        // a building's own technology, says nothing.
         if (event.player != viewer || out) return;
         const entt::entity maker = ResearcherOf(registry, event.id);
-        if (maker != entt::null) Raise(maker, WhereIs(registry, maker, event.at));
+        if (maker == entt::null) return;
+        Caption(kResearchComplete, Core::Rules::TechLabel(event.id));
+        Raise(maker, WhereIs(registry, maker, event.at));
         return;
     }
+    case ECS::Events::Kind::Claimed:
+        if (event.player != viewer || out) return;
+        Caption(kSheepFound);
+        Raise(event.subject, event.at);
+        return;
+    case ECS::Events::Kind::Exhausted: {
+        // A farm is the villager's to build; the fishing ship's is a fish
+        // trap.
+        if (event.player != viewer || out) return;
+        const auto* rules = Core::Rules::Unit(event.id);
+        const bool farm = rules != nullptr &&
+            rules->train_loc == ECS::Villagers::UnitId(ECS::Components::VillagerJob::Build, false);
+        Caption(farm ? kFarmExhausted : kFishTrapExpired);
+        Raise(entt::null, event.at);
+        return;
+    }
+    case ECS::Events::Kind::PickedUp:
+        if (event.player != viewer || out) return;
+        Caption(kRelicPickedUp);
+        Raise(event.subject, event.at);
+        return;
     case ECS::Events::Kind::Converted:
         if (event.player == viewer) {
             EntityRenderer::Flash(registry, event.subject, false);
@@ -191,10 +249,16 @@ void Update(const entt::registry& registry, Core::PlayerId viewer) {
     const auto* outcome = ECS::Victory::Read(registry);
     const bool out = outcome != nullptr && outcome->Defeated(viewer);
 
-    // The attack alarms that sounded since the last frame.
-    entt::entity struck = entt::null;
-    ECS::Components::Vector2D where{};
-    while (Audio::Alarms::TakeRaised(struck, where)) Raise(struck, where);
+    // The attack alarms that sounded since the last frame, and the line
+    // naming who attacks; a monk at work has none.
+    Audio::Alarms::Raised alarm;
+    while (Audio::Alarms::TakeRaised(alarm)) {
+        if (!alarm.conversion) {
+            if (alarm.by == Core::PLAYER_GAIA) Caption(kWildAnimals);
+            else Caption(kAttackedBy, UIRenderer::PlayerName(registry, alarm.by));
+        }
+        Raise(alarm.subject, alarm.at);
+    }
 
     if (const ECS::Events::Log* log = ECS::Events::Read(registry)) {
         // A new world starts its clock again.

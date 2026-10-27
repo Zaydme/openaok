@@ -36,6 +36,7 @@ BUILDING="$(echo "$OUTPUT" | grep '^building=')"
 PLANNER="$(echo "$OUTPUT" | grep '^planner=')"
 GATHERING="$(echo "$OUTPUT" | grep '^gathering=')"
 FELLING="$(echo "$OUTPUT" | grep '^felling=')"
+NOTICES="$(echo "$OUTPUT" | grep '^notices=')"
 PRODUCTION="$(echo "$OUTPUT" | grep '^production=')"
 TECHS="$(echo "$OUTPUT" | grep '^techs=')"
 COMBAT="$(echo "$OUTPUT" | grep '^combat=')"
@@ -136,6 +137,16 @@ if [ "$FELLING" = "felling=ok" ]; then
 else
     echo "FELLING FAILED" >&2
     echo "  $FELLING" >&2
+    STATUS=1
+fi
+
+# What the player is notified of: a sheep claimed, a farm run out, a relic
+# picked up.
+if [ "$NOTICES" = "notices=ok" ]; then
+    echo "notices OK"
+else
+    echo "NOTICES FAILED" >&2
+    echo "  $NOTICES" >&2
     STATUS=1
 fi
 

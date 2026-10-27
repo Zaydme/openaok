@@ -31,10 +31,6 @@ struct Battle {
 
 std::vector<Battle> g_battles;
 // Alarms sounded and not yet taken by the minimap.
-struct Raised {
-    entt::entity subject = entt::null;
-    ECS::Components::Vector2D at{};
-};
 std::vector<Raised> g_raised;
 size_t g_taken = 0;
 
@@ -65,7 +61,7 @@ void Hear(const entt::registry& registry, const ECS::Events::Event& event,
         if (event.player != listener || BattleAt(event.at, event.tick) != nullptr) return;
         std::erase_if(g_battles, [&](const Battle& b) { return event.tick - b.last > kBattleTicks; });
         g_battles.push_back({event.at, event.tick});
-        g_raised.push_back({event.subject, event.at});
+        g_raised.push_back({event.subject, event.at, OwnerOf(registry, event.other), true});
         HAL::Audio::Play(kConversionHorn, 1.0f, 0.0f);
         return;
     }
@@ -98,7 +94,7 @@ void Hear(const entt::registry& registry, const ECS::Events::Event& event,
     } else if (registry.any_of<ECS::Components::Worker, ECS::Components::Building>(event.subject)) {
         alarm = kTownBell;
     }
-    g_raised.push_back({event.subject, event.at});
+    g_raised.push_back({event.subject, event.at, OwnerOf(registry, event.other), false});
     HAL::Audio::Play(alarm, 1.0f, 0.0f);
 }
 
@@ -108,15 +104,13 @@ void Reset() {
     g_taken = 0;
 }
 
-bool TakeRaised(entt::entity& subject, ECS::Components::Vector2D& at) {
+bool TakeRaised(Raised& alarm) {
     if (g_taken >= g_raised.size()) {
         g_raised.clear();
         g_taken = 0;
         return false;
     }
-    subject = g_raised[g_taken].subject;
-    at = g_raised[g_taken].at;
-    ++g_taken;
+    alarm = g_raised[g_taken++];
     return true;
 }
 

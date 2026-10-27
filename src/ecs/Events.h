@@ -49,6 +49,14 @@ enum class Kind : uint8_t {
     Packed,      // subject, a siege engine, finished packing (`id`: what it became)
     Unpacked,
     Cheat,       // `player` used the cheat `id` (ecs/Cheats)
+    // A herdable (subject) has joined `player`, whose unit came near it; `id`
+    // is who had it.
+    Claimed,
+    // A farm or fish trap (subject) of `player`'s has run out of food; `id`
+    // is its unit.
+    Exhausted,
+    // A unit of `player`'s (subject) has picked up a relic (`other`).
+    PickedUp,
 };
 
 struct Event {

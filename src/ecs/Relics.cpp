@@ -8,6 +8,7 @@
 #include "ecs/BuildingGeometry.h"
 #include "ecs/Buildings.h"
 #include "ecs/Combat.h"
+#include "ecs/Events.h"
 #include "ecs/Players.h"
 #include "ecs/Score.h"
 #include "ecs/Units.h"
@@ -119,6 +120,9 @@ void Drop(entt::registry& registry, entt::entity relic, const Components::Vector
 void PickUp(entt::registry& registry, entt::entity unit, entt::entity relic) {
     const int bearer = BearerUnit();
     if (bearer < 0) return;
+    Events::Emit(registry, {.kind = Events::Kind::PickedUp, .subject = unit, .other = relic,
+                            .player = OwnerOf(registry, unit),
+                            .at = registry.get<Components::Transform>(relic).position});
     registry.remove<Components::Transform>(relic);
     if (auto* selectable = registry.try_get<Components::Selectable>(relic)) {
         selectable->is_selected = false;
