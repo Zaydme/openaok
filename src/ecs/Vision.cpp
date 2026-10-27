@@ -101,14 +101,19 @@ void Update(entt::registry& registry) {
         const int cy = Physics::TileOf(at.y);
         const int r = seers.get<const Components::Sight>(e).radius;
         const int r2 = r * r;
-        for (int dy = -r; dy <= r; ++dy) {
-            const int y = cy + dy;
-            if (y < 0 || y >= map->height) continue;
-            for (int dx = -r; dx <= r; ++dx) {
-                if (dx * dx + dy * dy > r2) continue;
-                const int x = cx + dx;
-                if (x < 0 || x >= map->width) continue;
-                map->visible[static_cast<size_t>(Index(*map, x, y))] |= bit;
+        // Row by row, out from the middle row: a row's tiles within the radius
+        // are one run, out to the widest dx whose dx * dx + dy * dy stays
+        // within r * r, the same above and below the middle.
+        int half = r;
+        for (int dy = 0; dy <= r; ++dy) {
+            while (half > 0 && half * half + dy * dy > r2) --half;
+            const int x0 = std::max(0, cx - half);
+            const int x1 = std::min(map->width - 1, cx + half);
+            for (const int y : {cy - dy, cy + dy}) {
+                if (y < 0 || y >= map->height || (dy == 0 && y != cy)) continue;
+                uint16_t* row = &map->visible[static_cast<size_t>(Index(*map, 0, y))];
+                for (int x = x0; x <= x1; ++x) row[x] |= bit;
+                if (dy == 0) break;
             }
         }
     }

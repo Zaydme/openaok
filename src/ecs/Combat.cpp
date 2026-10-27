@@ -97,6 +97,10 @@ bool SeeksFights(const R::UnitRules& rules, bool building) {
 }
 
 // How far it looks: a unit its search radius, a building its range.
+// Two things' extents beyond their middles, together, at most: the dat's
+// largest footprint and largest body each reach four tiles, with a tile to spare.
+const Core::Fixed32 kFarthestExtents = Core::Fixed32(9);
+
 Core::Fixed32 SearchReach(const R::UnitRules& rules, bool building) {
     return building ? rules.max_range : rules.search_radius;
 }
@@ -138,7 +142,16 @@ entt::entity FindTarget(const entt::registry& registry, const Physics::Grid& gri
     Core::Fixed32 best_gap{};
     auto candidates = registry.view<const Components::Transform, const Components::Health,
                                     const Components::Owner>();
+    // Nothing in reach is farther from `self`'s middle, on either axis, than
+    // the reach and both sides' extents: a footprint or a body reaches at most
+    // four tiles from its middle.
+    const auto& here = registry.get<Components::Transform>(self).position;
+    const Core::Fixed32 box = reach + kFarthestExtents;
     for (auto other : candidates) {
+        const auto& there = candidates.get<const Components::Transform>(other).position;
+        if (Core::FixedMath::Abs(there.x - here.x) > box || Core::FixedMath::Abs(there.y - here.y) > box) {
+            continue;
+        }
         if (other == self || !Alive(registry, other)) continue;
         if (!Hostile(registry, self, other)) continue;
         const Core::Fixed32 gap = Gap(registry, self, other);

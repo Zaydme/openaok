@@ -617,16 +617,21 @@ void Update(entt::registry& registry) {
                 gates.get<Components::Transform>(gate).position,
                 gates.get<Components::Identity>(gate).unit_id);
             for (auto unit : units) {
+                // Outside the gate's footprint grown by the reach on either
+                // axis is farther than the reach: the cheap test first.
+                const auto& at = units.get<const Components::Transform>(unit).position;
+                if (at.x < bounds.min_x - kOpenReach || at.x > bounds.max_x + kOpenReach ||
+                    at.y < bounds.min_y - kOpenReach || at.y > bounds.max_y + kOpenReach) {
+                    continue;
+                }
+                if (bounds.DistanceFrom(at) > kOpenReach) continue;
                 if (registry.all_of<Components::Building>(unit)) continue;
                 if (!Friends(registry, owner, units.get<const Components::Owner>(unit).player_id)) {
                     continue;
                 }
                 if (!Combat::Alive(registry, unit)) continue;
-                if (bounds.DistanceFrom(units.get<const Components::Transform>(unit).position) <=
-                    kOpenReach) {
-                    open = true;
-                    break;
-                }
+                open = true;
+                break;
             }
         }
         if (open == state.open) continue;
