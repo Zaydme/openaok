@@ -11,10 +11,11 @@
 //
 // Georgia 9 bold (12 px), white with the black outline of text over the
 // world. Eight line panels 20 apart from 20 pixels into the map view, four in
-// from its left, dropped 214 in a scenario with instructions (which take the
-// top of the view). Lines do not move once written; each new one takes the
-// next panel round. Each goes after a few seconds; the history stays for the
-// chat review keys.
+// from its left; in a single-player game 214 lower, below where a scenario's
+// instructions go. The newest line is in the last panel, and each new one
+// moves the others up one; a line moved out of the first is gone. Each goes
+// ten seconds after it was written, and the same words written again while
+// they still show go with them. The history stays for the chat review keys.
 namespace Rendering::Messages {
 
 void Reset();
@@ -34,9 +35,8 @@ void Draw(SDL_Renderer* renderer, int win_w, int win_h);
 // chat review keys.
 void Review(int step);
 
-// A scenario's instructions are showing at the top of the view: the lines
-// move down below them.
-void SetScenarioInstructions(bool shown);
+// A single-player game: the lines sit lower, below the instructions' place.
+void SetSinglePlayer(bool single);
 
 // A loaded game: what happened before it was saved is old news.
 void CatchUp(const entt::registry& registry);

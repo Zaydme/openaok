@@ -24,15 +24,15 @@ namespace Rendering::Messages {
 namespace {
 
 // Where the lines go: eight panels 620x20 at x 4, y 20, 40 ... 160 into the
-// map view -- 214 further down in a scenario with instructions, which hold
-// the top of the view. The text's cell sits one row into its panel.
+// map view -- 214 further down in a single-player game, below the place a
+// scenario's instructions take. The text's cell sits one row into its panel.
 constexpr int kFirstTop = 20;
-constexpr int kScenarioDrop = 214;
+constexpr int kSinglePlayerDrop = 214;
 constexpr int kPitch = 20;
 constexpr int kLeft = 4;
 constexpr int kTextInset = 1;
 constexpr int kSlots = 8;
-constexpr uint32_t kShowMs = 8000;
+constexpr uint32_t kShowMs = 10000;
 constexpr size_t kHistory = 100;
 
 // A scenario's instructions: three panels 622x51 at x 4, y 34, 94 and 154 into
@@ -69,7 +69,7 @@ constexpr int kStanceEnemy = 3027;
 struct Line {
     std::string text;
     SDL_Color colour;
-    uint32_t posted = 0;
+    uint32_t until = 0;       // SDL ticks: when it goes
 };
 
 struct Instruction {
@@ -82,11 +82,7 @@ struct State {
     std::deque<Line> lines;   // everything posted, oldest first
     Instruction panels[kPanels];
     uint64_t heard_display = 0;
-    // What each slot shows: an index into `lines`' total count, or -1.
-    long slot_line[kSlots] = {-1, -1, -1, -1, -1, -1, -1, -1};
-    bool scenario_instructions = false;
-    int next_slot = 0;
-    long posted = 0;          // lines posted in all, so slots outlive the history's trim
+    bool single_player = false;
     uint64_t heard = 0;
     uint64_t heard_chat = 0;
     Core::PlayerId relic_holder = 0;
@@ -208,10 +204,20 @@ void Reset() {
 
 void Post(const std::string& text, SDL_Color colour) {
     State& s = S();
-    s.lines.push_back(Line{text, colour, SDL_GetTicks()});
+    const uint32_t now = SDL_GetTicks();
+    uint32_t until = now + kShowMs;
+    // The same words still showing in a panel the new line leaves them: the
+    // new line goes when they do.
+    const size_t kept = std::min(s.lines.size(), static_cast<size_t>(kSlots - 1));
+    for (size_t i = s.lines.size() - kept; i < s.lines.size(); ++i) {
+        const Line& line = s.lines[i];
+        if (line.text == text && static_cast<int32_t>(line.until - now) > 0) {
+            until = line.until;
+            break;
+        }
+    }
+    s.lines.push_back(Line{text, colour, until});
     while (s.lines.size() > kHistory) s.lines.pop_front();
-    s.slot_line[s.next_slot] = s.posted++;
-    s.next_slot = (s.next_slot + 1) % kSlots;
     s.review = 0;
 }
 
@@ -320,35 +326,24 @@ void Draw(SDL_Renderer* renderer, int win_w, int win_h) {
                                SDL_Color{255, 255, 255, 255}, outline);
         }
     }
-    const long first_kept = s.posted - static_cast<long>(s.lines.size());
     const bool reviewing = s.review > 0 && now - s.review_at < kShowMs;
     if (!reviewing) s.review = 0;
-    const int top = view.y + sized(kFirstTop + kTextInset + (s.scenario_instructions ? kScenarioDrop : 0));
+    const int top = view.y + sized(kFirstTop + kTextInset + (s.single_player ? kSinglePlayerDrop : 0));
     const int pitch = sized(kPitch);
     const int left = sized(kLeft);
-    if (reviewing) {
-        // The history, a slotful at a time, oldest at the top.
-        const int end = static_cast<int>(s.lines.size()) - s.review;
-        const int start = std::max(0, end - kSlots);
-        for (int i = start; i < end; ++i) {
-            const Line& line = s.lines[static_cast<size_t>(i)];
-            Text::DrawOutlined(renderer, line_font, left, top + (i - start) * pitch,
-                               line.text, line.colour, outline);
-        }
-        return;
-    }
-    for (int slot = 0; slot < kSlots; ++slot) {
-        const long index = s.slot_line[slot];
-        if (index < first_kept) continue;
-        const Line& line = s.lines[static_cast<size_t>(index - first_kept)];
-        if (now - line.posted >= kShowMs) continue;
-        Text::DrawOutlined(renderer, line_font, left, top + slot * pitch, line.text,
+    // The newest line in the last panel and the ones before it above, as
+    // many as fit; reviewing, from the line the keys have stepped back to.
+    const int newest = static_cast<int>(s.lines.size()) - 1 - (reviewing ? s.review : 0);
+    for (int k = 0; k < kSlots && newest - k >= 0; ++k) {
+        const Line& line = s.lines[static_cast<size_t>(newest - k)];
+        if (!reviewing && static_cast<int32_t>(line.until - now) <= 0) continue;
+        Text::DrawOutlined(renderer, line_font, left, top + (kSlots - 1 - k) * pitch, line.text,
                            line.colour, outline);
     }
 }
 
-void SetScenarioInstructions(bool shown) {
-    S().scenario_instructions = shown;
+void SetSinglePlayer(bool single) {
+    S().single_player = single;
 }
 
 void CatchUp(const entt::registry& registry) {

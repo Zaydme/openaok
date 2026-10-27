@@ -1175,17 +1175,17 @@ GameEnd RunGame(HAL::Window& window, Rendering::Renderer& renderer, Core::GameSe
     if (HAL::Platform::WarmArt()) Rendering::Renderer::Warm(*sim);
     HAL::Platform::LogMemory("with the art");
 
-    // A scenario's game: its instructions hold the top of the view. Before
-    // it, in a single-player game started afresh: a campaign's scenario has
-    // its slides, William Wallace's first also the intro before them once
-    // each time the campaign's map was opened, and goes straight on into the
-    // game after them; any other scenario has its instructions screen, when
+    // A single-player game's message lines sit below the place a scenario's
+    // instructions take. Before a scenario, in a single-player game started
+    // afresh: a campaign's scenario has its slides, William Wallace's first
+    // also the intro before them once each time the campaign's map was
+    // opened, and goes straight on into the game after them; any other
+    // scenario has its instructions screen, when
     // it has instructions. --screenshot skips the instructions unless
     // --mission asks for them.
     const Scenario::File* scenario = ECS::Triggers::ScenarioOf(sim->GetRegistry());
     const CampaignGame campaign = scenario != nullptr ? CampaignOf(setup) : CampaignGame{};
-    Rendering::Messages::SetScenarioInstructions(scenario != nullptr &&
-                                                 session.role == Net::Role::Offline);
+    Rendering::Messages::SetSinglePlayer(session.role == Net::Role::Offline);
     const bool fresh = scenario != nullptr && session.role == Net::Role::Offline &&
                        play.load_path.empty() && play.playback == nullptr;
     // With --screenshot they play only while --clicks has clicks to give.
