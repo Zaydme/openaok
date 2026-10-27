@@ -1,5 +1,6 @@
 #pragma once
 #include <SDL2/SDL.h>
+#include <cstdint>
 #include <string>
 #include "ecs/Simulation.h"
 #include "hal/Window.h"
@@ -35,6 +36,19 @@ public:
     // FPS tracking; shown only with --fps.
     int current_fps = 0;
     bool show_fps = false;
+
+    // What the last frame's drawing cost, in microseconds of this thread's
+    // time, stage by stage (--perf). The GPU's own work is not in them: SDL
+    // hands it the frame at Finish.
+    struct Cost {
+        int64_t terrain = 0;     // the water and the terrain
+        int64_t ground = 0;      // what lies on the ground, sorted and drawn
+        int64_t fog = 0;
+        int64_t standing = 0;    // what stands over the fog
+        int64_t interface = 0;   // the bars, the panel, the messages
+        int64_t finish = 0;      // the cursor, and the frame handed over and shown
+    };
+    Cost cost;
 
     // Outline every blocked tile (--show-grid), to check the simulation's
     // ground against the art standing on it.

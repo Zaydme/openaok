@@ -143,6 +143,8 @@ struct Launch {
     std::string play_path;
     int seats = 2;
     bool report_frames = false;
+    // --perf: once a second, what the frames cost, stage by stage.
+    bool perf = false;
     // --scenario PATH: a game of a scenario (PATH:N, a campaign's Nth).
     std::string scenario_path;
     // --editor [PATH]: the scenario editor, on a new scenario or the one at
@@ -451,6 +453,8 @@ void ParseFlags(int argc, char* argv[], Launch& launch) {
             // written, and report what they cost.
             launch.screenshot_after_frames = std::atoi(argv[++i]);
             launch.report_frames = true;
+        } else if (arg == "--perf") {
+            launch.perf = true;
         } else if (arg == "--seats" && i + 1 < argc) {
             // An offline game of this many seats, the computer in the rest.
             launch.seats = std::atoi(argv[++i]);
@@ -1253,6 +1257,14 @@ GameEnd RunGame(HAL::Window& window, Rendering::Renderer& renderer, Core::GameSe
         Micros warmup{0};
     } frame_report;
     constexpr int kWarmupFrames = 60;
+    // --perf: a second's frames, their costs summed in microseconds.
+    struct PerfReport {
+        int frames = 0;
+        uint64_t ticks = 0;
+        int64_t sim = 0;
+        int64_t frame = 0;
+        Rendering::Renderer::Cost drawn;
+    } perf;
     bool told_outcome = false;
     GameEnd end = GameEnd::Quit;
 
@@ -1386,6 +1398,7 @@ GameEnd RunGame(HAL::Window& window, Rendering::Renderer& renderer, Core::GameSe
 
         // === Fixed-step simulation ===
         const auto sim_start = std::chrono::high_resolution_clock::now();
+        const uint64_t tick_before = sim->Tick();
         if (session.role == Net::Role::Offline) {
             while (accumulator >= kTick) {
                 if (play.playback != nullptr) {
@@ -1432,6 +1445,7 @@ GameEnd RunGame(HAL::Window& window, Rendering::Renderer& renderer, Core::GameSe
                             : !session.failure.empty() ? session.failure
                             : std::string{};
         }
+        const auto sim_end = std::chrono::high_resolution_clock::now();
 
         // A scenario's Change View, on this player's screen.
         if (const auto* display = ECS::Triggers::ReadDisplay(sim->GetRegistry())) {
@@ -1493,6 +1507,20 @@ GameEnd RunGame(HAL::Window& window, Rendering::Renderer& renderer, Core::GameSe
         }
         renderer.Finish(*sim, window);
 
+        if (launch.perf) {
+            const auto end_of_frame = std::chrono::high_resolution_clock::now();
+            ++perf.frames;
+            perf.ticks += sim->Tick() - tick_before;
+            perf.sim += std::chrono::duration_cast<Micros>(sim_end - sim_start).count();
+            perf.frame += std::chrono::duration_cast<Micros>(end_of_frame - now).count();
+            perf.drawn.terrain += renderer.cost.terrain;
+            perf.drawn.ground += renderer.cost.ground;
+            perf.drawn.fog += renderer.cost.fog;
+            perf.drawn.standing += renderer.cost.standing;
+            perf.drawn.interface += renderer.cost.interface;
+            perf.drawn.finish += renderer.cost.finish;
+        }
+
         // --frames: what the frame cost, its sleep aside.
         // The first second is the art being decoded on first use; it is
         // reported apart from the frames that follow.
@@ -1516,6 +1544,19 @@ GameEnd RunGame(HAL::Window& window, Rendering::Renderer& renderer, Core::GameSe
             renderer.current_fps = fps_frames;
             fps_frames = 0;
             fps_timer -= 1.0f;
+            if (launch.perf && perf.frames > 0) {
+                const double n = perf.frames;
+                std::printf("[Perf] %d fps, %.1f ms a frame: %.1f simulation (%.1f ticks), "
+                            "%.1f terrain, %.1f ground, %.1f fog, %.1f standing, %.1f interface, "
+                            "%.1f shown; %zu entities\n",
+                            perf.frames, perf.frame / n / 1000.0, perf.sim / n / 1000.0, perf.ticks / n,
+                            perf.drawn.terrain / n / 1000.0, perf.drawn.ground / n / 1000.0,
+                            perf.drawn.fog / n / 1000.0, perf.drawn.standing / n / 1000.0,
+                            perf.drawn.interface / n / 1000.0, perf.drawn.finish / n / 1000.0,
+                            static_cast<size_t>(sim->GetRegistry().storage<entt::entity>().size()));
+                std::fflush(stdout);
+                perf = PerfReport{};
+            }
         }
         HoldFrame(prev_time);
     }

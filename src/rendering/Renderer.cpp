@@ -97,14 +97,26 @@ void Renderer::Render(ECS::Simulation& sim, HAL::Window& window, float alpha) {
     
     SDL_RenderSetScale(sdl_r, camera_zoom, camera_zoom);
     
+    using Clock = std::chrono::steady_clock;
+    auto since = [](Clock::time_point& mark) {
+        const Clock::time_point now = Clock::now();
+        const int64_t us = std::chrono::duration_cast<std::chrono::microseconds>(now - mark).count();
+        mark = now;
+        return us;
+    };
+    Clock::time_point mark = Clock::now();
     TerrainRenderer::DrawWaterLayer(sim, *this, sdl_r);
     TerrainRenderer::DrawTerrain(sim, *this, sdl_r);
+    cost.terrain = since(mark);
     // The fog goes over the ground and what lies on it; what stands on seen
     // ground is drawn whole over the fog, even where it reaches over fog or
     // black.
     EntityRenderer::DrawGroundLevel(sim, *this, sdl_r, alpha);
+    cost.ground = since(mark);
     FogRenderer::Draw(sim, *this, sdl_r);
+    cost.fog = since(mark);
     EntityRenderer::DrawStanding(*this, sdl_r);
+    cost.standing = since(mark);
     // --show-grid: every blocked tile outlined, exactly as the simulation's
     // walkability reads it, to check the ground against the art standing on it.
     if (show_walkability) {
@@ -146,11 +158,15 @@ void Renderer::Render(ECS::Simulation& sim, HAL::Window& window, float alpha) {
     }
 
     if (show_fps) UIRenderer::DrawFPS(sdl_r, current_fps, win_w);
+    cost.interface = since(mark);
 }
 
 void Renderer::Finish(ECS::Simulation& sim, HAL::Window& window) {
+    const auto start = std::chrono::steady_clock::now();
     UIRenderer::DrawCursor(sim, *this, window.GetSDLRenderer());
     window.Present();
+    cost.finish = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::steady_clock::now() - start).count();
 }
 
 } // namespace Rendering
