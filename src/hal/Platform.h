@@ -15,6 +15,10 @@ namespace HAL::Platform {
 // Elsewhere it does nothing.
 bool Start(int argc, char* argv[]);
 
+// Whether the world's art is decoded before the first frame, rather than as
+// it first comes into view (it is, but on the Switch).
+bool WarmArt();
+
 // What the game has in memory and may have, in the log (Switch).
 void LogMemory(const char* when);
 

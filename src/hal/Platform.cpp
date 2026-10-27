@@ -173,10 +173,13 @@ void Stopped() {
 extern "C" {
 alignas(16) u8 __nx_exception_stack[0x8000];
 u64 __nx_exception_stack_size = sizeof(__nx_exception_stack);
-extern char __start__;
 
 void __libnx_exception_handler(ThreadExceptionDump* ctx) {
-    const u64 base = reinterpret_cast<u64>(&__start__);
+    // The .nro's base: where the memory holding this function's code begins.
+    MemoryInfo info{};
+    u32 page = 0;
+    svcQueryMemory(&info, &page, reinterpret_cast<u64>(&__libnx_exception_handler));
+    const u64 base = info.addr;
     std::fprintf(stderr, "[Platform] crashed (exception %u) at OpenAoK + 0x%llx, touching 0x%llx; called from",
                  ctx->error_desc, static_cast<unsigned long long>(ctx->pc.x - base),
                  static_cast<unsigned long long>(ctx->far.x));
@@ -252,6 +255,8 @@ bool Start(int argc, char* argv[]) {
     return true;
 }
 
+bool WarmArt() { return false; }
+
 void LogMemory(const char* when) {
     // libnx takes nearly all of the process's memory for the heap at start, so
     // what is in use is the heap's own account.
@@ -272,6 +277,8 @@ std::string PrefPath(const char* kind) {
 #else
 
 bool Start(int, char*[]) { return true; }
+
+bool WarmArt() { return true; }
 
 void LogMemory(const char*) {}
 
