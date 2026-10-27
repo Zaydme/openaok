@@ -7,6 +7,7 @@
 
 #include "audio/InterfaceSounds.h"
 #include "core/ConfigManager.h"
+#include "ecs/Diplomacy.h"
 #include "ecs/Techs.h"
 #include "ecs/Chat.h"
 #include "ecs/Flares.h"
@@ -85,6 +86,11 @@ void Hear(const entt::registry& registry, const ECS::Events::Event& event,
         // comes with the message sound, as its line does.
         bool age = false;
         for (int a = 1; a <= 3; ++a) age |= event.id == ECS::Techs::AgeTech(registry, event.player, a);
+        // An enemy's Spies, or Treason: spies.wav.
+        if (event.player != listener && ECS::Techs::Spies(event.id) &&
+            ECS::Diplomacy::StanceOf(registry, event.player, listener) == ECS::Diplomacy::Stance::Enemy) {
+            HAL::Audio::Play(InterfaceSound::kSpies, 1.0f, 0.0f);
+        }
         if (event.player == listener) {
             if (event.subject == entt::null) return;
             HAL::Audio::Play(age ? InterfaceSound::kResearchDone : InterfaceSound::kResearchDone2,

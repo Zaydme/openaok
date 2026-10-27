@@ -13,13 +13,13 @@
 // that number, Taunt/01 Yes.mp3 ... 30 Wololo.mp3. And the notifications'
 // own: research finished at one of the player's buildings (resdone.wav for an
 // age, resdone2.wav for anything else; chatrcvd.wav for another player's
-// age), a sheep found (capsheep.wav), a farm or fish trap run out
-// (farmdied.wav), a relic picked up (puprelic.wav), production halted for
-// want of houses (needhous.wav), one of Gaia's taken (capgaia.wav).
-// Interface sounds by their interfac.drs file ids (audio/InterfaceSounds.h),
-// heard only by the player they concern -- but for a Wonder, begun
-// (mstart.wav), finished (mdone.wav) or destroyed (mkilled.wav), which every
-// player hears.
+// age), an enemy's Spies (spies.wav), a sheep found (capsheep.wav), a farm or
+// fish trap run out (farmdied.wav), a relic picked up (puprelic.wav),
+// production halted for want of houses (needhous.wav), one of Gaia's taken
+// (capgaia.wav). Interface sounds by their interfac.drs file ids
+// (audio/InterfaceSounds.h), heard only by the player they concern -- but for
+// a Wonder, begun (mstart.wav), finished (mdone.wav) or destroyed
+// (mkilled.wav), which every player hears.
 namespace Audio::Notices {
 
 // Where the taunts are: the Taunt folder beside Data.

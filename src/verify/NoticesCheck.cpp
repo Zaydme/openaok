@@ -15,6 +15,7 @@
 #include "ecs/Players.h"
 #include "ecs/Production.h"
 #include "ecs/Simulation.h"
+#include "ecs/Techs.h"
 #include "ecs/Units.h"
 #include "ecs/components/Building.h"
 #include "ecs/components/Identity.h"
@@ -244,6 +245,15 @@ bool CheckNotices() {
             });
             if (!named) verdict = "research finished was not told with its building";
         }
+    }
+
+    // Spies known by what it does: the Castle's Spies sets the enemy's sight;
+    // Loom does not.
+    if (verdict == "ok") {
+        constexpr int kSpiesTech = 408;
+        constexpr int kLoomTech = 22;
+        if (!ECS::Techs::Spies(kSpiesTech)) verdict = "Spies is not known as Spies";
+        else if (ECS::Techs::Spies(kLoomTech)) verdict = "Loom is taken for Spies";
     }
 
     // A building site found taken: two villagers sent the same tick to put a

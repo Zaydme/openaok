@@ -18,6 +18,9 @@ constexpr int kAgeTechResources[] = {R::Res::DarkAgeTech, R::Res::FeudalAgeTech,
                                      R::Res::CastleAgeTech, R::Res::ImperialAgeTech};
 constexpr int kAges = 4;
 
+// The dat resource that shows a player what its enemies see.
+constexpr int kRevealEnemy = 183;
+
 bool RequirementsMet(const Players::Player& player, const R::TechRules& tech) {
     int done = 0;
     for (int i = 0; i < tech.required_listed; ++i) {
@@ -175,6 +178,16 @@ int Age(const entt::registry& registry, Core::PlayerId player_id) {
     const Players::Player* player = Players::Find(registry, player_id);
     if (player == nullptr) return 0;
     return Players::Resource(*player, R::Res::CurrentAge).ToInt();
+}
+
+bool Spies(int tech_id) {
+    const R::TechRules* tech = R::Tech(tech_id);
+    const R::Effect* effect = tech != nullptr ? R::EffectById(tech->effect) : nullptr;
+    if (effect == nullptr) return false;
+    for (const R::EffectCommand& c : effect->commands) {
+        if (c.type == R::EffectType::Resource && c.a == kRevealEnemy && c.d.value > 0) return true;
+    }
+    return false;
 }
 
 int AgeTech(const entt::registry& registry, Core::PlayerId player_id, int age) {
