@@ -1230,6 +1230,9 @@ GameEnd RunGame(HAL::Window& window, Rendering::Renderer& renderer, Core::GameSe
     constexpr int32_t kTickMs = 16;                       // ~60 Hz simulation
     constexpr Micros kTick{kTickMs * 1000};
     constexpr Micros kMaxFrame{250000};                   // spiral-of-death cap
+    // The most a frame spends on the simulation offline: a machine that cannot
+    // keep up plays the game slower, rather than showing it seldom.
+    constexpr Micros kSimBudget{25000};
 
     // The game's speed: Slow, Normal and Fast run the world at 1, 1.5 and 2
     // times the dat's own rates. --screenshot runs at the dat's own.
@@ -1382,6 +1385,7 @@ GameEnd RunGame(HAL::Window& window, Rendering::Renderer& renderer, Core::GameSe
         }
 
         // === Fixed-step simulation ===
+        const auto sim_start = std::chrono::high_resolution_clock::now();
         if (session.role == Net::Role::Offline) {
             while (accumulator >= kTick) {
                 if (play.playback != nullptr) {
@@ -1399,6 +1403,10 @@ GameEnd RunGame(HAL::Window& window, Rendering::Renderer& renderer, Core::GameSe
                                  "at tick " << sim->Tick() << std::endl;
                 }
                 accumulator -= kTick;
+                if (accumulator >= kTick && std::chrono::high_resolution_clock::now() - sim_start > kSimBudget) {
+                    accumulator = kTick - Micros{1};
+                    break;
+                }
             }
         } else {
             // In lockstep: this machine's orders go to everyone, and a tick
