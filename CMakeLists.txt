@@ -98,4 +98,15 @@ if(NINTENDO_SWITCH)
     nx_create_nro(OpenAoK
         NACP OpenAoK.nacp
         ICON "${CMAKE_CURRENT_SOURCE_DIR}/switch/icon.jpg")
+
+    # The test agent (switch/agent.py): runs the game on the console from a
+    # computer.
+    add_executable(OpenAoKAgent switch/agent/agent.cpp)
+    nx_generate_nacp(OpenAoKAgent.nacp
+        NAME "OpenAoK test agent"
+        AUTHOR "Zaydme8 and the OpenAoK contributors"
+        VERSION "${PROJECT_VERSION}")
+    nx_create_nro(OpenAoKAgent
+        NACP OpenAoKAgent.nacp
+        ICON "${CMAKE_CURRENT_SOURCE_DIR}/switch/icon.jpg")
 endif()

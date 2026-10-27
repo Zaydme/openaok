@@ -52,6 +52,11 @@ void Renderer::Warm(ECS::Simulation& sim) {
             graphics.GetShadowLayer(static_cast<uint32_t>(shadow));
         }
     }
+    int textures = 0;
+    int64_t bytes = 0;
+    graphics.Count(textures, bytes);
+    std::cout << "[Renderer] Art ready: " << textures << " textures, " << bytes / (1024 * 1024)
+              << " MB" << std::endl;
 }
 
 void Renderer::Render(ECS::Simulation& sim, HAL::Window& window, float alpha) {

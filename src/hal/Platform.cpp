@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <exception>
 #include <fstream>
+#include <malloc.h>
 #include <sstream>
 #include <typeinfo>
 #include <vector>
@@ -28,6 +29,12 @@ namespace {
 std::string g_root = "sdmc:/switch/openaok/";
 // Whether the network is open, for nxlink.
 bool g_network = false;
+// The .nro the loader starts when the game ends (--then), or empty.
+std::string g_then;
+
+void Then() {
+    if (!g_then.empty()) envSetNextLoad(g_then.c_str(), ("\"" + g_then + "\"").c_str());
+}
 
 // A message on the console's own text screen, until + is pressed.
 void Tell(const char* message) {
@@ -152,12 +159,48 @@ void Stopped() {
     // Ending here skips the exit handlers; the network must be closed, or
     // the Homebrew Menu cannot start again.
     Stop();
+    Then();
     std::abort();
 }
 
 } // namespace
 
+} // namespace HAL::Platform
+
+// libnx calls this for a fault in any thread: where it happened goes to the
+// log (or nxlink) as offsets into the .nro, for addr2line, before the process
+// ends as a crash. The stack is the handler's own.
+extern "C" {
+alignas(16) u8 __nx_exception_stack[0x8000];
+u64 __nx_exception_stack_size = sizeof(__nx_exception_stack);
+extern char __start__;
+
+void __libnx_exception_handler(ThreadExceptionDump* ctx) {
+    const u64 base = reinterpret_cast<u64>(&__start__);
+    std::fprintf(stderr, "[Platform] crashed (exception %u) at OpenAoK + 0x%llx, touching 0x%llx; called from",
+                 ctx->error_desc, static_cast<unsigned long long>(ctx->pc.x - base),
+                 static_cast<unsigned long long>(ctx->far.x));
+    // The frame chain: each frame holds the one before it and its return address.
+    u64 frame = ctx->fp.x;
+    for (int i = 0; i < 24 && frame != 0 && (frame & 15) == 0; ++i) {
+        const u64* record = reinterpret_cast<const u64*>(frame);
+        std::fprintf(stderr, " 0x%llx", static_cast<unsigned long long>(record[1] - base));
+        if (record[0] <= frame) break;
+        frame = record[0];
+    }
+    std::fprintf(stderr, "\n");
+    std::fflush(stderr);
+    svcBreak(BreakReason_Panic, 0, 0);
+}
+}
+
+namespace HAL::Platform {
+
 bool Start(int argc, char* argv[]) {
+    for (int i = 1; i + 1 < argc; ++i) {
+        if (std::string(argv[i]) == "--then") g_then = argv[i + 1];
+    }
+    std::atexit(Then);
     if (argc > 0 && argv[0] != nullptr) {
         const std::string self = argv[0];
         const size_t slash = self.find_last_of('/');
@@ -209,6 +252,17 @@ bool Start(int argc, char* argv[]) {
     return true;
 }
 
+void LogMemory(const char* when) {
+    // libnx takes nearly all of the process's memory for the heap at start, so
+    // what is in use is the heap's own account.
+    const struct mallinfo heap = mallinfo();
+    u64 total = 0;
+    svcGetInfo(&total, InfoType_TotalMemorySize, CUR_PROCESS_HANDLE, 0);
+    std::printf("[Platform] memory %s: %zu MB of the heap in use, %zu MB taken from the system, %llu MB in all\n",
+                when, static_cast<size_t>(heap.uordblks) >> 20, static_cast<size_t>(heap.arena) >> 20,
+                static_cast<unsigned long long>(total >> 20));
+}
+
 std::string PrefPath(const char* kind) {
     const std::string dir = g_root + kind;
     mkdir(dir.c_str(), 0777);
@@ -218,6 +272,8 @@ std::string PrefPath(const char* kind) {
 #else
 
 bool Start(int, char*[]) { return true; }
+
+void LogMemory(const char*) {}
 
 std::string PrefPath(const char* kind) {
     char* base = SDL_GetPrefPath("OpenAoK", kind);

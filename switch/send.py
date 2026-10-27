@@ -9,6 +9,9 @@ It finds the Switch on the network (or uses --host), sends the game to
 sdmc:/switch/openaok/OpenAoK.nro, beside its data, and starts it with ARGS.
 The game then sends what it prints here until it ends, or until Ctrl+C. This
 is the protocol of devkitPro's nxlink.
+
+With --agent it sends and starts the test agent instead
+(sdmc:/switch/openaok-agent/agent.nro), for switch/agent.py.
 """
 import argparse
 import os
@@ -24,7 +27,8 @@ ROOT = os.path.dirname(HERE)
 LOADER_PORT = 28280   # the Switch's network loader
 OUTPUT_PORT = 28771   # the loader's answer to a search, and the game's output
 CHUNK = 16 * 1024     # the largest compressed piece the loader takes
-REMOTE_PATH = 'openaok/OpenAoK.nro'   # under sdmc:/switch/
+GAME_PATH = 'openaok/OpenAoK.nro'          # under sdmc:/switch/
+AGENT_PATH = 'openaok-agent/agent.nro'
 
 
 def find_switch(tries=20):
@@ -76,9 +80,9 @@ def connect(host, wait):
             time.sleep(2)
 
 
-def send(host, nro, args, wait):
+def send(host, nro, remote, args, wait):
     data = open(nro, 'rb').read()
-    name = REMOTE_PATH.encode()
+    name = remote.encode()
     sock = connect(host, wait)
     sock.sendall(struct.pack('<I', len(name)) + name + struct.pack('<I', len(data)))
     refused = answer(sock)
@@ -95,7 +99,7 @@ def send(host, nro, args, wait):
     sock.sendall(struct.pack('<I', len(line)) + line)
     sock.shutdown(socket.SHUT_WR)
     sock.close()
-    print('==> Sent %s (%d KB) to %s' % (REMOTE_PATH, len(data) // 1024, host), flush=True)
+    print('==> Sent %s (%d KB) to %s' % (remote, len(data) // 1024, host), flush=True)
 
 
 def main():
@@ -104,6 +108,7 @@ def main():
     parser.add_argument('--nro', default=os.path.join(ROOT, 'build-switch', 'OpenAoK.nro'))
     parser.add_argument('--wait', type=int, default=0,
                         help='seconds to keep trying while the loader is not yet listening')
+    parser.add_argument('--agent', action='store_true', help='send and start the test agent instead')
     parser.add_argument('args', nargs='*', help="the game's own options, after --")
     args = parser.parse_args()
 
@@ -117,7 +122,12 @@ def main():
     output.bind(('', OUTPUT_PORT))
     output.listen(1)
 
-    send(host, args.nro, args.args, args.wait)
+    if args.agent:
+        send(host, os.path.join(ROOT, 'build-switch', 'OpenAoKAgent.nro'), AGENT_PATH, [], args.wait)
+        print('==> The agent is starting; use switch/agent.py --host %s' % host)
+        return
+
+    send(host, args.nro, GAME_PATH, args.args, args.wait)
 
     game, _ = output.accept()
     output.close()

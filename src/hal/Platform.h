@@ -15,6 +15,9 @@ namespace HAL::Platform {
 // Elsewhere it does nothing.
 bool Start(int argc, char* argv[]);
 
+// What the game has in memory and may have, in the log (Switch).
+void LogMemory(const char* when);
+
 // The folder kept for the player's files of one kind ("Profile", "SaveGame",
 // "Scenario"), ending in a slash; empty when there is none.
 std::string PrefPath(const char* kind);

@@ -118,6 +118,9 @@ public:
     // the silhouette drawn where a unit is hidden behind a building or tree.
     SDL_Texture* GetOutlineLayer(uint32_t slp_id);
 
+    // How many textures the cache holds, and their pixels' size in bytes.
+    void Count(int& textures, int64_t& bytes) const;
+
     // A player's colour, taken from the middle of their 16-entry palette ramp.
     PaletteColor GetPlayerColor(int player) const;
 

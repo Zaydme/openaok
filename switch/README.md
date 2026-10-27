@@ -137,6 +137,29 @@ python3 switch/send.py -- --game --map Arabia # with the game's own options
 
 The `.nro` replaces `switch/openaok/OpenAoK.nro` on the card, beside the data.
 
+For longer testing, the test agent runs the game again and again without anyone
+at the console. Send it once from the network loader, and leave it waiting:
+
+```sh
+python3 switch/send.py --agent                      # starts "OpenAoK test agent"
+```
+
+It is then also in the Homebrew Menu. From the computer:
+
+```sh
+export OPENAOK_SWITCH=192.168.1.28
+python3 switch/agent.py run --nro build-switch/OpenAoK.nro -- --game --perf --frames 1800
+python3 switch/agent.py get sdmc:/switch/openaok/openaok.log openaok.log
+python3 switch/agent.py ls sdmc:/atmosphere/crash_reports
+```
+
+`run` sends the build, starts the game with its own options and prints what it
+prints; when the game ends it hands back to the agent. `--frames N` ends a run
+after N frames, and with `--screenshot NAME --fullscreen` leaves that frame in
+`switch/openaok/game/build/` for `get`. A game that crashes prints where, as
+offsets into the `.nro` for `aarch64-none-elf-addr2line`, and the agent then has
+to be started again from the Homebrew Menu.
+
 ## Not yet
 
 - Network games, which start from the command line.

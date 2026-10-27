@@ -141,6 +141,30 @@ const GraphicAtlas* GraphicCache::AtlasFrom(
     return inserted.first->second.valid ? &inserted.first->second : nullptr;
 }
 
+void GraphicCache::Count(int& textures, int64_t& bytes) const {
+    textures = 0;
+    bytes = 0;
+    int widest = 0, tallest = 0;
+    auto add = [&](SDL_Texture* texture) {
+        int w = 0, h = 0;
+        if (texture == nullptr || SDL_QueryTexture(texture, nullptr, nullptr, &w, &h) != 0) return;
+        ++textures;
+        bytes += static_cast<int64_t>(w) * h * 4;
+        if (static_cast<int64_t>(w) * h > static_cast<int64_t>(widest) * tallest) {
+            widest = w;
+            tallest = h;
+        }
+    };
+    for (const auto& [id, atlas] : atlases) add(atlas.base);
+    for (const auto& [id, texture] : player_layers) add(texture);
+    for (const auto& [id, texture] : shadow_layers) add(texture);
+    for (const auto& [id, texture] : outline_layers) add(texture);
+    for (const auto& [id, atlas] : interface_atlases) add(atlas.base);
+    for (const auto& [id, texture] : interface_player_layers) add(texture);
+    for (const auto& [id, atlas] : terrain_atlases) add(atlas.base);
+    std::cout << "[HAL] Largest texture " << widest << "x" << tallest << std::endl;
+}
+
 SDL_Texture* GraphicCache::GetPlayerLayer(uint32_t slp_id, int player) {
     // Keyed by the colour the player wears, which the lobby may change from
     // game to game.

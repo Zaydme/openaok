@@ -1171,7 +1171,9 @@ GameEnd RunGame(HAL::Window& window, Rendering::Renderer& renderer, Core::GameSe
     }
     // The world's art decoded now, while the loading screen is up, not as it
     // first comes into view.
+    HAL::Platform::LogMemory("before the art");
     Rendering::Renderer::Warm(*sim);
+    HAL::Platform::LogMemory("with the art");
 
     // A scenario's game: its instructions hold the top of the view. Before
     // it, in a single-player game started afresh: a campaign's scenario has
