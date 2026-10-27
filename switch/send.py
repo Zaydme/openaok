@@ -11,7 +11,7 @@ The game then sends what it prints here until it ends, or until Ctrl+C. This
 is the protocol of devkitPro's nxlink.
 
 With --agent it sends and starts the test agent instead
-(sdmc:/switch/openaok-agent/agent.nro), for switch/agent.py.
+(sdmc:/switch/openaok-agent.nro), for switch/agent.py.
 """
 import argparse
 import os
@@ -28,7 +28,7 @@ LOADER_PORT = 28280   # the Switch's network loader
 OUTPUT_PORT = 28771   # the loader's answer to a search, and the game's output
 CHUNK = 16 * 1024     # the largest compressed piece the loader takes
 GAME_PATH = 'openaok/OpenAoK.nro'          # under sdmc:/switch/
-AGENT_PATH = 'openaok-agent/agent.nro'
+AGENT_PATH = 'openaok-agent.nro'
 
 
 def find_switch(tries=20):

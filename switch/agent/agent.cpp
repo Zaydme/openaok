@@ -150,7 +150,7 @@ int main(int argc, char* argv[]) {
     padInitializeDefault(&pad);
     appletSetAutoSleepDisabled(true);
     socketInitializeDefault();
-    const std::string self = argc > 0 && argv[0] != nullptr ? argv[0] : "sdmc:/switch/openaok-agent/agent.nro";
+    const std::string self = argc > 0 && argv[0] != nullptr ? argv[0] : "sdmc:/switch/openaok-agent.nro";
 
     const int server = socket(AF_INET, SOCK_STREAM, 0);
     const int yes = 1;
