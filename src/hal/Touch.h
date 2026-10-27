@@ -16,8 +16,9 @@ namespace HAL::Touch {
 // waiting for its target -- the finger moves the pointer instead and lifting
 // it clicks there, so a building can be seen and slid into place first.
 
-// Turns the controls on, before SDL starts (Android): SDL stops making its own
-// mouse out of the first finger. Left off, every call here does nothing.
+// Turns the controls on, before SDL starts (Android, Switch): SDL stops making
+// its own mouse out of the first finger. Left off, every call here does
+// nothing.
 void Enable();
 bool Enabled();
 
@@ -32,9 +33,11 @@ void TakePan(float& dx, float& dy);
 // Set once a frame by the game: whether the next touch aims.
 void SetAiming(bool aiming);
 
-// Whether a mouse is plugged in, as the system tells it (Android); a machine
-// without the controls is taken to have one. Edge scrolling needs a real mouse:
-// a finger leaves the pointer where it lifted, which may well be on an edge.
+// Whether the pointer is a mouse's: one is plugged in, as the system tells it
+// (Android), or a controller's stick moved the pointer last (hal/Pointer); a
+// machine without the controls is taken to have one. Edge scrolling needs
+// one: a finger leaves the pointer where it lifted, which may well be on an
+// edge.
 bool MouseAttached();
 
 } // namespace HAL::Touch

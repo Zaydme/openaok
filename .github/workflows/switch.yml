@@ -1,0 +1,51 @@
+# Builds OpenAoK.nro for the Nintendo Switch, which needs no game data, and on
+# a version tag (v*) publishes it as a release: a zip to unpack onto the SD
+# card's root, holding switch/openaok/OpenAoK.nro and the licenses.
+name: Switch
+
+on:
+  push:
+    branches: [main, switch]
+    tags: ['v*']
+  pull_request:
+
+jobs:
+  nro:
+    runs-on: ubuntu-latest
+    container: devkitpro/devkita64:20260219
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: |
+          cmake -S . -B build-switch -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="$DEVKITPRO/cmake/Switch.cmake"
+          cmake --build build-switch --parallel
+      - name: Lay out the SD card's folder
+        run: |
+          mkdir -p dist/switch/openaok
+          cp build-switch/OpenAoK.nro LICENSE THIRD_PARTY_NOTICES.md dist/switch/openaok/
+          cp -r LICENSES dist/switch/openaok/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenAoK-switch
+          path: dist
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: nro
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: OpenAoK-switch
+          path: dist
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          (cd dist && zip -r "../OpenAoK-switch-$GITHUB_REF_NAME.zip" switch)
+          gh release create "$GITHUB_REF_NAME" "OpenAoK-switch-$GITHUB_REF_NAME.zip" \
+            --repo "$GITHUB_REPOSITORY" --title "OpenAoK $GITHUB_REF_NAME" \
+            --notes "OpenAoK.nro for the Nintendo Switch. It holds none of the game: make the game's folder from your own CD with switch/package.py, as switch/README.md describes."

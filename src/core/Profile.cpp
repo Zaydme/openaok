@@ -1,6 +1,6 @@
 #include "Profile.h"
 
-#include <SDL2/SDL.h>
+#include "hal/Platform.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -12,11 +12,8 @@ namespace Core::Profile {
 namespace {
 
 std::string Path() {
-    char* base = SDL_GetPrefPath("OpenAoK", "Profile");
-    if (base == nullptr) return "profile.txt";
-    std::string path = std::string(base) + "profile.txt";
-    SDL_free(base);
-    return path;
+    const std::string base = HAL::Platform::PrefPath("Profile");
+    return base.empty() ? "profile.txt" : base + "profile.txt";
 }
 
 } // namespace

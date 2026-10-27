@@ -26,9 +26,10 @@
 #include <unistd.h>
 #endif
 #include "hal/Audio.h"
-#ifdef __ANDROID__
+#include "hal/Pad.h"
+#include "hal/Platform.h"
+#include "hal/TextInput.h"
 #include "hal/Touch.h"
-#endif
 #include "hal/Window.h"
 #include "ecs/Simulation.h"
 #include "rendering/Renderer.h"
@@ -1287,10 +1288,8 @@ GameEnd RunGame(HAL::Window& window, Rendering::Renderer& renderer, Core::GameSe
         // Typed characters arrive only while text input is on, and it is on
         // only while a line is being typed into: otherwise the game's keys
         // are hotkeys.
-        if (GameDialogs::WantsText() != (SDL_IsTextInputActive() == SDL_TRUE)) {
-            if (GameDialogs::WantsText()) SDL_StartTextInput();
-            else SDL_StopTextInput();
-        }
+        HAL::TextInput::Want(GameDialogs::WantsText() ? HAL::TextInput::Kind::Line
+                                                       : HAL::TextInput::Kind::None);
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) { running = false; end = GameEnd::Quit; }
@@ -1723,6 +1722,7 @@ void PrintToLog() {
 } // namespace
 
 int main(int argc, char* argv[]) {
+    if (!HAL::Platform::Start(argc, argv)) return 0;
 #ifdef __ANDROID__
     PrintToLog();
     // A phone has OpenGL ES, not desktop OpenGL. The game's data was copied
@@ -1741,6 +1741,13 @@ int main(int argc, char* argv[]) {
         const std::string run = std::string(storage) + "/game/build";
         if (chdir(run.c_str()) != 0) SDL_Log("[App] cannot enter %s", run.c_str());
     }
+#elif defined(__SWITCH__)
+    // The Switch has OpenGL ES. Played with the touch screen as on a phone
+    // (hal/Touch), and with the controller as a mouse and the game's keys
+    // (hal/Pad); hal/Platform has already entered the game's folder.
+    SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengles2");
+    HAL::Touch::Enable();
+    HAL::Pad::Enable();
 #else
     // Desktop: the OpenGL render driver.
     SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");

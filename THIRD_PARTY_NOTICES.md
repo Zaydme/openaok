@@ -14,6 +14,13 @@ are not, and keep their own licenses.
 | miniz, pcrio, zstr (bundled with genieutils) | `third_party/genieutils/extern` | Unlicense; see `pcrio/COPYING`; MIT |
 | SDL 2 Java glue, Android build | `android/app/src/main/java/org/libsdl` | zlib |
 | SDL 2 and FreeType, fetched by `android/fetch_deps.sh` | `android/deps` (not in the repository) | zlib; FreeType License |
+| Linked into the Switch build from devkitPro's packages (not in the repository): libnx; SDL 2's Switch port; Mesa and libdrm_nouveau; FreeType; HarfBuzz; libpng; bzip2; zlib | `build-switch/OpenAoK.nro` | ISC; zlib; MIT; FreeType License; MIT; libpng License; bzip2 License; zlib |
+
+Portions of this software are copyright © The FreeType Project
+(www.freetype.org). All rights reserved.
+
+Released builds are built from this repository, and each one's source is the
+tag it was built from.
 
 The OpenAoK logo's lettering is set in Cinzel and Cinzel Decorative by Natanael
 Gama, licensed under the SIL Open Font License 1.1.

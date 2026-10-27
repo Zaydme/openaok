@@ -5,16 +5,13 @@
 #include <cmath>
 #include <cstdint>
 
+#include "hal/Pad.h"
+#include "hal/Pointer.h"
 #include "hal/Window.h"
 
 #ifdef __ANDROID__
 #include <android/log.h>
 #include <jni.h>
-// SDL's own way in for a mouse on Android (SDL_android.c): the calls a mouse
-// plugged into the phone makes, so SDL keeps the pointer, the buttons and the
-// double-click count just as it does for one. The JNI arguments go unused.
-extern "C" JNIEXPORT void JNICALL Java_org_libsdl_app_SDLActivity_onNativeMouse(
-    JNIEnv* env, jclass cls, jint button, jint action, jfloat x, jfloat y, jboolean relative);
 #endif
 
 namespace HAL::Touch {
@@ -26,14 +23,6 @@ namespace {
 constexpr Uint32 kHoldMs = 300;
 constexpr float kSlop = 0.02f;
 constexpr int kMaxFingers = 10;
-
-// A mouse's buttons and actions, as Android's MotionEvent numbers them.
-constexpr int kLeft = 1;    // BUTTON_PRIMARY
-constexpr int kRight = 2;   // BUTTON_SECONDARY
-constexpr int kNone = 0;
-constexpr int kDown = 0;    // ACTION_DOWN
-constexpr int kUp = 1;      // ACTION_UP
-constexpr int kMove = 2;    // ACTION_MOVE
 
 enum class Mode : uint8_t {
     Idle,      // no finger down
@@ -73,21 +62,9 @@ State g;
 // Written by the system's thread (GameActivity), read by the game's.
 std::atomic<bool> g_mouse{true};
 
-void Mouse(int buttons, int action, float x, float y) {
-#ifdef __ANDROID__
-    Java_org_libsdl_app_SDLActivity_onNativeMouse(nullptr, nullptr, buttons, action, x, y, JNI_FALSE);
-#else
-    // Only Android turns the controls on.
-    (void)buttons;
-    (void)action;
-    (void)x;
-    (void)y;
-#endif
-}
-
-void Click(int button, float x, float y) {
-    Mouse(button, kDown, x, y);
-    Mouse(kNone, kUp, x, y);
+void Click(Uint8 button, float x, float y) {
+    Pointer::Move(x, y, true);
+    Pointer::Click(button);
 }
 
 bool WindowSize(int& w, int& h) {
@@ -134,7 +111,8 @@ void Middle(float& x, float& y) {
     }
 }
 
-// A short tick of the phone's vibrator, so a hold is felt to have clicked.
+// A short tick of the phone's vibrator, or the controller's, so a hold is
+// felt to have clicked.
 void Tick() {
     if (!g.haptic_tried) {
         g.haptic_tried = true;
@@ -146,7 +124,11 @@ void Tick() {
             }
         }
     }
-    if (g.haptic != nullptr) SDL_HapticRumblePlay(g.haptic, 0.6f, 25);
+    if (g.haptic != nullptr) {
+        SDL_HapticRumblePlay(g.haptic, 0.6f, 25);
+    } else {
+        Pad::Rumble();
+    }
 }
 
 // The timer's own thread: it only posts, and the game's thread decides.
@@ -166,7 +148,7 @@ void Down(SDL_FingerID id, float x, float y) {
         g.start_y = y;
         // The pointer goes to the finger, so what is under it shows as under
         // a mouse: the cursor, the help, a building waiting to be placed.
-        Mouse(kNone, kMove, x, y);
+        Pointer::Move(x, y, true);
         if (g.aiming) {
             g.mode = Mode::Aiming;
             return;
@@ -179,7 +161,8 @@ void Down(SDL_FingerID id, float x, float y) {
     // Another finger: whatever the first was doing gives way to moving the map.
     if (g.mode == Mode::Dragging) {
         const Finger* first = Find(g.primary);
-        Mouse(kNone, kUp, first != nullptr ? first->x : x, first != nullptr ? first->y : y);
+        Pointer::Move(first != nullptr ? first->x : x, first != nullptr ? first->y : y, true);
+        Pointer::Release(SDL_BUTTON_LEFT);
     }
     if (g.mode != Mode::Panning) {
         g.pan_dx = 0.0f;
@@ -199,12 +182,13 @@ void Motion(SDL_FingerID id, float x, float y, int window_h) {
         if (id != g.primary || std::hypot(x - g.start_x, y - g.start_y) <= kSlop * window_h) return;
         // It moved: a drag, pressed where the finger went down.
         g.mode = Mode::Dragging;
-        Mouse(kLeft, kDown, g.start_x, g.start_y);
-        Mouse(kLeft, kMove, x, y);
+        Pointer::Move(g.start_x, g.start_y, true);
+        Pointer::Press(SDL_BUTTON_LEFT);
+        Pointer::Move(x, y, true);
         return;
     case Mode::Dragging:
     case Mode::Aiming:
-        if (id == g.primary) Mouse(kNone, kMove, x, y);
+        if (id == g.primary) Pointer::Move(x, y, true);
         return;
     case Mode::Panning: {
         float mx = 0.0f, my = 0.0f;
@@ -228,16 +212,16 @@ void Up(SDL_FingerID id, float x, float y) {
     case Mode::Pending:
         // A tap: clicked where it went down, which a shaking finger may have
         // wandered a little from.
-        if (first) Click(kLeft, g.start_x, g.start_y);
+        if (first) Click(SDL_BUTTON_LEFT, g.start_x, g.start_y);
         break;
     case Mode::Dragging:
-        if (first) Mouse(kNone, kUp, x, y);
+        if (first) {
+            Pointer::Move(x, y, true);
+            Pointer::Release(SDL_BUTTON_LEFT);
+        }
         break;
     case Mode::Aiming:
-        if (first) {
-            Mouse(kNone, kMove, x, y);
-            Click(kLeft, x, y);
-        }
+        if (first) Click(SDL_BUTTON_LEFT, x, y);
         break;
     case Mode::Panning:
         // The fingers still down go on moving the map, from where they are.
@@ -265,7 +249,7 @@ void Enable() {
 
 bool Enabled() { return g.enabled; }
 
-bool MouseAttached() { return g_mouse; }
+bool MouseAttached() { return g_mouse || !Pointer::ByFinger(); }
 
 void SetAiming(bool aiming) { g.aiming = aiming; }
 
@@ -281,7 +265,7 @@ bool Handle(const SDL_Event& event) {
     if (g.hold_event != 0 && g.hold_event != static_cast<Uint32>(-1) && event.type == g.hold_event) {
         if (g.mode == Mode::Pending && static_cast<Uint32>(event.user.code) == g.serial) {
             g.mode = Mode::Held;
-            Click(kRight, g.start_x, g.start_y);
+            Click(SDL_BUTTON_RIGHT, g.start_x, g.start_y);
             Tick();
         }
         return true;

@@ -56,10 +56,11 @@ is open to its owner and allies and shut to everyone else.
 | `src/editor/` | The scenario editor |
 | `src/scenario/` | Scenario (.scn) and campaign (.cpn) files: reading and writing |
 | `src/save/` | Saved games and recorded games |
-| `src/hal/` | Platform layer: window, touch input, DRS archives and SLP decoding, texture atlases, audio device, sockets, the AVI reader and Indeo 5 decoder |
+| `src/hal/` | Platform layer: window, start-up and folders per machine, touch and controller input played as the mouse, the system keyboard, DRS archives and SLP decoding, texture atlases, audio device, sockets, the AVI reader and Indeo 5 decoder |
 | `src/verify/` | The headless self-check, one scenario per file |
 | `tools/data/` | Prepares the game data from the original CD |
 | `android/` | The Android build |
+| `switch/` | The Nintendo Switch build and its SD card folder |
 
 ## The tick
 

@@ -22,6 +22,8 @@ computer players' finer play, and polish.
   Achievements screens, the start-up movies, campaigns with their narration and
   pictures, the scenario editor.
 - **Android**: touch controls, larger interface options, widescreen.
+- **Nintendo Switch**: homebrew, with the touch controls and the controller
+  played as a mouse and the game's hotkeys.
 
 ## Next
 
@@ -65,3 +67,5 @@ computer players' finer play, and polish.
 - **57 graphics are missing** from the 1999 data; the game draws without them.
 - **Builds are tested on macOS and Android.** Linux follows the same steps but
   is not yet tested; Windows is not supported yet.
+- **On the Switch, network games** cannot be started: they start from the
+  command line.

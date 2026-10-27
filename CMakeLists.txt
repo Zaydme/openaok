@@ -39,6 +39,13 @@ if(MSVC)
     add_compile_options(/W4 /WX /O2)
 else()
     add_compile_options(-Wall -Wextra -Wpedantic -Werror -O3)
+    # Components are built with designated initializers, the fields left out
+    # keeping their defaults; GCC warns about every field left out. It also
+    # notes an ABI change of GCC 10 that touches nothing here.
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        add_compile_options(-Wno-missing-field-initializers -Wno-psabi)
+        add_link_options(-Wno-psabi)
+    endif()
 endif()
 
 # Vendored libraries (third_party/: EnTT 3.12.2 and others) are SYSTEM
@@ -78,3 +85,17 @@ else()
 endif()
 
 target_link_libraries(OpenAoK PRIVATE Freetype::Freetype)
+
+# Nintendo Switch homebrew, with devkitPro's toolchain (switch/README.md): the
+# executable packed into an .nro with its name, version and icon.
+if(NINTENDO_SWITCH)
+    # The Switch's SDL headers are in include/SDL2, included as <SDL2/...>.
+    target_include_directories(OpenAoK SYSTEM PRIVATE "${DEVKITPRO}/portlibs/switch/include")
+    nx_generate_nacp(OpenAoK.nacp
+        NAME "OpenAoK"
+        AUTHOR "Zaydme8 and the OpenAoK contributors"
+        VERSION "${PROJECT_VERSION}")
+    nx_create_nro(OpenAoK
+        NACP OpenAoK.nacp
+        ICON "${CMAKE_CURRENT_SOURCE_DIR}/switch/icon.jpg")
+endif()

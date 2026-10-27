@@ -1,4 +1,6 @@
 #include "Window.h"
+#include "Pad.h"
+#include "TextInput.h"
 #include "Touch.h"
 #include <algorithm>
 #include <cmath>
@@ -169,6 +171,10 @@ void Window::Present() {
     SDL_SetTextureScaleMode(frame, whole ? SDL_ScaleModeNearest : SDL_ScaleModeLinear);
     SDL_RenderCopy(renderer, frame, nullptr, &dest);
     SDL_RenderPresent(renderer);
+    // The controller's pointer, and the system keyboard when a line is due
+    // (Switch), once a frame.
+    Pad::Update();
+    TextInput::Update();
 }
 
 bool Window::CaptureFrame(const std::string& path) {
@@ -198,9 +204,9 @@ void Window::ToGame(int wx, int wy, int& gx, int& gy) const {
 }
 
 void Window::TranslateEvent(SDL_Event& event) const {
-    // A finger on a touch screen: made into the mouse, which comes as events
-    // of its own (hal/Touch).
-    if (Touch::Handle(event)) return;
+    // A finger on a touch screen, or a controller's button: made into the
+    // mouse and keys, which come as events of their own (hal/Touch, hal/Pad).
+    if (Touch::Handle(event) || Pad::Handle(event)) return;
     switch (event.type) {
     case SDL_KEYDOWN:
     case SDL_KEYUP:

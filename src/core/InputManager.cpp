@@ -1,4 +1,5 @@
 #include "InputManager.h"
+#include "hal/Pad.h"
 #include "hal/Touch.h"
 #include "hal/Window.h"
 #include "audio/Voices.h"
@@ -695,6 +696,13 @@ void InputManager::Update(Rendering::Renderer& renderer, float dt_seconds, int w
         if (current_mouse_y <= edge) cy -= pan_speed;
         if (current_mouse_y >= win_h - edge) cy += pan_speed;
     }
+
+    // The controller's right stick scrolls as the arrow keys do, as far as it
+    // leans (hal/Pad).
+    float stick_x = 0.0f, stick_y = 0.0f;
+    HAL::Pad::Scroll(stick_x, stick_y);
+    cx += stick_x * pan_speed;
+    cy += stick_y * pan_speed;
 
     if (pan_left) cx -= pan_speed;
     if (pan_right) cx += pan_speed;

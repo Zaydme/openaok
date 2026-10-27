@@ -20,8 +20,8 @@ struct Options {
     int graphics_detail = 2;     // 0 low, 1 medium, 2 high
     // The game's frame as wide as the screen, the interface reaching its
     // edges (rendering/HudLayout.h). Off, the frame is 4:3.
-#ifdef __ANDROID__
-    bool widescreen = true;      // a phone is far wider than 4:3
+#if defined(__ANDROID__) || defined(__SWITCH__)
+    bool widescreen = true;      // a phone and the Switch are far wider than 4:3
 #else
     bool widescreen = false;
 #endif
@@ -30,8 +30,8 @@ struct Options {
     // (with the map and the help), and the text over the world (chat, the
     // game's messages, scores and timers). A bar grows only as far as the
     // frame has room for it (rendering/UIRenderer's HudSpace).
-#ifdef __ANDROID__
-    int top_bar_size = 150;      // a phone's screen is small and far off
+#if defined(__ANDROID__) || defined(__SWITCH__)
+    int top_bar_size = 150;      // a handheld's screen is small and far off
     int panel_size = 125;
     int text_size = 150;
 #else

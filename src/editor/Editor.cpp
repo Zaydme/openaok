@@ -13,6 +13,8 @@
 #include "editor/EditorState.h"
 #include "hal/Audio.h"
 #include "hal/GraphicCache.h"
+#include "hal/Pad.h"
+#include "hal/TextInput.h"
 #include "hal/Touch.h"
 #include "rendering/EntityRenderer.h"
 #include "rendering/FogRenderer.h"
@@ -555,7 +557,7 @@ bool Open(const std::string& path, int screen_w, int screen_h, std::string* erro
     Layout(s);
     BuildWorld(s, false);
     LoadFields(s);
-    SDL_StartTextInput();
+    HAL::TextInput::Want(HAL::TextInput::Kind::Fields);
     return true;
 }
 
@@ -716,6 +718,10 @@ void Update(float dt) {
         if (s.ui.my <= kEdge) dy -= 1;
         if (s.ui.my >= s.h - 1 - kEdge) dy += 1;
     }
+    float stick_x = 0.0f, stick_y = 0.0f;
+    HAL::Pad::Scroll(stick_x, stick_y);
+    dx += stick_x;
+    dy += stick_y;
     float drag_x = 0.0f, drag_y = 0.0f;
     HAL::Touch::TakePan(drag_x, drag_y);
     s.view.camera_x += dx * kScrollSpeed * dt - drag_x / s.view.camera_zoom;
@@ -769,7 +775,7 @@ Request TakeRequest() {
         s.open = false;
         s.sim.reset();
         s.refs.clear();
-        SDL_StopTextInput();
+        HAL::TextInput::Want(HAL::TextInput::Kind::None);
     }
     return r;
 }

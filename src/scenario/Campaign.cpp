@@ -1,6 +1,6 @@
 #include "scenario/Campaign.h"
 
-#include <SDL2/SDL.h>
+#include "hal/Platform.h"
 
 #include <algorithm>
 #include <cctype>
@@ -149,11 +149,8 @@ int ScenarioString(const Campaign& campaign, int entry) {
 namespace Progress {
 
 std::string DefaultPath() {
-    char* base = SDL_GetPrefPath("OpenAoK", "Profile");
-    if (base == nullptr) return "campaigns.txt";
-    std::string path = std::string(base) + "campaigns.txt";
-    SDL_free(base);
-    return path;
+    const std::string base = HAL::Platform::PrefPath("Profile");
+    return base.empty() ? "campaigns.txt" : base + "campaigns.txt";
 }
 
 Book Load(const std::string& path) {

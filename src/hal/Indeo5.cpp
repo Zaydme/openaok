@@ -767,8 +767,8 @@ bool DecodeBlocks(Decoder& d, const Band& band, const RunValueMap& rvmap, Tile& 
         const bool intra = mb.type == 0;
         uint32_t cbp = mb.cbp;
         int offset = static_cast<int>(mb.offset);
-        const int quant = (intra ? band.intra_scale : band.inter_scale)
-            [std::clamp(band.glob_quant + mb.q_delta, 0, 23)];
+        const auto& scale = intra ? band.intra_scale : band.inter_scale;
+        const int quant = scale[std::clamp(band.glob_quant + mb.q_delta, 0, 23)];
         int mv_x = 0;
         int mv_y = 0;
         int mc_type = 0;

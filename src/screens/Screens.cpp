@@ -10,6 +10,8 @@
 #include "core/Strings.h"
 #include "hal/Audio.h"
 #include "hal/GraphicCache.h"
+#include "hal/Platform.h"
+#include "hal/TextInput.h"
 #include "rendering/Text.h"
 
 #include <SDL2/SDL.h>
@@ -1022,17 +1024,13 @@ std::vector<std::string> FilesIn(const std::string& dir, const std::vector<std::
 }
 
 std::string ScenariosDir() {
-    char* base = SDL_GetPrefPath("OpenAoK", "Scenario");
-    std::string dir = base != nullptr ? base : "../assets/original/Scenario/";
-    if (base != nullptr) SDL_free(base);
-    return dir;
+    const std::string base = HAL::Platform::PrefPath("Scenario");
+    return base.empty() ? "../assets/original/Scenario/" : base;
 }
 
 std::string SavedGamesDir() {
-    char* base = SDL_GetPrefPath("OpenAoK", "SaveGame");
-    std::string dir = base != nullptr ? base : "../assets/original/SaveGame/";
-    if (base != nullptr) SDL_free(base);
-    return dir;
+    const std::string base = HAL::Platform::PrefPath("SaveGame");
+    return base.empty() ? "../assets/original/SaveGame/" : base;
 }
 
 namespace {
@@ -1170,11 +1168,8 @@ void Open(Id screen) {
     case Id::ScenarioSelect: Campaigns::PrepareSelect(); break;
     default: break;
     }
-    if (screen == Id::Options || screen == Id::Multiplayer) {
-        SDL_StartTextInput();
-    } else {
-        SDL_StopTextInput();
-    }
+    HAL::TextInput::Want(screen == Id::Options || screen == Id::Multiplayer
+                             ? HAL::TextInput::Kind::Fields : HAL::TextInput::Kind::None);
 }
 
 Id Current() { return S().current; }

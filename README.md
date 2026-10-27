@@ -17,7 +17,7 @@ kid. Microsoft was never going to make that happen, so I did it myself.
 
 OpenAoK is a new engine, written from scratch, that plays the original 1999
 game from your own copy of its CD: the same units, maps, art, sounds, music,
-movies and campaigns, on macOS, Linux and Android phones.
+movies and campaigns, on macOS, Linux, Android phones and the Nintendo Switch.
 
 ## What it is
 
@@ -120,6 +120,7 @@ The folder should then hold `GAME/`, `SYSTEM/` and `GOODIES/`. That's all: the
 build unpacks and converts what it needs. Everything taken from your copy stays
 on your machine and is ignored by git. Please don't share it, or the builds you
 make from it: a build, the Android APK included, contains your game data.
+The Switch's `OpenAoK.nro` holds none of it; the folder made beside it does.
 
 ## Building for desktop (macOS, Linux)
 
@@ -163,6 +164,20 @@ Then install `android/app/build/outputs/apk/release/app-release.apk` on a phone
 running Android 10 or later. The first launch copies the game data to the phone.
 The APK carries your game data, so keep it to your own devices.
 
+## Building for the Nintendo Switch
+
+OpenAoK runs as homebrew on a Switch that runs custom firmware. The `.nro` is
+built with devkitPro's toolchain or its Docker image, and the game's data is a
+folder made from your CD and copied to the SD card. See
+[switch/README.md](switch/README.md). In short:
+
+```sh
+switch/build.sh                                  # build-switch/OpenAoK.nro
+python3 switch/package.py --out /path/to/sd/card # switch/openaok/ on the card
+```
+
+Then hold R while starting any game, and choose OpenAoK in the Homebrew Menu.
+
 ## Playing
 
 Start from the main menu, or straight into a game from the command line:
@@ -199,6 +214,7 @@ water, trade, diplomacy, scenarios and the editor. See
 - [docs/VERIFY.md](docs/VERIFY.md): the self-check
 - [docs/MULTIPLAYER.md](docs/MULTIPLAYER.md): lockstep networking
 - [android/README.md](android/README.md): the Android build and touch controls
+- [switch/README.md](switch/README.md): the Switch build, the SD card and the controller
 - [ROADMAP.md](ROADMAP.md): what's next, and known issues
 
 ## AI-assisted development
@@ -224,11 +240,12 @@ the game's file formats and mechanics, and to
 ## Disclaimer
 
 OpenAoK is a free, non-commercial fan project. It is not affiliated with,
-endorsed by or sponsored by Microsoft, and it contains no game assets: you need
-your own copy of the game to play.
+endorsed by or sponsored by Microsoft or Nintendo, and it contains no game
+assets: you need your own copy of the game to play.
 
 *Age of Empires II: The Age of Kings* © Microsoft Corporation. *Age of Empires*
-is a trademark of Microsoft Corporation. The screenshots in this README were
+is a trademark of Microsoft Corporation. Nintendo Switch is a trademark of
+Nintendo. The screenshots in this README were
 created under Microsoft's
 [Game Content Usage Rules](https://www.xbox.com/en-US/developers/rules) using
 assets from *Age of Empires II: The Age of Kings*, and they are not endorsed by

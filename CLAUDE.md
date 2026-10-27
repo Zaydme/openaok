@@ -23,6 +23,8 @@ bash tools/check_determinism.sh  # the gate: must pass before and after every ch
   is intended, after confirming the new hash twice.
 - Android: `cd android && ./fetch_deps.sh && ./gradlew assembleRelease` (JDK 17
   or 21, SDK platform 36, NDK 28.2). See `android/README.md`.
+- Switch: `switch/build.sh` (devkitPro, or its Docker image) and
+  `python3 switch/package.py` for the SD card's folder. See `switch/README.md`.
 
 ## Captures
 
