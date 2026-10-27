@@ -65,6 +65,9 @@ enum class Kind : uint8_t {
     // unit `id`. `amount` is 1 when the player is at the game's population
     // limit, which more houses do not lift.
     Halted,
+    // A build order of `player`'s for the unit `id` found the ground at
+    // `at`, a tile, taken: nothing was laid out or paid for.
+    Obstructed,
 };
 
 struct Event {

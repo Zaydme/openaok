@@ -141,7 +141,8 @@ else
 fi
 
 # What the player is notified of: a sheep claimed, a farm run out, a Wonder
-# begun, production halted for want of houses, a relic picked up.
+# begun, production halted for want of houses, a building site found taken, a
+# relic picked up.
 if [ "$NOTICES" = "notices=ok" ]; then
     echo "notices OK"
 else

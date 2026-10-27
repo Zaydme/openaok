@@ -37,7 +37,8 @@ bool CheckFelling();
 
 // What the interface notifies the player of and the simulation has to tell
 // it: a sheep claimed, a farm run out, a Wonder begun, production halted for
-// want of houses, a relic picked up. Prints "notices=".
+// want of houses, a building site found taken, a relic picked up. Prints
+// "notices=".
 bool CheckNotices();
 
 // The approach planner on its own, away from any worker using it.

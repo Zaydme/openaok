@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <functional>
 #include <string>
+#include <vector>
 
 #include "core/Command.h"
 #include "core/CommandQueue.h"
@@ -212,6 +213,37 @@ bool CheckNotices() {
             if (first != 1) verdict = "production halted for want of houses was not told once";
             else if (second != 0) verdict = "a second building halted was told again";
             else if (again != 1) verdict = "production halted anew was not told";
+        }
+    }
+
+    // A building site found taken: two villagers sent the same tick to put a
+    // Lumber Camp on a House's ground hear of it once, and nothing is laid
+    // out or paid for.
+    if (verdict == "ok") {
+        ECS::Players::Player* me = ECS::Players::Find(reg, us);
+        const int camp_id = cfg.GetUnitIdByName("SMIL");
+        std::vector<entt::entity> crew;
+        for (auto e : workers) {
+            if (workers.get<ECS::Components::Owner>(e).player_id == us && crew.size() < 2) crew.push_back(e);
+        }
+        int hx = 0, hy = 0;
+        const bool open = OpenGround(grid, home.x.ToInt(), home.y.ToInt(), 3, hx, hy);
+        const entt::entity house =
+            open ? ECS::Buildings::Place(reg, grid, cfg.GetUnitIdByName("HOUS"), us, hx, hy, true)
+                 : entt::null;
+        if (me == nullptr || crew.size() < 2 || house == entt::null) {
+            verdict = "no House or crew to try a taken site with";
+        } else {
+            ECS::Players::AddStock(*me, Core::ResourceType::Wood, 500);
+            const Core::Fixed32 wood = ECS::Players::Resource(*me, Core::Rules::Res::Wood);
+            const size_t buildings_before = reg.view<ECS::Components::Building>().size();
+            for (entt::entity member : crew) {
+                queue.PushCommand(Core::BuildCommand{member, camp_id, hx, hy, us});
+            }
+            const int told = Count(sim, ECS::Events::Kind::Obstructed, us, 1);
+            if (told != 1) verdict = "a building site found taken was not told once";
+            else if (ECS::Players::Resource(*me, Core::Rules::Res::Wood) != wood) verdict = "a site found taken was paid for";
+            else if (reg.view<ECS::Components::Building>().size() != buildings_before) verdict = "a site found taken was laid out";
         }
     }
 

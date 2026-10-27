@@ -54,6 +54,7 @@ constexpr int kYouBeganWonder = 3058;        // "You have started building a Won
 // population limit."
 constexpr int kNeedMoreHouses = 3075;
 constexpr int kHaltedAtLimit = 3076;
+constexpr int kSiteObstructed = 3094;        // "Building site obstructed. Building canceled."
 constexpr int kTheyBeganWonder = 3019;       // "%s started building a Wonder!"
 constexpr int kYouCompletedWonder = 3020;    // "...You will win if it stands for %d years!"
 constexpr int kAllyCompletedWonder = 3021;
@@ -157,6 +158,9 @@ void Hear(const entt::registry& registry, const ECS::Events::Event& event,
                 Post(Format(kTheyBeganWonder, UIRenderer::PlayerName(registry, event.player)));
             }
         }
+        break;
+    case Kind::Obstructed:
+        if (event.player == viewer) Post(Core::Strings::Get(kSiteObstructed));
         break;
     case Kind::Halted:
         if (event.player == viewer) {

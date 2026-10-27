@@ -446,6 +446,16 @@ int GateFor(const entt::registry& registry, Core::PlayerId player, int button_un
     return best;
 }
 
+bool SiteOpen(const entt::registry& registry, const Physics::Grid& grid, Core::PlayerId player,
+              int unit_id, int tile_x, int tile_y) {
+    const Core::Rules::UnitRules* asked = Core::Rules::Unit(unit_id);
+    if (IsGate(unit_id) && asked != nullptr && asked->stack_unit >= 0) {
+        return CanPlaceGate(registry, grid, player, GateFor(registry, player, unit_id, tile_x, tile_y),
+                            tile_x, tile_y);
+    }
+    return Buildings::CanPlace(grid, unit_id, tile_x, tile_y);
+}
+
 bool CanPlaceGate(const entt::registry& registry, const Physics::Grid& grid,
                   Core::PlayerId player, int unit_id, int tile_x, int tile_y) {
     const int placed = Buildings::PlacedUnit(unit_id);

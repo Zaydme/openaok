@@ -23,6 +23,7 @@
 #include "ecs/Repairs.h"
 #include "ecs/VillagerJobs.h"
 #include "ecs/Victory.h"
+#include "ecs/Events.h"
 #include "ecs/Walls.h"
 #include "ecs/Players.h"
 #include "ecs/Production.h"
@@ -359,9 +360,22 @@ void Build(entt::registry& registry, Physics::Grid& grid, const Core::BuildComma
             : Villagers::UnitId(Components::VillagerJob::Build, false);
         if (button->train_loc != builder) return;
     }
-    // A gate may stand over the player's own wall, which it replaces.
-    if (gate ? !Walls::CanPlaceGate(registry, grid, cmd.player, unit_id, cmd.target_x, cmd.target_y)
-             : !Buildings::CanPlace(grid, unit_id, cmd.target_x, cmd.target_y)) {
+    // A gate may stand over the player's own wall, which it replaces. Ground
+    // taken since the order was given is the player's to hear of, once for
+    // all the builders sent.
+    if (!Walls::SiteOpen(registry, grid, cmd.player, cmd.unit_id, cmd.target_x, cmd.target_y)) {
+        const Components::Vector2D at{Core::Fixed32(cmd.target_x), Core::Fixed32(cmd.target_y)};
+        bool told = false;
+        if (const Events::Log* log = Events::Read(registry)) {
+            for (const Events::Event& e : log->events) {
+                told |= e.tick == log->tick && e.kind == Events::Kind::Obstructed &&
+                        e.player == cmd.player && e.at.x == at.x && e.at.y == at.y;
+            }
+        }
+        if (!told) {
+            Events::Emit(registry, {.kind = Events::Kind::Obstructed, .player = cmd.player,
+                                    .id = cmd.unit_id, .at = at});
+        }
         return;
     }
     Players::Player* player = Players::Find(registry, cmd.player);

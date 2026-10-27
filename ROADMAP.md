@@ -31,8 +31,6 @@ computer players' finer play, and polish.
    - The multiplayer menu screens: hosting, joining and the lobby with chat and
      ready checks. Network games start from the command line for now.
    - The Disband Formation button.
-   - The notices the game does not show yet: a Wonder begun, a sheep claimed, no
-     room for a trained unit, a building site obstructed.
 2. **Computer players**
    - Walls and gates laid by the scripts (`build-wall`, `build-gate`).
    - Exploration and defence groups as the scripts' strategic numbers ask.

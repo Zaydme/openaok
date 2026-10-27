@@ -1099,6 +1099,12 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
                     wall_from_y = gy;
                     return;
                 }
+                // Where the outline shows the ground taken, nothing is laid
+                // out: the building stays on the cursor.
+                if (!ECS::Walls::SiteOpen(registry, sim.GetGrid(), Core::LocalPlayer(),
+                                          building_to_place, gx, gy)) {
+                    return;
+                }
                 auto builders = registry.view<ECS::Components::Selectable,
                                               ECS::Components::Worker>();
                 // Every selected villager joins in.
@@ -1471,6 +1477,10 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
                     int px = gx, py = gy;
                     if (!ECS::Walls::IsWall(building_to_place) && !ECS::Walls::IsGate(building_to_place)) {
                         Rendering::Placement::OriginTile(building_to_place, wc.first, wc.second, px, py);
+                    }
+                    if (!ECS::Walls::SiteOpen(registry, sim.GetGrid(), Core::LocalPlayer(),
+                                              building_to_place, px, py)) {
+                        continue;
                     }
                     CommandQueue::Get().PushCommand(BuildCommand{
                         e, building_to_place, px, py, Core::LocalPlayer()});
