@@ -95,21 +95,21 @@ public:
     // divides 256 has whole values for its boundaries.
     static uint8_t WorldVectorToHeading(Fixed32 dx, Fixed32 dy) {
         // Turned an eighth, so 0 lies along u.
-        __int128 u = static_cast<__int128>(dx.value) + dy.value;
-        __int128 v = static_cast<__int128>(dy.value) - dx.value;
+        __int128_t u = static_cast<__int128_t>(dx.value) + dy.value;
+        __int128_t v = static_cast<__int128_t>(dy.value) - dx.value;
         if (u == 0 && v == 0) return 0;
         // Turned back a quarter at a time into [0, 64): turning, unlike
         // mirroring, keeps each arc's lower end its own.
         int base = 0;
         while (!(u > 0 && v >= 0)) {
-            const __int128 t = u;
+            const __int128_t t = u;
             u = v;
             v = -t;
             base += 64;
         }
         // Past the eighth, back by an eighth more.
         if (v > u) {
-            const __int128 t = u;
+            const __int128_t t = u;
             u = t + v;
             v = v - t;
             base += 32;
