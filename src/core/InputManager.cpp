@@ -38,6 +38,7 @@
 #include "core/Profile.h"
 #include "core/Rules.h"
 #include "ecs/Diplomacy.h"
+#include "ecs/Combat.h"
 #include "ecs/Missiles.h"
 #include "ecs/Packing.h"
 #include "ecs/DropSites.h"
@@ -82,6 +83,21 @@ constexpr int kKingClass = 59;
 bool Shoots(const entt::registry& registry, entt::entity building) {
     return registry.all_of<ECS::Components::Combat>(building) &&
            ECS::Missiles::VolleyOf(registry, building).Total() > 0;
+}
+
+// Why an attacker that cannot move -- a building, a trebuchet set up -- may
+// not be sent at `target`: the string for a target beyond its range ("The
+// target is too far away to attack.") or within its least range, or 0.
+constexpr int kTooFar = 3068;
+constexpr int kTooClose = 3067;
+int OutOfReach(const entt::registry& registry, entt::entity attacker, entt::entity target) {
+    const auto* rules = ECS::Combat::FightingRules(registry, attacker);
+    if (rules == nullptr) return 0;
+    if (!registry.all_of<ECS::Components::Building>(attacker) && rules->speed.value > 0) return 0;
+    const Core::Fixed32 gap = ECS::Combat::Gap(registry, attacker, target);
+    if (gap > rules->max_range) return kTooFar;
+    if (gap < rules->min_range) return kTooClose;
+    return 0;
 }
 
 // Whether a right-click on one of the player's buildings sends whoever it can
@@ -1676,6 +1692,9 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
             auto sel_view = registry.view<ECS::Components::Selectable>();
 
             std::vector<entt::entity> marchers;
+            // An attacker that cannot move sent at what it cannot reach is
+            // told so, once for the click.
+            int refusal = 0;
             // The first unit given an order answers it, once for the group.
             entt::entity speaker = entt::null;
             Audio::Voices::Order spoken = Audio::Voices::Order::Move;
@@ -1693,8 +1712,12 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
                                      ECS::Diplomacy::StanceOf(registry, Core::LocalPlayer(), theirs->player_id) !=
                                          ECS::Diplomacy::Stance::Ally;
                     if (registry.valid(target_enemy) && target_enemy != e && foe && Shoots(registry, e)) {
-                        CommandQueue::Get().PushCommand(AttackCommand{e, target_enemy, Core::LocalPlayer()});
-                        Rendering::EntityRenderer::Flash(registry, target_enemy, true);
+                        if (const int why = OutOfReach(registry, e, target_enemy); why != 0) {
+                            refusal = why;
+                        } else {
+                            CommandQueue::Get().PushCommand(AttackCommand{e, target_enemy, Core::LocalPlayer()});
+                            Rendering::EntityRenderer::Flash(registry, target_enemy, true);
+                        }
                     } else {
                         CommandQueue::Get().PushCommand(RallyCommand{
                             e, Fixed32(click_x), Fixed32(click_y), target_res,
@@ -1740,6 +1763,12 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
                            (registry.any_of<ECS::Components::Combat, ECS::Components::Monk>(e) ||
                             ECS::Packing::Packed(registry, e)) &&
                            e != target_enemy) {
+                    if (const int why = registry.all_of<ECS::Components::Combat>(e)
+                                            ? OutOfReach(registry, e, target_enemy) : 0;
+                        why != 0) {
+                        refusal = why;
+                        continue;
+                    }
                     CommandQueue::Get().PushCommand(
                         AttackCommand{e, target_enemy, Core::LocalPlayer()});
                     if (speaker == entt::null) {
@@ -1751,6 +1780,7 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
                     marchers.push_back(e);
                 }
             }
+            if (refusal != 0) Rendering::Messages::Post(Core::Strings::Get(refusal));
             if (speaker == entt::null && !marchers.empty()) speaker = marchers.front();
             if (speaker != entt::null) {
                 Answered(registry, speaker, spoken, spoken_at);
