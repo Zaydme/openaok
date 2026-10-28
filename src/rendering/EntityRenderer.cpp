@@ -19,6 +19,7 @@
 #include "ecs/components/RallyPoint.h"
 #include "ecs/components/PartOf.h"
 #include "ecs/components/Animation.h"
+#include "ecs/components/Garrison.h"
 #include "ecs/BuildingGeometry.h"
 #include "ecs/Walls.h"
 #include "ecs/Players.h"
@@ -895,62 +896,76 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
         }
     }
 
-    // Fire on a damaged building: the dat's damage graphic for how hurt it
-    // is, drawn over it. Each stage is a composite -- a dozen flame graphics
-    // at pixel offsets from the building unit's own anchor -- and the stages
-    // are thresholds of damage taken (25%, 50%, 75%), the heaviest reached
-    // showing. Presentation only: which stage is derived from hit points each
-    // frame, and the flames animate on the wall clock.
+    // Overlays drawn over a building or a ship from the dat's composite
+    // graphics, each a set of graphics at pixel offsets from the unit's own
+    // anchor. Fire on a damaged building: its damage graphic for how hurt it
+    // is, the stages thresholds of damage taken (25%, 50%, 75%), the heaviest
+    // reached showing. Flags on a building or a transport with anyone inside:
+    // its garrison graphic. Presentation only: what shows is derived from the
+    // simulation each frame, and the art animates on the wall clock.
     {
         auto& cfg = Core::ConfigManager::Get();
         const uint32_t now = SDL_GetTicks();
-        auto buildings = registry.view<ECS::Components::Building, ECS::Components::Health,
-                                       ECS::Components::Identity, ECS::Components::Owner,
-                                       ECS::Components::Transform>();
-        for (auto b : buildings) {
-            if (buildings.get<ECS::Components::Building>(b).state !=
-                ECS::Components::BuildingState::Complete) {
+        auto holders = registry.view<ECS::Components::Identity, ECS::Components::Owner,
+                                     ECS::Components::Transform>();
+        for (auto b : holders) {
+            const auto* building = registry.try_get<ECS::Components::Building>(b);
+            if (building != nullptr && building->state != ECS::Components::BuildingState::Complete) {
                 continue;
             }
-            const auto& hp = buildings.get<ECS::Components::Health>(b);
-            if (hp.max_hp <= 0 || hp.current_hp >= hp.max_hp) continue;
+            const auto* garrison = registry.try_get<ECS::Components::Garrison>(b);
+            const bool occupied = garrison != nullptr && !garrison->inside.empty();
+            const auto* hp = registry.try_get<ECS::Components::Health>(b);
+            const bool hurt = building != nullptr && hp != nullptr && hp->max_hp > 0 &&
+                              hp->current_hp < hp->max_hp;
+            if (!occupied && !hurt) continue;
             if (!ECS::Vision::Shows(registry, Core::LocalPlayer(), b)) continue;
-            const int damage = 100 - hp.current_hp * 100 / hp.max_hp;
-            const Core::PlayerId owner = buildings.get<ECS::Components::Owner>(b).player_id;
-            const int unit_id = buildings.get<ECS::Components::Identity>(b).unit_id;
+            const Core::PlayerId owner = holders.get<ECS::Components::Owner>(b).player_id;
+            const int unit_id = holders.get<ECS::Components::Identity>(b).unit_id;
             const auto* rules = ECS::Players::UnitOf(registry, owner, unit_id);
             if (rules == nullptr) continue;
             int stage = -1;
-            int reached = -1;
-            for (int i = 0; i < rules->damage_graphic_count; ++i) {
-                const auto& dg = rules->damage_graphics[i];
-                if (damage >= dg.percent && dg.percent > reached) {
-                    reached = dg.percent;
-                    stage = dg.graphic;
-                }
-            }
-            if (stage < 0) continue;
-
-            // Anchored on the building unit's own piece, which in a composed
-            // building need not be the origin tile.
-            Core::Fixed32 ax = buildings.get<ECS::Components::Transform>(b).position.x;
-            Core::Fixed32 ay = buildings.get<ECS::Components::Transform>(b).position.y;
-            const int art = ECS::Players::ArtOf(registry, owner, unit_id);
-            const auto* pieces = cfg.GetAnnexes(art);
-            if (pieces == nullptr) pieces = cfg.GetAnnexes(unit_id);
-            if (pieces != nullptr) {
-                for (const auto& piece : *pieces) {
-                    if (piece.unit_id == art || piece.unit_id == unit_id) {
-                        ax = ax + piece.fx;
-                        ay = ay + piece.fy;
-                        break;
+            if (hurt) {
+                const int damage = 100 - hp->current_hp * 100 / hp->max_hp;
+                int reached = -1;
+                for (int i = 0; i < rules->damage_graphic_count; ++i) {
+                    const auto& dg = rules->damage_graphics[i];
+                    if (damage >= dg.percent && dg.percent > reached) {
+                        reached = dg.percent;
+                        stage = dg.graphic;
                     }
                 }
             }
-            float ox = 0.0f, oy = 0.0f;
-            ArtOffset(registry, b, ox, oy);
-            const float wx = ax.ToFloat() + ox;
-            const float wy = ay.ToFloat() + oy;
+            const int flags = occupied ? rules->garrison_graphic : -1;
+            if (stage < 0 && flags < 0) continue;
+
+            // A building's are anchored on the building unit's own piece,
+            // which in a composed building need not be the origin tile.
+            const auto& at = registry.get<ECS::Components::Transform>(b);
+            Core::Fixed32 ax = at.position.x;
+            Core::Fixed32 ay = at.position.y;
+            float wx = 0.0f, wy = 0.0f;
+            if (building != nullptr) {
+                const int art = ECS::Players::ArtOf(registry, owner, unit_id);
+                const auto* pieces = cfg.GetAnnexes(art);
+                if (pieces == nullptr) pieces = cfg.GetAnnexes(unit_id);
+                if (pieces != nullptr) {
+                    for (const auto& piece : *pieces) {
+                        if (piece.unit_id == art || piece.unit_id == unit_id) {
+                            ax = ax + piece.fx;
+                            ay = ay + piece.fy;
+                            break;
+                        }
+                    }
+                }
+                float ox = 0.0f, oy = 0.0f;
+                ArtOffset(registry, b, ox, oy);
+                wx = ax.ToFloat() + ox;
+                wy = ay.ToFloat() + oy;
+            } else {
+                wx = at.previous_position.x.ToFloat() + (ax.ToFloat() - at.previous_position.x.ToFloat()) * alpha;
+                wy = at.previous_position.y.ToFloat() + (ay.ToFloat() - at.previous_position.y.ToFloat()) * alpha;
+            }
             const float bx = (wx - wy) * (Core::IsometricMath::TILE_WIDTH / 2.0f) - cx;
             const float by = (wx + wy) * (Core::IsometricMath::TILE_HEIGHT / 2.0f) - cy -
                              Ground::HeightPx(grid, wx, wy);
@@ -968,8 +983,8 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
                 const HAL::GraphicFrame& gf = atlas->frames[frame];
                 if (gf.rect.w <= 0) return;
                 RenderEntry e{};
-                // In front of every piece of the building it burns on.
-                e.depth = wx + wy + 3.0f;
+                // In front of every piece of the building it is drawn on.
+                e.depth = building != nullptr ? wx + wy + 3.0f : wx + wy;
                 e.sort_bias = 1000;
                 e.ent = b;
                 e.fogged = in_fog(b);
@@ -982,20 +997,25 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
                           static_cast<float>(gf.rect.w), static_cast<float>(gf.rect.h)};
                 e.sel_sx = bx;
                 e.sel_sy = by;
+                e.player_tex = graphics.GetPlayerLayer(static_cast<uint32_t>(info.slp_id), ColourOf(registry, b));
                 entries.push_back(e);
             };
 
-            const auto& deltas = Core::Media::Deltas(stage);
-            if (deltas.empty()) {
-                add_flame(stage, 0, 0, 0);
-            } else {
+            auto add_composite = [&](int graphic) {
+                const auto& deltas = Core::Media::Deltas(graphic);
+                if (deltas.empty()) {
+                    add_flame(graphic, 0, 0, 0);
+                    return;
+                }
                 int phase = 0;
                 for (const auto& delta : deltas) {
                     // Staggered, so a dozen flames do not flicker in step.
                     add_flame(delta.graphic, delta.offset_x, delta.offset_y, phase);
                     phase += 7;
                 }
-            }
+            };
+            if (stage >= 0) add_composite(stage);
+            if (flags >= 0) add_composite(flags);
         }
     }
 

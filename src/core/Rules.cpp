@@ -159,6 +159,7 @@ void ReadUnit(const nlohmann::json& v, UnitRules& u, UnitText& text) {
     u.button = Int(v, "button", 0);
     u.missiles = Fx(v, "missiles");
     u.max_missiles = Int(v, "max_missiles", 0);
+    u.garrison_graphic = Int(v, "garrison_graphic", -1);
     if (v.contains("missile_area")) {
         for (int i = 0; i < 3; ++i) {
             u.missile_area[i] = Thousandths(v["missile_area"][i].get<double>());

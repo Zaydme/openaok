@@ -103,6 +103,7 @@ def unit_rules(unit, strings):
         'max_missiles': unit['max_missiles'],
         'missile_area': unit['missile_area'],
         'secondary_projectile': unit['secondary_projectile'],
+        'garrison_graphic': unit['garrison_graphic'],
         'construction_graphic': unit['construction_graphic'],
         'tech': unit['tech'],
         'head_unit': unit['head_unit'],

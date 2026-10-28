@@ -275,6 +275,8 @@ struct UnitRules {
     int max_missiles = 0;
     Core::Fixed32 missile_area[3] = {};
     int secondary_projectile = -1;
+    // Drawn on a building or a transport while anyone is inside: its flags.
+    int garrison_graphic = -1;
 
     int construction_graphic = -1;
     int tech = -1;
