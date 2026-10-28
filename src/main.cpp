@@ -389,7 +389,8 @@ void ParseFlags(int argc, char* argv[], Launch& launch) {
             launch.place_name = argv[++i];
         } else if (arg == "--spawn" && i + 1 < argc) {
             // A unit of this dat unit (PTREB, MONKX...) of the player's beside
-            // the start, for --select to pick; repeatable. A test tool.
+            // the start, for --select to pick; repeatable; NAME@P gives it to
+            // player P, 0 Gaia. A test tool.
             launch.spawn_names.push_back(argv[++i]);
         } else if (arg == "--walls") {
             // Walls beside the start, finished: palisade runs every way, a
@@ -577,9 +578,14 @@ void ApplyCaptureFlags(ECS::Simulation& sim, const Launch& launch, int& mcx, int
         }
     }
     for (size_t n = 0; n < launch.spawn_names.size(); ++n) {
-        const int unit = Core::ConfigManager::Get().GetUnitIdByName(launch.spawn_names[n]);
+        const std::string& name = launch.spawn_names[n];
+        const size_t owner_at = name.find('@');
+        const int unit = Core::ConfigManager::Get().GetUnitIdByName(name.substr(0, owner_at));
+        const Core::PlayerId owner = owner_at == std::string::npos
+                                         ? Core::LocalPlayer()
+                                         : static_cast<Core::PlayerId>(std::atoi(name.c_str() + owner_at + 1));
         const ECS::Components::Vector2D at{Core::Fixed32(mcx + 4 + 2 * static_cast<int>(n)), Core::Fixed32(mcy + 4)};
-        if (unit >= 0) ECS::Units::Spawn(sim.GetRegistry(), unit, Core::LocalPlayer(), at);
+        if (unit >= 0) ECS::Units::Spawn(sim.GetRegistry(), unit, owner, at);
     }
     if (launch.walls) {
         auto& cfg = Core::ConfigManager::Get();
@@ -1519,7 +1525,11 @@ GameEnd RunGame(HAL::Window& window, Rendering::Renderer& renderer, Core::GameSe
 
         // === Frame image (--screenshot) ===
         if (!launch.screenshot_path.empty() && ScriptDone() && --screenshot_after_frames <= 0) {
-            // The game's frame itself, at the game's size.
+            // The game's frame itself, at the game's size -- with the cursor
+            // when the click script ends on a move, as the pointer shows it.
+            if (!launch.clicks.empty() && launch.clicks.back().move) {
+                Rendering::UIRenderer::DrawCursor(*sim, renderer, window.GetSDLRenderer());
+            }
             if (window.CaptureFrame(launch.screenshot_path)) {
                 std::cout << "[App] Wrote screenshot " << launch.screenshot_path << " ("
                           << window.GetWidth() << "x" << window.GetHeight() << ")" << std::endl;

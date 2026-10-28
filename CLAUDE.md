@@ -32,8 +32,9 @@ bash tools/check_determinism.sh  # the gate: must pass before and after every ch
 takes over the screen). Useful with it: `--game`, `--menu NAME`, `--clicks
 "x,y;key:return;text:words;right:x,y;down:x,y;move:x,y;up:x,y"`, `--advance SECONDS`, `--look X Y`,
 `--select NAME`, `--place NAME` and `--spawn NAME` (a building or a unit beside the
-start), `--frame-width N` (a frame of another screen's shape),
-`--resolution 800x600|1024x768|1280x1024`. Flags are parsed in `src/main.cpp`.
+start; `NAME@P` is player P's, 0 Gaia's), `--frame-width N` (a frame of another screen's shape),
+`--resolution 800x600|1024x768|1280x1024`. A click script that ends on `move:`
+shows the game's cursor there. Flags are parsed in `src/main.cpp`.
 
 ## Rules
 
