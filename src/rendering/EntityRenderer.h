@@ -29,10 +29,15 @@ public:
     static void Flash(const entt::registry& registry, entt::entity target, bool ends_others);
     static void ClearFlashes();
 
-    // The frontmost selectable thing whose art is opaque at the point (vx, vy)
-    // of the view, in the same unzoomed view pixels the frame was gathered
-    // in -- a unit, a tree, a building for any of its pieces -- or null.
+    // The frontmost selectable thing whose art holds the point (vx, vy) of
+    // the view, in the same unzoomed view pixels the frame was gathered in --
+    // a unit, a tree, a building for any of its pieces -- or null.
     static entt::entity PickAt(const entt::registry& registry, float vx, float vy);
+
+    // Whether `entity` is a unit or a living animal, which a click finds only
+    // by its art: where it is opaque, a few pixels round that, or inside its
+    // outline.
+    static bool PickedByArt(const entt::registry& registry, entt::entity entity);
 
     // How far a building's art stands from its origin tile, in world units:
     // a building is drawn about its footprint's middle, which for an even

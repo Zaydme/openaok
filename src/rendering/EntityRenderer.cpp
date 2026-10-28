@@ -18,6 +18,7 @@
 #include "ecs/components/Identity.h"
 #include "ecs/components/RallyPoint.h"
 #include "ecs/components/PartOf.h"
+#include "ecs/components/Animation.h"
 #include "ecs/BuildingGeometry.h"
 #include "ecs/Walls.h"
 #include "ecs/Players.h"
@@ -382,8 +383,12 @@ void EntityRenderer::ArtOffset(const entt::registry& registry, entt::entity enti
 
 namespace {
 
+// How far round a unit's art, in pixels, a click still lands on it.
+constexpr int kUnitMargin = 3;
+
 // The frontmost of `entries` -- those lying on the ground, or those standing
-// -- whose art is opaque at the point.
+// -- whose art holds the point: a building's or a tree's where it is opaque,
+// a unit's or an animal's as PickedByArt says.
 entt::entity PickIn(const entt::registry& registry, const std::vector<RenderEntry>& entries,
                     float vx, float vy, bool ground) {
     // Back to front as drawn: the last that covers the point is in front.
@@ -391,12 +396,19 @@ entt::entity PickIn(const entt::registry& registry, const std::vector<RenderEntr
         const RenderEntry& e = entries[i];
         if (e.ground != ground) continue;
         if (e.ent == entt::null || e.ghost != 0 || e.atlas == nullptr) continue;
-        if (vx < e.dest.x || vy < e.dest.y || vx >= e.dest.x + e.dest.w || vy >= e.dest.y + e.dest.h) continue;
-        int fx = static_cast<int>(vx - e.dest.x);
-        const int fy = static_cast<int>(vy - e.dest.y);
-        if (e.flip_h) fx = static_cast<int>(e.dest.w) - 1 - fx;
-        if (!e.atlas->Covers(e.frame, fx, fy)) continue;
         if (!registry.valid(e.ent)) continue;
+        const bool body = EntityRenderer::PickedByArt(registry, e.ent);
+        const float margin = body ? static_cast<float>(kUnitMargin) : 0.0f;
+        if (vx < e.dest.x - margin || vy < e.dest.y - margin ||
+            vx >= e.dest.x + e.dest.w + margin || vy >= e.dest.y + e.dest.h + margin) {
+            continue;
+        }
+        int fx = static_cast<int>(std::floor(vx - e.dest.x));
+        const int fy = static_cast<int>(std::floor(vy - e.dest.y));
+        if (e.flip_h) fx = static_cast<int>(e.dest.w) - 1 - fx;
+        const bool on = body ? e.atlas->Holds(e.frame, fx, fy, kUnitMargin)
+                             : e.atlas->Covers(e.frame, fx, fy);
+        if (!on) continue;
         if (const auto* part = registry.try_get<ECS::Components::PartOf>(e.ent)) {
             if (registry.valid(part->building)) return part->building;
         }
@@ -407,6 +419,13 @@ entt::entity PickIn(const entt::registry& registry, const std::vector<RenderEntr
 }
 
 } // namespace
+
+bool EntityRenderer::PickedByArt(const entt::registry& registry, entt::entity entity) {
+    // Units and animals are what play an animation and can be hurt; a
+    // building's fall plays one but has no hit points.
+    return registry.all_of<ECS::Components::Animation, ECS::Components::Health>(entity) &&
+           !registry.all_of<ECS::Components::Building>(entity);
+}
 
 entt::entity EntityRenderer::PickAt(const entt::registry& registry, float vx, float vy) {
     const auto& entries = Entries();

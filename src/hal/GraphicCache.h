@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <array>
 #include <SDL2/SDL.h>
 #include <cstdint>
@@ -39,6 +40,29 @@ struct GraphicAtlas {
         const size_t bit = static_cast<size_t>(r.y + fy) * static_cast<size_t>(width) +
                            static_cast<size_t>(r.x + fx);
         return (opaque[bit >> 3] >> (bit & 7)) & 1;
+    }
+
+    // Whether the art is opaque within `margin` pixels of the point, or the
+    // point lies between opaque pixels on its row: on a unit, a few pixels
+    // round it, and the gaps inside its outline.
+    bool Holds(int frame, int fx, int fy, int margin) const {
+        if (opaque.empty() || frame < 0 || frame >= static_cast<int>(frames.size())) {
+            return false;
+        }
+        const SDL_Rect& r = frames[frame].rect;
+        for (int y = std::max(0, fy - margin); y <= std::min(r.h - 1, fy + margin); ++y) {
+            for (int x = std::max(0, fx - margin); x <= std::min(r.w - 1, fx + margin); ++x) {
+                if (Covers(frame, x, y)) return true;
+            }
+        }
+        if (fy < 0 || fy >= r.h || fx < 0 || fx >= r.w) return false;
+        bool left = false;
+        for (int x = 0; x < fx && !left; ++x) left = Covers(frame, x, fy);
+        if (!left) return false;
+        for (int x = fx + 1; x < r.w; ++x) {
+            if (Covers(frame, x, fy)) return true;
+        }
+        return false;
     }
 };
 
