@@ -91,6 +91,8 @@ void Put(Writer& out, const C& c) {
         out.Entity(c.building); out.I32(c.slot);
     } else if constexpr (std::is_same_v<T, Core::ResearchCommand>) {
         out.Entity(c.building); out.I32(c.tech_id);
+    } else if constexpr (std::is_same_v<T, Core::TreasonCommand>) {
+        out.Entity(c.castle);
     } else if constexpr (std::is_same_v<T, Core::RallyCommand>) {
         out.Entity(c.building); out.Fixed(c.x); out.Fixed(c.y); out.Entity(c.target);
     } else if constexpr (std::is_same_v<T, Core::FormationMoveCommand>) {
@@ -177,6 +179,8 @@ T Take(Reader& in) {
         c.building = in.Entity(); c.slot = in.I32();
     } else if constexpr (std::is_same_v<T, Core::ResearchCommand>) {
         c.building = in.Entity(); c.tech_id = in.I32();
+    } else if constexpr (std::is_same_v<T, Core::TreasonCommand>) {
+        c.castle = in.Entity();
     } else if constexpr (std::is_same_v<T, Core::RallyCommand>) {
         c.building = in.Entity(); c.x = in.Fixed(); c.y = in.Fixed(); c.target = in.Entity();
     } else if constexpr (std::is_same_v<T, Core::FormationMoveCommand>) {

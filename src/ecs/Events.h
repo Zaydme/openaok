@@ -70,6 +70,9 @@ enum class Kind : uint8_t {
     // A build order of `player`'s for the unit `id` found the ground at
     // `at`, a tile, taken: nothing was laid out or paid for.
     Obstructed,
+    // `player` did Treason: the Kings of the players it is not allied with
+    // are shown to its side.
+    Treason,
 };
 
 struct Event {

@@ -64,8 +64,8 @@ int Age(const entt::registry& registry, Core::PlayerId player);
 // its civ table names it, or -1.
 int AgeTech(const entt::registry& registry, Core::PlayerId player, int age);
 
-// Whether `tech_id` is Spies -- Treason in a Regicide game: its effect sets
-// the dat's resource 183, the sight of the player's enemies.
+// Whether `tech_id` is Spies: its effect sets the dat's resource 183, the
+// sight of the player's enemies (ecs/Spies).
 bool Spies(int tech_id);
 
 // The next age the player can advance to, as a technology, or -1 once it is in

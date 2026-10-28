@@ -34,6 +34,7 @@
 #include "ecs/Population.h"
 #include "ecs/Production.h"
 #include "ecs/Selection.h"
+#include "ecs/Spies.h"
 #include "ecs/Techs.h"
 #include "ecs/Score.h"
 #include "ecs/Victory.h"
@@ -87,6 +88,7 @@ constexpr int kIconBuildEconomic = 30;
 constexpr int kIconBuildMilitary = 31;
 constexpr int kIconRepair = 33;
 constexpr int kIconTownBell = 49;
+constexpr int kIconTreason = 58;        // Treason, a Regicide game's Castle
 constexpr int kIconDelete = 59;         // the skull
 constexpr int kIconBackToWork = 61;     // the bell, with an arrow back out
 constexpr int kIconUngarrison = 64;     // a man leaving a doorway
@@ -197,8 +199,34 @@ constexpr int kComputerNamesPerCiv = 20;
 constexpr int kStringCreating = 4310;
 constexpr int kStringResearching = 4309;
 constexpr int kStringNeedHouses = 20607;
+// Spies' help, its price for <cost>, and Treason's, its price written in.
+constexpr int kSpiesHelp = 41113;
+constexpr int kTreasonHelp = 41112;
 constexpr int kStringAlly = 9853;
 constexpr int kStringEnemy = 9855;
+
+// Whether `selected` is a Castle of the player at this machine in a Regicide
+// game: where Treason is done.
+bool TreasonAt(const entt::registry& registry, entt::entity selected) {
+    const auto* setup = registry.ctx().find<Core::GameSetup>();
+    const auto* owner = registry.try_get<ECS::Components::Owner>(selected);
+    const auto* identity = registry.try_get<ECS::Components::Identity>(selected);
+    return setup != nullptr && setup->regicide && owner != nullptr && identity != nullptr &&
+           owner->player_id == Core::LocalPlayer() &&
+           identity->unit_id == Core::ConfigManager::Get().GetUnitIdByName(setup->regicide_castle);
+}
+
+// The button Spies takes in the dat, which Treason takes in its place.
+int TreasonButton() {
+    static const int button = [] {
+        const int count = static_cast<int>(Core::Rules::Get().techs.size());
+        for (int id = 0; id < count; ++id) {
+            if (ECS::Techs::Spies(id)) return Core::Rules::Tech(id)->button;
+        }
+        return -1;
+    }();
+    return button;
+}
 
 // The page the command grid shows: the unit's own commands, or a build menu.
 constexpr int kPageRoot = 0;   // not an InterfaceKind: the unit's own commands
@@ -1479,6 +1507,13 @@ int UIRenderer::BuildCommands(ECS::Simulation& sim, int win_w, int win_h,
                            rung ? Core::Hotkeys::kBackToWork : Core::Hotkeys::kRingBell);
             }
         }
+        // A Castle of the player's in a Regicide game: Treason, at the button
+        // Spies would have, usable with the gold for it.
+        if (finished && TreasonAt(registry, selected)) {
+            if (Command* cmd = order(TreasonButton(), CommandKind::Treason, kIconTreason, kTreasonHelp)) {
+                cmd->affordable = ECS::Spies::CanTreason(registry, LocalViewer());
+            }
+        }
         // A Market of the player's own: selling and buying, each button
         // showing the price of the moment for this player.
         if (ECS::Market::IsMarket(registry, selected, LocalViewer())) {
@@ -1584,6 +1619,8 @@ UIRenderer::Action UIRenderer::ActivateCommand(const Command& command) {
         return Action::Buy;
     case CommandKind::LockGate:
         return Action::LockGate;
+    case CommandKind::Treason:
+        return Action::Treason;
     case CommandKind::Pack:
         return Action::Pack;
     case CommandKind::Caption:
@@ -2072,7 +2109,10 @@ void UIRenderer::DrawHelpText(ECS::Simulation& sim, SDL_Renderer* sdl_r, int win
                 Core::ConfigManager::HelpValues values;
                 const auto& status = player->techs[hovered->tech_id];
                 StockpileCosts(status.costs, status.cost_count, values.costs);
-                text = cfg.ExpandHelp(texts[hovered->tech_id].help, values, true);
+                // Spies has help of its own, its price as it stands now.
+                const std::string help = ECS::Techs::Spies(hovered->tech_id)
+                    ? Core::Strings::Get(kSpiesHelp) : texts[hovered->tech_id].help;
+                text = cfg.ExpandHelp(help, values, true);
             }
         } else if (hovered->kind == CommandKind::Produce) {
             const auto* ui = cfg.GetUnitInterface(hovered->unit_id);

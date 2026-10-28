@@ -24,6 +24,7 @@
 #include "ecs/VillagerJobs.h"
 #include "ecs/Victory.h"
 #include "ecs/Events.h"
+#include "ecs/Spies.h"
 #include "ecs/Walls.h"
 #include "ecs/Players.h"
 #include "ecs/Production.h"
@@ -541,6 +542,8 @@ void Execute(entt::registry& registry, Physics::Grid& grid, const Core::Command&
                        cmd.text);
         } else if constexpr (std::is_same_v<T, Core::FlareCommand>) {
             Flares::Send(registry, cmd.player, {cmd.x, cmd.y});
+        } else if constexpr (std::is_same_v<T, Core::TreasonCommand>) {
+            Spies::Treason(registry, cmd.castle, cmd.player);
         } else if constexpr (std::is_same_v<T, Core::SelectionCommand>) {
             // Only a scenario's triggers keep it.
             Triggers::NoteSelection(registry, cmd.player, cmd.units);

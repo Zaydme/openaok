@@ -103,6 +103,7 @@ simulation only writes it; sound, the interface and the checks read it.
 | `ecs/Allegiance` | Changing an entity's owner; a converted unit keeps its maker's rules (`RulesOf`) |
 | `ecs/Vision` | Each player's visible and explored ground |
 | `ecs/Victory` | Conquest, Wonders and relics; who is defeated and who has won |
+| `ecs/Spies` | Spies' price and the enemy sight it gives; Treason, which marks the enemy Kings in Regicide |
 | `ecs/Market`, `ecs/Trade`, `ecs/Tribute` | Commodity prices and trading; trade carts and cogs; tribute and its fee |
 | `ecs/Chat`, `ecs/Flares` | Chat lines and flares, carried in lockstep, written to a log the interface reads |
 | `ecs/Diplomacy` | Stances between players, allied victory, Lock Teams, team bonuses |

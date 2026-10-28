@@ -4,6 +4,8 @@
 
 #include "core/Rules.h"
 #include "ecs/Diplomacy.h"
+#include "ecs/Events.h"
+#include "ecs/Flares.h"
 #include "ecs/Players.h"
 #include "ecs/components/Building.h"
 #include "ecs/components/Health.h"
@@ -34,27 +36,59 @@ bool InBounds(const Map& map, int x, int y) {
 // its allies see and have explored; allies without it do not see the
 // player's.
 constexpr int kRevealAlly = 50;
+// The dat's "reveal enemy": Spies sets it. A player with it sees what every
+// player it is not allied with sees now (ecs/Spies).
+constexpr int kRevealEnemy = 183;
 
-// For each player, the players whose sight it shares: its allies -- allied
-// each way -- if it has Cartography. False when nobody shares anything, which
-// is nearly always.
-bool SharedSight(const entt::registry& registry, uint16_t shared[Core::kMaxPlayers]) {
+// For each player, the players whose sight it shares -- its allies, allied
+// each way, if it has Cartography; everyone else in the game if it has Spies
+// -- and those whose explored ground it knows: its allies, with Cartography.
+// False when nobody shares anything, which is nearly always.
+bool SharedSight(const entt::registry& registry, uint16_t sees[Core::kMaxPlayers],
+                 uint16_t knows[Core::kMaxPlayers]) {
     bool any = false;
     for (int p = 1; p < Core::kMaxPlayers; ++p) {
-        shared[p] = 0;
+        sees[p] = 0;
+        knows[p] = 0;
         const Players::Player* seat = Players::Find(registry, static_cast<Core::PlayerId>(p));
-        if (seat == nullptr || Players::Resource(*seat, kRevealAlly).value <= 0) continue;
+        if (seat == nullptr) continue;
+        const bool cartography = Players::Resource(*seat, kRevealAlly).value > 0;
+        const bool spies = Players::Resource(*seat, kRevealEnemy).value > 0;
+        if (!cartography && !spies) continue;
         for (int q = 1; q < Core::kMaxPlayers; ++q) {
             if (q == p || Players::Find(registry, static_cast<Core::PlayerId>(q)) == nullptr) continue;
-            if (Diplomacy::Allied(registry, static_cast<Core::PlayerId>(p),
-                                  static_cast<Core::PlayerId>(q))) {
-                shared[p] = static_cast<uint16_t>(shared[p] | Bit(static_cast<Core::PlayerId>(q)));
+            const uint16_t bit = Bit(static_cast<Core::PlayerId>(q));
+            if (Diplomacy::Allied(registry, static_cast<Core::PlayerId>(p), static_cast<Core::PlayerId>(q))) {
+                if (cartography) {
+                    sees[p] = static_cast<uint16_t>(sees[p] | bit);
+                    knows[p] = static_cast<uint16_t>(knows[p] | bit);
+                }
+            } else if (spies) {
+                sees[p] = static_cast<uint16_t>(sees[p] | bit);
             }
         }
-        any = any || shared[p] != 0;
+        any = any || sees[p] != 0;
     }
     return any;
 }
+
+// The players who gain a tile from a tile's mask, through who shares whose:
+// the union of what the mask's low byte gives and what its high byte gives.
+struct Gains {
+    uint16_t low[256] = {};
+    uint16_t high[256] = {};
+    void From(const uint16_t shares[Core::kMaxPlayers]) {
+        for (int p = 1; p < Core::kMaxPlayers; ++p) {
+            if (shares[p] == 0) continue;
+            const uint16_t bit = Bit(static_cast<Core::PlayerId>(p));
+            for (int x = 1; x < 256; ++x) {
+                if (x & (shares[p] & 0xFF)) low[x] = static_cast<uint16_t>(low[x] | bit);
+                if (x & (shares[p] >> 8)) high[x] = static_cast<uint16_t>(high[x] | bit);
+            }
+        }
+    }
+    uint16_t Of(uint16_t mask) const { return static_cast<uint16_t>(mask | low[mask & 0xFF] | high[mask >> 8]); }
+};
 
 // Whether this unit stays seen on fogged ground once found: buildings, the
 // map's own objects and what the dat marks, never other units.
@@ -139,28 +173,29 @@ void Update(entt::registry& registry) {
         if (registry.all_of<Components::Building>(e) || !seer(e, s)) continue;
         Stamp(*map, map->visible, s.x, s.y, s.radius, Bit(static_cast<Core::PlayerId>(s.player)));
     }
-    // Allies' sight, for those with Cartography: only what each ally sees
-    // and has explored itself, not what it is shown in turn.
-    uint16_t shared[Core::kMaxPlayers];
-    if (SharedSight(registry, shared)) {
-        // A player gains a tile that any player it is shown by sees, or has
-        // explored. Which players gain, from a tile's mask, is the union of
-        // what its low byte gives and what its high byte gives.
-        uint16_t low[256] = {};
-        uint16_t high[256] = {};
-        for (int p = 1; p < Core::kMaxPlayers; ++p) {
-            if (shared[p] == 0) continue;
-            const uint16_t bit = Bit(static_cast<Core::PlayerId>(p));
-            for (int x = 1; x < 256; ++x) {
-                if (x & (shared[p] & 0xFF)) low[x] = static_cast<uint16_t>(low[x] | bit);
-                if (x & (shared[p] >> 8)) high[x] = static_cast<uint16_t>(high[x] | bit);
-            }
+    // Treason's marks: two tiles round each King, for the side shown it.
+    if (const Flares::Log* flares = Flares::Read(registry)) {
+        const Events::Log* events = Events::Read(registry);
+        const uint64_t now = events != nullptr ? events->tick : 0;
+        for (const Flares::Flare& flare : flares->flares) {
+            if (flare.sight <= 0 || !Flares::Showing(*flares, flare, now)) continue;
+            Stamp(*map, map->visible, Physics::TileOf(flare.at.x), Physics::TileOf(flare.at.y),
+                  flare.sight, flare.to);
         }
+    }
+    // Shared sight: allies' for those with Cartography, enemies' for those
+    // with Spies -- only what each sees and has explored itself, not what it
+    // is shown in turn.
+    uint16_t sees[Core::kMaxPlayers];
+    uint16_t knows[Core::kMaxPlayers];
+    if (SharedSight(registry, sees, knows)) {
+        Gains seen;
+        Gains known;
+        seen.From(sees);
+        known.From(knows);
         for (size_t i = 0; i < map->visible.size(); ++i) {
-            const uint16_t sees = map->visible[i];
-            const uint16_t knows = map->explored[i];
-            map->explored[i] = static_cast<uint16_t>(knows | low[knows & 0xFF] | high[knows >> 8]);
-            map->visible[i] = static_cast<uint16_t>(sees | low[sees & 0xFF] | high[sees >> 8]);
+            map->explored[i] = known.Of(map->explored[i]);
+            map->visible[i] = seen.Of(map->visible[i]);
         }
     }
     for (size_t i = 0; i < map->visible.size(); ++i) map->explored[i] |= map->visible[i];

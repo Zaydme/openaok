@@ -17,6 +17,7 @@
 #include "ecs/Duties.h"
 #include "ecs/Monks.h"
 #include "ecs/Relics.h"
+#include "ecs/Spies.h"
 #include "ecs/Events.h"
 #include "ecs/Chat.h"
 #include "ecs/Diplomacy.h"
@@ -176,6 +177,8 @@ void Simulation::Init(const Core::GameSetup& game) {
                          setup.all_techs);
         }
     }
+    // Spies is not to be had in Regicide or Death Match.
+    Spies::Setup(registry, setup);
     Diplomacy::ApplyTeamBonuses(registry, setup);
 
     // A scenario's world is its file's, not a script's.
@@ -297,6 +300,8 @@ void Simulation::Update(int32_t dt_ms) {
     Mortality::Update(registry, grid, dt_ms);
     Buildings::Update(registry, grid);
     Walls::Update(registry, grid);
+    // Spies' price follows the villagers it counts, before anything queues.
+    Spies::Update(registry);
     Production::Update(registry, grid, dt_ms);
     Systems::AnimationSystem::Update(registry, dt_ms);
     // A scenario's triggers, before the victory they can declare is looked at;

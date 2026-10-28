@@ -38,6 +38,7 @@ GATHERING="$(echo "$OUTPUT" | grep '^gathering=')"
 FELLING="$(echo "$OUTPUT" | grep '^felling=')"
 NOTICES="$(echo "$OUTPUT" | grep '^notices=')"
 FLAG="$(echo "$OUTPUT" | grep '^flag=')"
+SPIES="$(echo "$OUTPUT" | grep '^spies=')"
 CAPTURE="$(echo "$OUTPUT" | grep '^capture=')"
 PRODUCTION="$(echo "$OUTPUT" | grep '^production=')"
 TECHS="$(echo "$OUTPUT" | grep '^techs=')"
@@ -159,6 +160,15 @@ if [ "$FLAG" = "flag=ok" ]; then
 else
     echo "FLAG FAILED" >&2
     echo "  $FLAG" >&2
+    STATUS=1
+fi
+
+# Spies' price and the enemy sight it gives; Treason in Regicide.
+if [ "$SPIES" = "spies=ok" ]; then
+    echo "spies OK"
+else
+    echo "SPIES FAILED" >&2
+    echo "  $SPIES" >&2
     STATUS=1
 fi
 

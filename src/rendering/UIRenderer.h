@@ -103,6 +103,7 @@ public:
         Buy,          // buy 100 of a commodity there
         LockGate,     // lock the selected gate (choice 1) or unlock it (0)
         Pack,         // pack the selected trebuchets (choice 1) or unpack them (0)
+        Treason,      // Treason at the selected Castle, in a Regicide game
         Caption,      // words in a slot, not a button: the Market's "Sell:"
     };
     struct Command {
@@ -144,7 +145,7 @@ public:
     // interface's own business and never reach here.
     enum class Action { None, PlaceBuilding, DeleteBuilding, TrainUnit, Research,
                         SetStance, Stop, Ungarrison, TownBell, Patrol, Guard, Follow,
-                        Garrison, Repair, Sell, Buy, LockGate, Pack };
+                        Garrison, Repair, Sell, Buy, LockGate, Pack, Treason };
 
     // The formation the player last chose; a group move marches in it.
     static Core::Formation CurrentFormation();

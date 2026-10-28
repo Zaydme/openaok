@@ -56,8 +56,8 @@ constexpr int kYouBeganWonder = 3058;        // "You have started building a Won
 constexpr int kNeedMoreHouses = 3075;
 constexpr int kHaltedAtLimit = 3076;
 constexpr int kSiteObstructed = 3094;        // "Building site obstructed. Building canceled."
-// An enemy's Spies: "Spies have infiltrated your nation.", and in a Regicide
-// game, Treason: "--Warning: Spies have leaked knowledge of your king's
+// An enemy's Spies: "Spies have infiltrated your nation."; an enemy's
+// Treason: "--Warning: Spies have leaked knowledge of your king's
 // location!!!--".
 constexpr int kSpiesInfiltrated = 3099;
 constexpr int kKingLeaked = 37166;
@@ -152,8 +152,7 @@ void Hear(const entt::registry& registry, const ECS::Events::Event& event,
     case Kind::Researched:
         if (event.player != viewer && ECS::Techs::Spies(event.id) &&
             ECS::Diplomacy::StanceOf(registry, event.player, viewer) == ECS::Diplomacy::Stance::Enemy) {
-            const auto* setup = registry.ctx().find<Core::GameSetup>();
-            Post(Core::Strings::Get(setup != nullptr && setup->regicide ? kKingLeaked : kSpiesInfiltrated));
+            Post(Core::Strings::Get(kSpiesInfiltrated));
         }
         for (int age = 1; age <= 3; ++age) {
             if (event.id == ECS::Techs::AgeTech(registry, event.player, age)) {
@@ -168,6 +167,12 @@ void Hear(const entt::registry& registry, const ECS::Events::Event& event,
             } else {
                 Post(Format(kTheyBeganWonder, UIRenderer::PlayerName(registry, event.player)));
             }
+        }
+        break;
+    case Kind::Treason:
+        if (event.player != viewer &&
+            ECS::Diplomacy::StanceOf(registry, event.player, viewer) == ECS::Diplomacy::Stance::Enemy) {
+            Post(Core::Strings::Get(kKingLeaked));
         }
         break;
     case Kind::Obstructed:

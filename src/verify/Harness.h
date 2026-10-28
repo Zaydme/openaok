@@ -46,6 +46,11 @@ bool CheckNotices();
 // its graphic has. Prints "flag=".
 bool CheckFlag();
 
+// Spies' price for each enemy villager and the enemy sight it gives; none in
+// Death Match or Regicide, where Treason marks the enemy Kings instead.
+// Prints "spies=".
+bool CheckSpies();
+
 // Gaia's village taken by the first player to see it; its wild animals and
 // relic carts not. Prints "capture=".
 bool CheckCapture();

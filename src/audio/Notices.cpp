@@ -100,6 +100,13 @@ void Hear(const entt::registry& registry, const ECS::Events::Event& event,
         }
         break;
     }
+    case ECS::Events::Kind::Treason:
+        // An enemy's Treason: spies.wav.
+        if (event.player != listener &&
+            ECS::Diplomacy::StanceOf(registry, event.player, listener) == ECS::Diplomacy::Stance::Enemy) {
+            HAL::Audio::Play(InterfaceSound::kSpies, 1.0f, 0.0f);
+        }
+        break;
     case ECS::Events::Kind::Begun:
         if (IsWonder(event.id)) HAL::Audio::Play(InterfaceSound::kWonderStarted, 1.0f, 0.0f);
         break;

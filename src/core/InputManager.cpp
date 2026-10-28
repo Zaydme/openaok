@@ -832,6 +832,11 @@ void InputManager::RunCommand(ECS::Simulation& sim, const Rendering::UIRenderer:
         break;
     }
     case Rendering::UIRenderer::Action::Ungarrison:
+    case Rendering::UIRenderer::Action::Treason: {
+        const entt::entity castle = Rendering::UIRenderer::SelectedBuilding(sim);
+        if (castle != entt::null) CommandQueue::Get().PushCommand(TreasonCommand{castle, Core::LocalPlayer()});
+        break;
+    }
     case Rendering::UIRenderer::Action::TownBell: {
         const entt::entity building =
             Rendering::UIRenderer::SelectedBuilding(sim);

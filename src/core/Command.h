@@ -320,6 +320,13 @@ struct WaypointCommand {
     PlayerId player;
 };
 
+// Treason, in a Regicide game: done at once at one of the player's Castles
+// (ecs/Spies).
+struct TreasonCommand {
+    entt::entity castle;
+    PlayerId player;
+};
+
 using Command = std::variant<MoveCommand, GatherCommand, AttackCommand,
                              BuildCommand, DeleteCommand, TrainCommand,
                              CancelTrainCommand, ResearchCommand, RallyCommand,
@@ -332,6 +339,6 @@ using Command = std::variant<MoveCommand, GatherCommand, AttackCommand,
                              FlareCommand, WallCommand, GateCommand, RepairCommand,
                              PackCommand, CheatCommand,
                              ComputerResourceCommand, SelectionCommand,
-                             WaypointCommand>;
+                             WaypointCommand, TreasonCommand>;
 
 } // namespace Core

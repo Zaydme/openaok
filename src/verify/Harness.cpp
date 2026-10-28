@@ -29,6 +29,7 @@ int Run(int ticks) {
     if (runs("felling")) ok &= CheckFelling();
     if (runs("notices")) ok &= CheckNotices();
     if (runs("flag")) ok &= CheckFlag();
+    if (runs("spies")) ok &= CheckSpies();
     if (runs("capture")) ok &= CheckCapture();
     if (runs("planner")) ok &= CheckApproachPlanner();
     if (runs("building")) ok &= CheckConstruction();
