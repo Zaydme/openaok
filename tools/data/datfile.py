@@ -27,7 +27,9 @@ def build_dumper():
     try:
         subprocess.run(['cmake', '-S', HERE, '-B', BUILD_DIR, '-DCMAKE_BUILD_TYPE=Release'],
                        check=True, stdout=subprocess.DEVNULL)
-        subprocess.run(['cmake', '--build', BUILD_DIR, '--target', 'dump_dat', '--parallel'],
+        # A bounded number of jobs: a bare --parallel is unbounded under make.
+        jobs = str(min(4, os.cpu_count() or 1))
+        subprocess.run(['cmake', '--build', BUILD_DIR, '--target', 'dump_dat', '--parallel', jobs],
                        check=True, stdout=subprocess.DEVNULL)
     except FileNotFoundError:
         sys.exit('cmake not found: install CMake to build the data tools')
