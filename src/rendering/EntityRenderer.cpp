@@ -459,6 +459,16 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
     auto mark_of = [&](entt::entity entity, float sx, float sy, bool selected, bool flash) -> int {
         SelectionMark m;
         if (flash) m.colour = SDL_Color{flash_colour.r, flash_colour.g, flash_colour.b, 255};
+        // A gate's art is laid at its footprint's middle by its pieces, off
+        // its own tile (ArtOffset); its outline and bar go there too.
+        if (const auto* id = registry.try_get<ECS::Components::Identity>(entity);
+            id != nullptr && ECS::Walls::IsGate(id->unit_id)) {
+            const ECS::Buildings::Footprint f = ECS::Buildings::FootprintOf(id->unit_id);
+            const float dx = static_cast<float>(f.x.low + f.x.high) / 2.0f;
+            const float dy = static_cast<float>(f.y.low + f.y.high) / 2.0f;
+            sx += (dx - dy) * (Core::IsometricMath::TILE_WIDTH / 2.0f);
+            sy += (dx + dy) * (Core::IsometricMath::TILE_HEIGHT / 2.0f);
+        }
         m.sx = static_cast<int>(std::lround(sx));
         m.sy = static_cast<int>(std::lround(sy));
         if (const auto* id = registry.try_get<ECS::Components::Identity>(entity)) {
