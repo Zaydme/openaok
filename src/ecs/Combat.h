@@ -3,6 +3,7 @@
 
 #include "core/FixedPoint.h"
 #include "core/Rules.h"
+#include "ecs/BuildingGeometry.h"
 #include "physics/Grid.h"
 
 // Fighting.
@@ -64,8 +65,13 @@ bool Hostile(const entt::registry& registry, entt::entity a, entt::entity b);
 // as an ally. Never struck by `a`'s blast, nor answered when it strikes.
 bool Friendly(const entt::registry& registry, entt::entity a, entt::entity b);
 
-// How far apart two things are, edge to edge: between a unit's body and a
-// building's wall, or between two units' bodies.
+// The ground something covers, as the original measures its distances: a
+// building its footprint, anything else the box its dat size spans each way
+// about its middle.
+Buildings::Bounds BoxOf(const entt::registry& registry, entt::entity entity);
+
+// How far apart two things are, edge to edge: the straight distance between
+// their boxes (BoxOf), zero where they touch or overlap.
 Core::Fixed32 Gap(const entt::registry& registry, entt::entity from, entt::entity to);
 
 // Turns `self` to face `target`; a building keeps its art as it is.

@@ -37,7 +37,7 @@ that the script reads.
 | `building` | A crew raising a Town Center; demolition |
 | `production` | Prices, refusals, births beside the building, the population cap, cancelling, rally points |
 | `techs` | Civilisation bonuses and tech trees, ages, research, upgrades in place |
-| `combat` | Damage, a duel, arrows, towers, stances, formations, hunting, splash damage |
+| `combat` | Damage, reach between the dat's boxes, a duel, arrows, towers, stances, formations, hunting, splash damage |
 | `vision` | Fog per player, explored ground, buildings remembered in the fog |
 | `garrison` | Entering and leaving, refusals, garrison arrows, healing, the town bell |
 | `animals`, `duties`, `monks` | Herding, fleeing, grazing; patrol, follow, guard; conversion, facing whom they convert, healing, relics |

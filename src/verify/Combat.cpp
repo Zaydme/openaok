@@ -170,6 +170,23 @@ bool CheckCombat() {
     if (ok() && our_tc == entt::null) verdict = "no town center to fight beside";
     const auto base = ok() ? reg.get<ECS::Components::Transform>(our_tc).position
                            : ECS::Components::Vector2D{};
+
+    // Reach is measured as the original measures it, between boxes of the
+    // dat's sizes: two militia a tile apart each way are their boxes' corners
+    // apart, not their circles'.
+    if (ok()) {
+        const auto* militia = ECS::Players::UnitOf(reg, kUs, militia_id);
+        const ECS::Components::Vector2D at{base.x + Core::Fixed32(30), base.y + Core::Fixed32(30)};
+        const entt::entity a = ECS::Units::Spawn(reg, militia_id, kUs, at);
+        const entt::entity b = ECS::Units::Spawn(reg, militia_id, kThem,
+                                                 {at.x + Core::Fixed32(1), at.y + Core::Fixed32(1)});
+        const Core::Fixed32 side = Core::Fixed32(1) - militia->size_x - militia->size_x;
+        if (ECS::Combat::Gap(reg, a, b) != Core::FixedMath::Distance(side, side)) {
+            verdict = "the gap between two units is not between their boxes";
+        }
+        reg.destroy(a);
+        reg.destroy(b);
+    }
     auto patch = [&](int dx, int dy, int& x, int& y) {
         x = base.x.ToInt() + dx;
         y = base.y.ToInt() + dy;

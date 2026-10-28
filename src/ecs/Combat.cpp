@@ -390,26 +390,26 @@ bool Friendly(const entt::registry& registry, entt::entity a, entt::entity b) {
     return pa == pb || Diplomacy::StanceOf(registry, pa, pb) == Diplomacy::Stance::Ally;
 }
 
+Buildings::Bounds BoxOf(const entt::registry& registry, entt::entity entity) {
+    const auto& at = registry.get<Components::Transform>(entity).position;
+    if (IsBuilding(registry, entity) && registry.all_of<Components::Identity>(entity)) {
+        return Buildings::FootprintBounds(at, registry.get<Components::Identity>(entity).unit_id);
+    }
+    // The dat's axes are a quarter turn from the grid's: its y extent is the
+    // grid's x.
+    const R::UnitRules* rules = DefendingRules(registry, entity);
+    const Core::Fixed32 half_x = rules != nullptr ? rules->size_y : Core::Fixed32(0);
+    const Core::Fixed32 half_y = rules != nullptr ? rules->size_x : Core::Fixed32(0);
+    return {at.x - half_x, at.y - half_y, at.x + half_x, at.y + half_y};
+}
+
 Core::Fixed32 Gap(const entt::registry& registry, entt::entity from, entt::entity to) {
-    const auto& a = registry.get<Components::Transform>(from).position;
-    const auto& b = registry.get<Components::Transform>(to).position;
-    const Core::Fixed32 own = IsBuilding(registry, from) ? Core::Fixed32(0)
-                                                         : Radius(registry, from);
-    Core::Fixed32 apart{};
-    if (IsBuilding(registry, to) && registry.all_of<Components::Identity>(to)) {
-        apart = Buildings::FootprintBounds(b, registry.get<Components::Identity>(to).unit_id)
-                    .DistanceFrom(a);
-    } else {
-        apart = Core::FixedMath::Distance(a.x - b.x, a.y - b.y) - Radius(registry, to);
-    }
-    if (IsBuilding(registry, from) && registry.all_of<Components::Identity>(from)) {
-        // A building shoots from its walls, not its middle.
-        const auto bounds = Buildings::FootprintBounds(
-            a, registry.get<Components::Identity>(from).unit_id);
-        apart = bounds.DistanceFrom(b) - Radius(registry, to);
-    }
-    const Core::Fixed32 gap = apart - own;
-    return gap.value > 0 ? gap : Core::Fixed32(0);
+    const Buildings::Bounds a = BoxOf(registry, from);
+    const Buildings::Bounds b = BoxOf(registry, to);
+    const Core::Fixed32 zero(0);
+    const Core::Fixed32 across = Core::FixedMath::Max(zero, Core::FixedMath::Max(a.min_x - b.max_x, b.min_x - a.max_x));
+    const Core::Fixed32 down = Core::FixedMath::Max(zero, Core::FixedMath::Max(a.min_y - b.max_y, b.min_y - a.max_y));
+    return Core::FixedMath::Distance(across, down);
 }
 
 void Engage(entt::registry& registry, entt::entity attacker, entt::entity target,

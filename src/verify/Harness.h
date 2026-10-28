@@ -92,7 +92,8 @@ bool CheckProduction();
 // effects reaching units already in the field. Prints "techs=".
 bool CheckTechs();
 
-// Fighting by the dat's rules: the damage formula, a duel to the death, an
+// Fighting by the dat's rules: the damage formula, reach measured between the
+// dat's boxes, a duel to the death, an
 // archer's arrows in flight, a tower shooting by itself, stand ground, a
 // hunter killing a deer and gathering it, and a boar answering. Prints
 // "combat=".
