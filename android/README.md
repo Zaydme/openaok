@@ -5,7 +5,8 @@ against Android 16 (API 36).
 
 ## Tools
 
-- JDK 17 or 21.
+- JDK 21. Gradle runs on it whichever JDK `java` is
+  (`gradle/gradle-daemon-jvm.properties`), finding it among those installed.
 - The Android SDK with `platforms;android-36`, `build-tools;35.0.0`,
   `ndk;28.2.13676358` and `cmake;3.31.6`, and `android/local.properties`
   naming it: `sdk.dir=/path/to/Android/sdk`.
