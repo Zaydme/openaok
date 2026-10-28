@@ -522,8 +522,8 @@ bool CheckCombat() {
                         verdict = "a town center could be placed on uneven ground";
                     } else if (!barracks_ok) {
                         verdict = "a barracks could not be placed across one level";
-                    } else if (barracks_steep) {
-                        verdict = "a barracks could be placed across two levels";
+                    } else if (!barracks_steep) {
+                        verdict = "a barracks was refused for its middle tile, which the hill rule does not look at";
                     } else if (!house_steep) {
                         verdict = "a house, which goes anywhere, was refused on a slope";
                     }

@@ -249,6 +249,45 @@ bool CheckFoundations() {
         }
     }
 
+    // The ground's lie, by the dat's hill rule. A Barracks (3) minds only its
+    // two front edges, within a level of the front corner: its back corner
+    // two levels up is no matter, an edge two up is. A Town Center (2) wants
+    // all its ground flat, and a tile beside it one level up makes the one
+    // next to it a slope.
+    if (ok()) {
+        const int barracks = cfg.GetUnitIdByName("BRKS");
+        int gx = 0, gy = 0;
+        if (!Open(sim, hx, hy, 34, 5, gx, gy)) {
+            verdict = "no open ground for the hill rules";
+        } else {
+            auto level = [&](int x, int y) -> int& { return grid.GetTileMut(x, y).elevation; };
+            const int base = level(gx, gy);
+            for (int y = gy - 5; y <= gy + 5; ++y) {
+                for (int x = gx - 5; x <= gx + 5; ++x) level(x, y) = base;
+            }
+            const auto f = ECS::Buildings::FootprintOf(barracks);
+            const int bx0 = gx + f.x.low, by0 = gy + f.y.low, bx1 = gx + f.x.high, by1 = gy + f.y.high;
+            level(bx0, by0) = base + 2;
+            level(bx0 + 1, by0) = base + 1;
+            level(bx0, by0 + 1) = base + 1;
+            const bool back = ECS::Buildings::CanPlace(grid, barracks, gx, gy);
+            level(bx1, by0) = base + 2;
+            const bool front = ECS::Buildings::CanPlace(grid, barracks, gx, gy);
+            for (int y = by0; y <= by1; ++y) {
+                for (int x = bx0; x <= bx1; ++x) level(x, y) = base;
+            }
+            const auto t = ECS::Buildings::FootprintOf(town_center);
+            const bool flat = ECS::Buildings::CanPlace(grid, town_center, gx, gy);
+            level(gx + t.x.high + 1, gy) = base + 1;
+            const bool beside = ECS::Buildings::CanPlace(grid, town_center, gx, gy);
+            level(gx + t.x.high + 1, gy) = base;
+            if (!back) verdict = "a Barracks was refused for its back corner, which the rule does not look at";
+            else if (front) verdict = "a Barracks was placed with a front edge two levels off";
+            else if (!flat) verdict = "a Town Center was refused on flat ground";
+            else if (beside) verdict = "a Town Center was placed beside a rise";
+        }
+    }
+
     std::printf("foundations=%s\n", verdict.c_str());
     return verdict == "ok";
 }

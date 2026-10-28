@@ -929,10 +929,17 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                 {
                     const auto* site_owner =
                         registry.try_get<Components::Owner>(worker.target_building);
-                    const auto* rules = Players::UnitOf(
-                        registry,
-                        site_owner ? site_owner->player_id : Core::PLAYER_GAIA,
-                        identity ? identity->unit_id : -1);
+                    const Core::PlayerId site_player =
+                        site_owner ? site_owner->player_id : Core::PLAYER_GAIA;
+                    const auto* rules = Players::UnitOf(registry, site_player,
+                                                        identity ? identity->unit_id : -1);
+                    // What goes up is the dat's head unit where there is one,
+                    // a gate's site unit: its time is the building's.
+                    if (rules != nullptr && rules->head_unit >= 0) {
+                        if (const auto* head = Players::UnitOf(registry, site_player, rules->head_unit)) {
+                            rules = head;
+                        }
+                    }
                     const int build_ms =
                         std::max(1, rules != nullptr ? rules->train_time : 1) * 1000;
                     const int crew = crew_on(worker.target_building);

@@ -52,8 +52,9 @@ bool CheckNotices();
 // Foundations as the original lays them: no ground held, seen only by their
 // side and nobody's target until begun; what placing runs into; the first
 // begun of overlapping foundations standing and the other refunded; the
-// footprint-only sight of a building going up; and deleting's refunds.
-// Prints "foundations=".
+// footprint-only sight of a building going up; deleting's refunds; and the
+// dat's hill rules for the ground a building is placed on. Prints
+// "foundations=".
 bool CheckFoundations();
 
 // What a player keeps of what it no longer sees: no building drawn that it
@@ -212,7 +213,8 @@ bool CheckChat();
 // Walls and gates: a dragged line laid as foundations at the dat's price, each
 // segment the piece its neighbours choose, a tower joining a wall, one
 // villager raising a whole line, a Gate turning to its wall and replacing it,
-// open to its owner and ally and shut to the enemy, and locked, to all.
+// going up as its site unit -- that unit's scaffold, shadow and time -- open
+// to its owner and ally and shut to the enemy, and locked, to all.
 // Prints "walls=".
 bool CheckWalls();
 

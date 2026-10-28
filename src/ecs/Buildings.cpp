@@ -10,6 +10,7 @@
 
 #include "core/ConfigManager.h"
 #include "core/FixedMath.h"
+#include "core/Media.h"
 #include "core/Rules.h"
 #include "ecs/BuildingGeometry.h"
 #include "ecs/Diplomacy.h"
@@ -204,20 +205,46 @@ void SpawnArt(entt::registry& registry, entt::entity building) {
     }
 }
 
+// The House: its site stays at its graphic's first frame, its one stage, for
+// the whole build, where other sites step through their graphic's angles.
+constexpr int kHouse = 70;
+
 // The construction site's art: the dat's construction graphic, whose frames
-// the animation system steps with the site's hit points.
+// the animation system steps with the site's progress. A building that goes
+// up as another unit -- a gate as its own site unit, the dat's head unit, a
+// gate-shaped scaffold -- wears that unit's. The graphic's deltas, a stone
+// wall's or a gate's shadow, become pieces drawn at the site's frame.
 void SpawnSiteArt(entt::registry& registry, entt::entity building,
                   const R::UnitRules& rules) {
     auto& cfg = Core::ConfigManager::Get();
-    const auto construction = cfg.GetGraphic(rules.construction_graphic);
+    int graphic = rules.construction_graphic;
+    if (const R::UnitRules* head = rules.head_unit >= 0 ? R::Unit(rules.head_unit) : nullptr;
+        head != nullptr && cfg.GetGraphic(head->construction_graphic).Valid()) {
+        graphic = head->construction_graphic;
+    }
+    const auto construction = cfg.GetGraphic(graphic);
     Components::Sprite site{};
     site.width = 0;
     site.height = 0;
     if (construction.Valid()) {
         site.slp_id = construction.slp_id;
         site.construction_frames =
-            std::max(1, construction.frame_count * std::max(1, construction.angle_count));
-        site.shadow_resolved = true;   // the site casts none of its own
+            registry.get<Components::Identity>(building).unit_id == kHouse
+                ? std::max(1, construction.frame_count)
+                : std::max(1, construction.frame_count * std::max(1, construction.angle_count));
+        site.shadow_resolved = true;   // its shadow is a delta, if anything
+        const auto& at = registry.get<Components::Transform>(building).position;
+        for (const auto& delta : Core::Media::Deltas(graphic)) {
+            const auto layer = cfg.GetGraphic(delta.graphic);
+            if (!layer.Valid()) continue;
+            auto piece = registry.create();
+            registry.emplace<Components::Transform>(piece, at, at);
+            auto sprite = PieceSprite(layer.slp_id, -1, false, true);
+            sprite.site_layer = true;
+            registry.emplace<Components::Sprite>(piece, std::move(sprite));
+            registry.emplace<Components::Owner>(piece, OwnerOf(registry, building));
+            registry.emplace<Components::PartOf>(piece, building);
+        }
     } else {
         // No construction art on the disc (the Farm's field, SLP 419): the
         // site draws nothing, and a Farm going up shows only its farmland
@@ -514,11 +541,24 @@ void Refund(entt::registry& registry, entt::entity building) {
     }
 }
 
+// Whether a tile is flat: none of the eight around it -- a tile off the map
+// counting as level -- one level higher.
+bool Flat(const Physics::Grid& grid, int x, int y) {
+    const int level = grid.GetTile(x, y).elevation;
+    for (int dy = -1; dy <= 1; ++dy) {
+        for (int dx = -1; dx <= 1; ++dx) {
+            if ((dx != 0 || dy != 0) && grid.InBounds(x + dx, y + dy) &&
+                grid.GetTile(x + dx, y + dy).elevation == level + 1) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 bool CanPlace(const Physics::Grid& grid, int unit_id, int tile_x, int tile_y) {
     const int placed = PlacedUnit(unit_id);
     bool clear = true;
-    int lowest = 1 << 20;
-    int highest = -(1 << 20);
     // Every tile free of anything standing there, and of a ground the
     // building's own terrain restriction lets it stand on: land for most,
     // water and shore for a dock.
@@ -531,8 +571,6 @@ bool CanPlace(const Physics::Grid& grid, int unit_id, int tile_x, int tile_y) {
             clear = false;
             return;
         }
-        lowest = std::min(lowest, grid.GetTile(x, y).elevation);
-        highest = std::max(highest, grid.GetTile(x, y).elevation);
     });
     if (!clear) return false;
     // The dat's placement terrains, past the restriction: some of a dock's
@@ -571,16 +609,31 @@ bool CanPlace(const Physics::Grid& grid, int unit_id, int tile_x, int tile_y) {
         }
         if (!clear || !beside) return false;
     }
-    // The dat's hill rule: some buildings need flat ground -- a Town Center
-    // does -- and most tolerate at most a level of difference across their
-    // footprint.
+    // The dat's hill rule. A Town Center (2) wants every tile of its ground
+    // flat. Most buildings (3) want only the two edges at the front -- the
+    // corner nearest the bottom of the screen and the rows running from it --
+    // within a level of that corner; the rest of the ground may lie as it
+    // will. Anything else (0) stands wherever.
     const R::UnitRules* rules = R::Unit(placed);
     const int hill_mode = rules != nullptr ? rules->hill_mode : 0;
     constexpr int kFlatOnly = 2;
-    constexpr int kOneLevel = 3;
-    if (hill_mode == kFlatOnly) return highest == lowest;
-    if (hill_mode == kOneLevel) return highest - lowest <= 1;
-    return true;
+    constexpr int kFrontWithinALevel = 3;
+    const Footprint f = FootprintOf(placed);
+    const int front_x = tile_x + f.x.high;
+    const int front_y = tile_y + f.y.high;
+    bool fits = true;
+    if (hill_mode == kFlatOnly) {
+        ForEachFootprintTile(placed, tile_x, tile_y, [&](int x, int y) {
+            fits = fits && Flat(grid, x, y);
+        });
+    } else if (hill_mode == kFrontWithinALevel) {
+        const int corner = grid.GetTile(front_x, front_y).elevation;
+        ForEachFootprintTile(placed, tile_x, tile_y, [&](int x, int y) {
+            if (x != front_x && y != front_y) return;
+            fits = fits && std::abs(grid.GetTile(x, y).elevation - corner) <= 1;
+        });
+    }
+    return fits;
 }
 
 entt::entity Place(entt::registry& registry, Physics::Grid& grid, int unit_id,
@@ -671,6 +724,7 @@ void Complete(entt::registry& registry, Physics::Grid& grid, entt::entity buildi
     const Core::PlayerId owner = OwnerOf(registry, building);
     // A gate opens to its own side from the moment it stands.
     if (Walls::IsGate(unit_id)) Walls::GateFinished(registry, grid, building);
+    DestroyPieces(registry, building);
     registry.remove<Components::Sprite>(building);
     SpawnArt(registry, building);
     Arm(registry, building);

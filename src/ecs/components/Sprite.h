@@ -67,6 +67,9 @@ struct Sprite {
     // The frame its stages start at: a wall's construction graphic keeps four
     // stages for each of its five pieces, and a site shows its own piece's.
     int construction_offset = 0;
+    // A layer of a construction site -- its shadow -- drawn at whatever frame
+    // the site is at (ecs/Buildings).
+    bool site_layer = false;
 
     // Multi-frame graphics pick a frame from facing plus animation step; static
     // ones just use slp_frame as given.

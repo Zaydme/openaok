@@ -8,6 +8,7 @@
 #include "ecs/components/Health.h"
 #include "ecs/components/Monk.h"
 #include "ecs/components/Mortal.h"
+#include "ecs/components/PartOf.h"
 #include "ecs/components/Path.h"
 #include "ecs/components/Sprite.h"
 #include "ecs/components/SpritePieces.h"
@@ -201,12 +202,19 @@ void AnimationSystem::Update(entt::registry& registry, int32_t dt_ms) {
         sprite.slp_frame = sprite.construction_offset +
                            std::clamp(stage, 0, sprite.construction_frames - 1);
     }
+    auto layers = registry.view<Components::Sprite, Components::PartOf>();
+    for (auto entity : layers) {
+        auto& sprite = layers.get<Components::Sprite>(entity);
+        if (!sprite.site_layer) continue;
+        const auto* site = registry.try_get<Components::Sprite>(layers.get<Components::PartOf>(entity).building);
+        if (site != nullptr) sprite.slp_frame = site->slp_frame;
+    }
 
     // 3. Advance every animating sprite.
     auto view = registry.view<Components::Sprite>();
     for (auto entity : view) {
         auto& sprite = view.get<Components::Sprite>(entity);
-        if (sprite.construction_frames > 0) continue;
+        if (sprite.construction_frames > 0 || sprite.site_layer) continue;
 
         if (!sprite.still && sprite.frames_per_angle > 1 && sprite.animation_speed > 0) {
             sprite.animation_timer += dt_ms;

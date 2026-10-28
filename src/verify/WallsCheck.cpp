@@ -25,6 +25,7 @@
 #include "ecs/components/Health.h"
 #include "ecs/components/Identity.h"
 #include "ecs/components/Owner.h"
+#include "ecs/components/PartOf.h"
 #include "ecs/components/Resource.h"
 #include "ecs/components/Sprite.h"
 #include "ecs/components/SpritePieces.h"
@@ -330,6 +331,41 @@ bool CheckWalls() {
             verdict = "a Gate was not charged the dat's price";
         } else if (ok() && WallAt(reg, x1, ay) != entt::null) {
             verdict = "the wall a gate was put on is still there";
+        }
+        // A gate goes up as its site unit, the dat's head unit: that unit's
+        // scaffold and shadow, and its time -- the Gate along y in 30 seconds,
+        // where the gate itself says 70.
+        if (ok()) {
+            const auto* body = Core::Rules::Unit(gate_y);
+            const auto* head = body != nullptr ? Core::Rules::Unit(body->head_unit) : nullptr;
+            const auto scaffold = head != nullptr ? cfg.GetGraphic(head->construction_graphic)
+                                                  : Core::ConfigManager::GraphicInfo{};
+            const auto* site = reg.try_get<ECS::Components::Sprite>(east);
+            bool shadow = false;
+            auto parts = reg.view<ECS::Components::PartOf, ECS::Components::Sprite>();
+            for (auto p : parts) {
+                shadow = shadow || (parts.get<ECS::Components::PartOf>(p).building == east &&
+                                    parts.get<ECS::Components::Sprite>(p).site_layer);
+            }
+            if (head == nullptr || site == nullptr || !scaffold.Valid() || site->slp_id != scaffold.slp_id) {
+                verdict = "a gate's site does not wear its site unit's scaffold";
+            } else if (!shadow) {
+                verdict = "a gate's site casts no shadow";
+            }
+        }
+        if (ok()) {
+            const auto& at = reg.get<ECS::Components::Transform>(east).position;
+            const entt::entity mason = ECS::Units::Spawn(reg, villager, 1, At(x1 - 2, ay));
+            Order(sim, Core::BuildCommand{mason, gate_y, at.x.ToInt(), at.y.ToInt(), 1});
+            int working = 0;
+            const auto& raising = reg.get<ECS::Components::Building>(east);
+            for (int t = 0; t < 60 * kTicksPerSecond && raising.progress < Core::Fixed32(1) / Core::Fixed32(5); ++t) {
+                sim.Update(16);
+                if (raising.begun) ++working;
+            }
+            // A fifth of 30 seconds is 6; of 70, 14.
+            if (working > 8 * kTicksPerSecond) verdict = "a gate went up at its own time, not its site unit's";
+            reg.destroy(mason);
         }
         if (ok()) {
             CompleteAll(sim, {east, north});

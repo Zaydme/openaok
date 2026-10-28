@@ -609,11 +609,13 @@ void SiteArt(entt::registry& registry, entt::entity site) {
     const R::UnitRules* rules = Players::UnitOf(registry, OwnerOf(registry, site), unit_id);
     if (rules == nullptr) return;
     const auto info = Core::ConfigManager::Get().GetGraphic(rules->construction_graphic);
-    // A construction graphic with a wall's five angles keeps its stages for
-    // each piece; any other steps through all its frames.
-    if (!info.Valid() || info.angle_count != 5) return;
+    // A wall's site steps through its graphic's frames for its stages, at the
+    // angle its piece is -- the first, for a piece past the graphic's angles,
+    // as a palisade's square foundation has only three.
+    if (!info.Valid()) return;
+    const int piece = PieceOf(registry, site);
     sprite->construction_frames = std::max(1, info.frame_count);
-    sprite->construction_offset = PieceOf(registry, site) * sprite->construction_frames;
+    sprite->construction_offset = (piece < info.angle_count ? piece : 0) * sprite->construction_frames;
     sprite->slp_frame = sprite->construction_offset;
 }
 
