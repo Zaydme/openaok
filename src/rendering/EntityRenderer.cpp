@@ -640,10 +640,15 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
             return;
         }
 
+        const HAL::GraphicAtlas* atlas = sprite.slp_id >= 0
+            ? graphics.GetAtlas(static_cast<uint32_t>(sprite.slp_id))
+            : nullptr;
+
         // Pick the frame: the nearest of the graphic's angles, of which the
         // first half and one more are stored and the rest mirror them -- of
         // eight, North-East, East and South-East mirror North-West, West and
-        // South-West.
+        // South-West. An SLP storing one angle fewer -- an arrow's, 16 of 32
+        // -- shows its last for the one it lacks.
         if (sprite.is_file_sprite) {
             const int n = std::max(1, sprite.angles);
             int angle_index = Core::FixedMath::Facet(sprite.heading, n);
@@ -651,6 +656,10 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
             if (n > 1 && angle_index > n / 2) {
                 sprite.flip_h = true;
                 angle_index = n - angle_index;
+            }
+            if (atlas != nullptr) {
+                const int stored = static_cast<int>(atlas->frames.size()) / std::max(1, sprite.frames_per_angle);
+                if (stored > 0 && angle_index >= stored) angle_index = stored - 1;
             }
             sprite.slp_frame = angle_index * sprite.frames_per_angle + sprite.current_frame;
         }
@@ -660,10 +669,6 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
         e.outline_tex = nullptr;
         e.outline_player = 1;
         e.tex_ptr = nullptr;
-        
-        const HAL::GraphicAtlas* atlas = sprite.slp_id >= 0
-            ? graphics.GetAtlas(static_cast<uint32_t>(sprite.slp_id))
-            : nullptr;
 
         // A shadow sprite draws its graphic's shadow layer and nothing else, so
         // it lands in the shadow pass beneath every piece of the building.

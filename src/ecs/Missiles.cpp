@@ -96,6 +96,7 @@ void LooseOne(entt::registry& registry, entt::entity shooter, entt::entity targe
         sprite.slp_id = art.slp_id;
         sprite.is_file_sprite = true;
         sprite.frames_per_angle = std::max(1, art.frame_count);
+        sprite.angles = std::max(1, art.angle_count);
         sprite.still = true;
         sprite.shadow_resolved = true;
         sprite.width = 0;

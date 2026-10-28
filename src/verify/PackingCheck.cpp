@@ -193,7 +193,8 @@ bool CheckPacking() {
         }
     }
     // Sent at an enemy's Barracks out of range: it closes in, sets up within
-    // range and shoots, and its stone bursts where it lands in the stone's
+    // range and shoots, its stone in flight drawn from an angle its graphic
+    // has -- a stone has one -- and bursting where it lands in the stone's
     // dying graphic, which carries the sound of the blow.
     if (ok()) {
         const entt::entity target =
@@ -209,6 +210,7 @@ bool CheckPacking() {
         };
         ECS::Orders::Execute(reg, grid, Core::AttackCommand{treb, target, 1});
         bool loosed = false;
+        bool drawn = true;
         bool burst = false;
         const auto* stone = rules != nullptr ? ECS::Players::UnitOf(reg, 1, rules->projectile) : nullptr;
         const int burst_graphic = stone != nullptr ? stone->dying_graphic : -1;
@@ -221,7 +223,19 @@ bool CheckPacking() {
             }
             auto missiles = reg.view<ECS::Components::Projectile>();
             for (auto m : missiles) {
-                if (missiles.get<ECS::Components::Projectile>(m).shooter == treb) loosed = true;
+                if (missiles.get<ECS::Components::Projectile>(m).shooter != treb) continue;
+                loosed = true;
+                // The stored angle the renderer draws: the first half and one
+                // more of the graphic's angles are stored, the rest mirrored.
+                const auto* flying = reg.try_get<ECS::Components::Sprite>(m);
+                const auto art = cfg.GetGraphic(stone != nullptr ? stone->standing_graphic : -1);
+                if (flying != nullptr && art.Valid()) {
+                    const int n = std::max(1, flying->angles);
+                    int angle = Core::FixedMath::Facet(flying->heading, n);
+                    if (n > 1 && angle > n / 2) angle = n - angle;
+                    const int stored = art.angle_count > 1 ? art.angle_count / 2 + 1 : 1;
+                    if (angle >= stored) drawn = false;
+                }
             }
             auto playing = reg.view<ECS::Components::Animation, ECS::Components::Dying>();
             for (auto p : playing) {
@@ -232,6 +246,7 @@ bool CheckPacking() {
         if (ok() && gap_set_up.value == 0) verdict = "a packed trebuchet sent at a building never set up";
         else if (ok() && gap_set_up > range) verdict = "a trebuchet set up out of range";
         else if (ok() && !loosed) verdict = "a trebuchet sent at a building never shot";
+        else if (ok() && !drawn) verdict = "a trebuchet's stone in flight was drawn from an angle its graphic lacks";
         else if (ok() && hp_of(target) >= hp0) {
             verdict = "a trebuchet's shot did no harm";
         } else if (ok() && (burst_graphic < 0 || !burst)) {
