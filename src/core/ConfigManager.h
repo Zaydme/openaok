@@ -414,7 +414,8 @@ public:
         // or a House, 20 for a Castle. Zero for everything else.
         int headroom = 0;
         // How it is marked when selected, from the dat. The outline's radii are
-        // in tiles: a round one (obstruction type 5, units) is the ellipse a
+        // in tiles, on the grid's axes -- the dat's are a quarter turn from
+        // them, so a gate's long side lies along its wall: a round one (obstruction type 5, units) is the ellipse a
         // circle that size makes on the ground, a square one the diamond of a
         // building's footprint. The hit point bar floats `hp_bar_height` half
         // tiles above the outline's top corner, and the selection effect says
@@ -488,8 +489,8 @@ public:
             ui.unit_class = v.value("unit_class", -1);
             ui.headroom = v.value("headroom", 0);
             if (v.contains("outline") && v["outline"].size() == 2) {
-                ui.outline_x = v["outline"][0].get<float>();
-                ui.outline_y = v["outline"][1].get<float>();
+                ui.outline_x = v["outline"][1].get<float>();
+                ui.outline_y = v["outline"][0].get<float>();
             }
             ui.hp_bar_height = v.value("hp_bar_height", 2.0f);
             ui.selection_effect = v.value("selection_effect", 0);
