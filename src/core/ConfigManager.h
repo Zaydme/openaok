@@ -935,11 +935,14 @@ public:
         return true;
     }
 
-    // Buildings and units draw their icons from separate sheets, and the dat's
-    // unit type is what separates them.
-    bool IsBuilding(int unit_id) const {
+    // Buildings and units draw their icons from separate sheets. The building
+    // sheet's are the dat's buildings (type 80), all but the siege engines
+    // that pack, which the dat also makes type 80 and whose icons are units'.
+    bool UsesBuildingIcons(int unit_id) const {
         auto u = units_json.find(std::to_string(unit_id));
-        return u != units_json.end() && u->value("type", 0) == kDatTypeBuilding;
+        if (u == units_json.end() || u->value("type", 0) != kDatTypeBuilding) return false;
+        const int cls = u->value("class", -1);
+        return cls != kDatClassPackedUnit && cls != kDatClassUnpackedSiege;
     }
 
     const UnitInterface* GetUnitInterface(int unit_id) const {
@@ -987,8 +990,11 @@ public:
 
     std::unordered_map<int, int> shadow_slp_by_slp;
     std::unordered_map<int, std::vector<Annex>> annexes;
-    // The dat's unit type for a building.
+    // The dat's unit type for a building, and its classes for a siege engine
+    // packed and set up.
     static constexpr int kDatTypeBuilding = 80;
+    static constexpr int kDatClassPackedUnit = 51;
+    static constexpr int kDatClassUnpackedSiege = 54;
 
     std::unordered_map<int, UnitInterface> unit_interface;
     std::unordered_map<int, std::vector<int>> produced_at;

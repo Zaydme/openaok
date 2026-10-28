@@ -338,11 +338,11 @@ void DrawFrame(SDL_Renderer* sdl_r, uint32_t slp_id, int frame, int x, int y, in
              SDL_Rect{x - f.hotspot_x, y - f.hotspot_y, f.rect.w, f.rect.h}, player, 255);
 }
 
-// The icon sheet a unit's icon indexes into. Buildings and units have separate
-// sheets, and units.json's dat `type` is what tells them apart.
+// The icon sheet a unit's icon indexes into: buildings and units have
+// separate sheets (ConfigManager::UsesBuildingIcons).
 uint32_t IconSheetFor(int unit_id) {
     auto& cfg = Core::ConfigManager::Get();
-    return cfg.IsBuilding(unit_id) ? cfg.BuildingIconSlp() : cfg.UnitIconSlp();
+    return cfg.UsesBuildingIcons(unit_id) ? cfg.BuildingIconSlp() : cfg.UnitIconSlp();
 }
 
 // What the player can give orders to -- the command grid and the delete button

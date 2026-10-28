@@ -71,7 +71,7 @@ Fixed32 Apart(Vector2D a, Vector2D b) { return Core::FixedMath::Distance(a.x - b
 // packed again it can. A stop order part way leaves it as it was. Sent at an
 // enemy's Barracks from beyond range, a packed one closes to within the set-up
 // trebuchet's range, sets up there and opens fire -- its Unpack and Attack
-// task.
+// task. Both draw their icons from the units' sheet.
 bool CheckPacking() {
     const char* verdict = "ok";
     auto ok = [&]() { return std::strcmp(verdict, "ok") == 0; };
@@ -100,6 +100,15 @@ bool CheckPacking() {
     const Vector2D home{Fixed32(ax - 12), Fixed32(ay)};
     const entt::entity treb = ok() ? ECS::Units::Spawn(reg, packed, 1, home) : entt::null;
     if (ok() && treb == entt::null) verdict = "no packed trebuchet";
+
+    // The dat makes both trebuchets buildings by type; their icons are on the
+    // units' sheet all the same, and a gate's, which also turns into another
+    // unit, on the buildings'.
+    if (ok() && (cfg.UsesBuildingIcons(packed) || cfg.UsesBuildingIcons(set_up))) {
+        verdict = "a trebuchet's icon is taken from the buildings' sheet";
+    } else if (ok() && (!cfg.UsesBuildingIcons(barracks) || !cfg.UsesBuildingIcons(cfg.GetUnitIdByName("GTAA2")))) {
+        verdict = "a building's icon is not taken from the buildings' sheet";
+    }
 
     // Set up: still, for the dat-less packing time, then a trebuchet.
     if (ok()) {
