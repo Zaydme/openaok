@@ -110,6 +110,30 @@ void LayDown(entt::registry& registry, entt::entity dead) {
 
 } // namespace
 
+entt::entity PlayOnce(entt::registry& registry, int graphic, Components::Vector2D at) {
+    auto& cfg = Core::ConfigManager::Get();
+    const auto art = cfg.GetGraphic(graphic);
+    if (!art.Valid() || art.frame_count <= 0) return entt::null;
+    const entt::entity once = registry.create();
+    registry.emplace<Components::Transform>(once, at, at);
+    Components::Animation anim{};
+    const int idle = static_cast<int>(Components::AnimState::Idle);
+    anim.graphic[idle] = graphic;
+    anim.slp[idle] = art.slp_id;
+    anim.frames[idle] = art.frame_count;
+    anim.angles[idle] = std::max(1, art.angle_count);
+    anim.frame_ms[idle] = cfg.GetFrameMs(graphic, 100);
+    anim.needs_apply = true;
+    const int32_t lasts = anim.frames[idle] * anim.frame_ms[idle];
+    registry.emplace<Components::Animation>(once, anim);
+    Components::Sprite sprite{};
+    sprite.width = 0;
+    sprite.height = 0;
+    registry.emplace<Components::Sprite>(once, std::move(sprite));
+    registry.emplace<Components::Dying>(once, lasts);
+    return once;
+}
+
 void Kill(entt::registry& registry, Physics::Grid& grid, entt::entity victim) {
     if (!registry.valid(victim) || registry.all_of<Components::Dying>(victim)) return;
 

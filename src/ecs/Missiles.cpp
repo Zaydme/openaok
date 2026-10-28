@@ -10,6 +10,7 @@
 #include "ecs/BuildingGeometry.h"
 #include "ecs/Combat.h"
 #include "ecs/Garrisons.h"
+#include "ecs/Mortality.h"
 #include "ecs/Players.h"
 #include "ecs/Resources.h"
 #include "ecs/components/Building.h"
@@ -230,6 +231,7 @@ void Fire(entt::registry& registry, const Physics::Grid& grid, entt::entity shoo
 
 void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
     std::vector<entt::entity> landed;
+    std::vector<std::pair<int, Components::Vector2D>> bursts;
     std::vector<Landing> hits;
     std::vector<std::pair<entt::entity, bool>> victims;
     std::vector<entt::entity> felled;
@@ -267,6 +269,12 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
                                              shooter_level, victim_level, stray),
                                 flight.shooter, flight.owner});
             }
+            // A stone bursts where it comes down, with its sound: the
+            // missile's dying graphic. An arrow has none.
+            if (const R::UnitRules* missile = Players::UnitOf(registry, flight.owner, flight.unit_id);
+                missile != nullptr && missile->dying_graphic >= 0) {
+                bursts.push_back({missile->dying_graphic, flight.to});
+            }
             landed.push_back(arrow);
             continue;
         }
@@ -281,6 +289,7 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
     }
 
     for (auto arrow : landed) registry.destroy(arrow);
+    for (const auto& [graphic, at] : bursts) Mortality::PlayOnce(registry, graphic, at);
     for (auto tree : felled) {
         if (registry.valid(tree)) Resources::Exhaust(registry, grid, tree);
     }

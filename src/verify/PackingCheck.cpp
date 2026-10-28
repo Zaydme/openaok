@@ -23,6 +23,7 @@
 #include "ecs/components/Combat.h"
 #include "ecs/components/Health.h"
 #include "ecs/components/Identity.h"
+#include "ecs/components/Mortal.h"
 #include "ecs/components/Owner.h"
 #include "ecs/components/Projectile.h"
 #include "ecs/components/Sprite.h"
@@ -192,7 +193,8 @@ bool CheckPacking() {
         }
     }
     // Sent at an enemy's Barracks out of range: it closes in, sets up within
-    // range and shoots.
+    // range and shoots, and its stone bursts where it lands in the stone's
+    // dying graphic, which carries the sound of the blow.
     if (ok()) {
         const entt::entity target =
             ECS::Buildings::Place(reg, grid, barracks, 2, ax + 14, ay, true);
@@ -200,8 +202,16 @@ bool CheckPacking() {
         const Fixed32 range = rules != nullptr ? rules->max_range : Fixed32(0);
         if (ECS::Combat::Gap(reg, treb, target) <= range) verdict = "the Barracks is not out of range";
         const int hp0 = reg.get<ECS::Components::Health>(target).current_hp;
+        // Its hit points, nothing once it is gone.
+        auto hp_of = [&](entt::entity e) {
+            const auto* hp = reg.valid(e) ? reg.try_get<ECS::Components::Health>(e) : nullptr;
+            return hp != nullptr ? hp->current_hp : 0;
+        };
         ECS::Orders::Execute(reg, grid, Core::AttackCommand{treb, target, 1});
         bool loosed = false;
+        bool burst = false;
+        const auto* stone = rules != nullptr ? ECS::Players::UnitOf(reg, 1, rules->projectile) : nullptr;
+        const int burst_graphic = stone != nullptr ? stone->dying_graphic : -1;
         Fixed32 gap_set_up{};
         for (int t = 0; t < 90 * kTicksPerSecond && ok(); ++t) {
             const int before = UnitIdOf(reg, treb);
@@ -213,13 +223,19 @@ bool CheckPacking() {
             for (auto m : missiles) {
                 if (missiles.get<ECS::Components::Projectile>(m).shooter == treb) loosed = true;
             }
-            if (loosed && reg.get<ECS::Components::Health>(target).current_hp < hp0) break;
+            auto playing = reg.view<ECS::Components::Animation, ECS::Components::Dying>();
+            for (auto p : playing) {
+                if (playing.get<ECS::Components::Animation>(p).graphic[0] == burst_graphic) burst = true;
+            }
+            if ((burst && hp_of(target) < hp0) || hp_of(target) <= 0) break;
         }
         if (ok() && gap_set_up.value == 0) verdict = "a packed trebuchet sent at a building never set up";
         else if (ok() && gap_set_up > range) verdict = "a trebuchet set up out of range";
         else if (ok() && !loosed) verdict = "a trebuchet sent at a building never shot";
-        else if (ok() && reg.get<ECS::Components::Health>(target).current_hp >= hp0) {
+        else if (ok() && hp_of(target) >= hp0) {
             verdict = "a trebuchet's shot did no harm";
+        } else if (ok() && (burst_graphic < 0 || !burst)) {
+            verdict = "a trebuchet's stone did not burst where it landed";
         }
     }
 

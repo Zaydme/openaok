@@ -1,6 +1,7 @@
 #pragma once
 #include <entt/entt.hpp>
 
+#include "ecs/components/Transform.h"
 #include "physics/Grid.h"
 
 // Death, and what it leaves behind.
@@ -16,6 +17,11 @@ namespace ECS::Mortality {
 
 // `victim` has no hit points left.
 void Kill(entt::registry& registry, Physics::Grid& grid, entt::entity victim);
+
+// Plays the dat's `graphic` once at `at` and is gone: a building's fall in
+// dust, a stone's burst where it lands. Its sound plays as it starts
+// (audio/WorldSounds). Null if the data has no such graphic.
+entt::entity PlayOnce(entt::registry& registry, int graphic, Components::Vector2D at);
 
 // Advances the dying and the dead by one tick.
 void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms);

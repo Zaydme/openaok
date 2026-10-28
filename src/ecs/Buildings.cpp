@@ -1,4 +1,5 @@
 #include "ecs/Buildings.h"
+#include "ecs/Mortality.h"
 
 #include "ecs/Events.h"
 #include "ecs/Garrisons.h"
@@ -839,25 +840,7 @@ void Destroy(entt::registry& registry, Physics::Grid& grid, entt::entity buildin
         // Its fall: the dat's dying graphic -- a collapse in dust, with its
         // sound -- played once over the rubble.
         if (rubble && rules != nullptr && rules->dying_graphic >= 0) {
-            const auto fall = cfg.GetGraphic(rules->dying_graphic);
-            if (fall.Valid() && fall.frame_count > 0) {
-                const entt::entity dust = registry.create();
-                registry.emplace<Components::Transform>(dust, at, at);
-                Components::Animation anim{};
-                const int idle = static_cast<int>(Components::AnimState::Idle);
-                anim.graphic[idle] = rules->dying_graphic;
-                anim.slp[idle] = fall.slp_id;
-                anim.frames[idle] = fall.frame_count;
-                anim.frame_ms[idle] = cfg.GetFrameMs(rules->dying_graphic, 100);
-                anim.needs_apply = true;
-                const int32_t lasts = anim.frames[idle] * anim.frame_ms[idle];
-                registry.emplace<Components::Animation>(dust, anim);
-                Components::Sprite cloud{};
-                cloud.width = 0;
-                cloud.height = 0;
-                registry.emplace<Components::Sprite>(dust, std::move(cloud));
-                registry.emplace<Components::Dying>(dust, lasts);
-            }
+            Mortality::PlayOnce(registry, rules->dying_graphic, at);
         }
         // A farm run out leaves its dead farm, the owner's to rebuild: a
         // villager right-clicked on it puts up a new Farm there ("Right-click
