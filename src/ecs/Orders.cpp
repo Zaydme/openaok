@@ -7,6 +7,7 @@
 #include "ecs/Cheats.h"
 #include "ecs/Combat.h"
 #include "ecs/Diplomacy.h"
+#include "ecs/DropSites.h"
 #include "ecs/Duties.h"
 #include "ecs/Flares.h"
 #include "ecs/Formations.h"
@@ -90,6 +91,7 @@ void DropCurrentJob(entt::registry& registry, entt::entity unit) {
     if (auto* worker = registry.try_get<Components::Worker>(unit)) {
         worker->state = Core::UnitState::Idle;
         worker->working = false;
+        worker->ordered_drop = false;
     }
     if (auto* combat = registry.try_get<Components::Combat>(unit)) {
         combat->state = Components::CombatState::Idle;
@@ -447,6 +449,25 @@ void Garrison(entt::registry& registry, const Core::GarrisonCommand& cmd) {
     Garrisons::Send(registry, cmd.unit, cmd.building);
 }
 
+// A worker sent to drop off what it carries at one of the player's buildings:
+// it forgets the job it was on, walks there, hands the load over and stands.
+void DropOff(entt::registry& registry, const Core::DropOffCommand& cmd) {
+    if (!Commands(registry, cmd.unit, cmd.player) ||
+        !DropSites::Takes(registry, cmd.unit, cmd.building)) {
+        return;
+    }
+    DropCurrentJob(registry, cmd.unit);
+    registry.remove<Components::Path>(cmd.unit);
+    auto& worker = registry.get<Components::Worker>(cmd.unit);
+    worker.target_resource = entt::null;
+    worker.target_building = entt::null;
+    worker.felling = entt::null;
+    worker.fell_ms = 0;
+    worker.target_dropoff = cmd.building;
+    worker.ordered_drop = true;
+    worker.state = Core::UnitState::Returning;
+}
+
 void Ungarrison(entt::registry& registry, const Physics::Grid& grid,
                 const Core::UngarrisonCommand& cmd) {
     if (!Owns(registry, cmd.building, cmd.player)) return;
@@ -586,6 +607,8 @@ void Execute(entt::registry& registry, Physics::Grid& grid, const Core::Command&
             Stop(registry, cmd);
         } else if constexpr (std::is_same_v<T, Core::GarrisonCommand>) {
             Garrison(registry, cmd);
+        } else if constexpr (std::is_same_v<T, Core::DropOffCommand>) {
+            DropOff(registry, cmd);
         } else if constexpr (std::is_same_v<T, Core::UngarrisonCommand>) {
             Ungarrison(registry, grid, cmd);
         } else if constexpr (std::is_same_v<T, Core::TownBellCommand>) {

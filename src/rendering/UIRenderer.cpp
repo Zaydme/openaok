@@ -159,18 +159,16 @@ constexpr int kSlotPack = 2;
 constexpr uint32_t kCursorSlp = 51000;
 enum CursorFrame : int {
     kCursorNormal = 0,
-    kCursorBusy = 1,
-    kCursorTarget = 2,       // a point to be chosen: patrol, follow
-    kCursorHand = 3,         // a monk's healing hand
-    kCursorAttack = 4,
-    kCursorHelp = 6,
-    kCursorBuild = 7,
-    kCursorGather = 8,
-    kCursorGuard = 9,
-    kCursorConvert = 10,
-    kCursorCant = 12,
-    kCursorGarrison = 13,
-    kCursorRally = 18,
+    kCursorHand = 3,         // a villager's work
+    kCursorSword = 4,
+    kCursorRing = 5,         // a monk's
+    kCursorHammer = 7,
+    kCursorShield = 9,
+    kCursorHorn = 10,
+    kCursorTracks = 11,      // follow
+    kCursorDoor = 14,
+    kCursorStairsUp = 16,
+    kCursorFlag = 18,        // patrol
 };
 
 // The top bar's food symbol, drawn over the art's own.
@@ -2312,18 +2310,16 @@ void UIRenderer::DrawCursor(ECS::Simulation& sim, Renderer& renderer, SDL_Render
     int frame = kCursorNormal;
     switch (Core::InputManager::Get().CursorIntent()) {
     case Core::InputManager::Intent::None: frame = kCursorNormal; break;
-    case Core::InputManager::Intent::Attack: frame = kCursorAttack; break;
-    case Core::InputManager::Intent::Gather: frame = kCursorGather; break;
-    case Core::InputManager::Intent::Build: frame = kCursorBuild; break;
-    case Core::InputManager::Intent::Garrison: frame = kCursorGarrison; break;
-    case Core::InputManager::Intent::Heal: frame = kCursorHand; break;
-    case Core::InputManager::Intent::Convert: frame = kCursorConvert; break;
-    case Core::InputManager::Intent::Rally: frame = kCursorRally; break;
-    case Core::InputManager::Intent::Target: frame = kCursorTarget; break;
-    case Core::InputManager::Intent::Guard: frame = kCursorGuard; break;
-    case Core::InputManager::Intent::Cant: frame = kCursorCant; break;
-    case Core::InputManager::Intent::Help: frame = kCursorHelp; break;
-    case Core::InputManager::Intent::Busy: frame = kCursorBusy; break;
+    case Core::InputManager::Intent::Attack: frame = kCursorSword; break;
+    case Core::InputManager::Intent::Work: frame = kCursorHand; break;
+    case Core::InputManager::Intent::Monk: frame = kCursorRing; break;
+    case Core::InputManager::Intent::Garrison: frame = kCursorDoor; break;
+    case Core::InputManager::Intent::Board: frame = kCursorStairsUp; break;
+    case Core::InputManager::Intent::Place: frame = kCursorHammer; break;
+    case Core::InputManager::Intent::Patrol: frame = kCursorFlag; break;
+    case Core::InputManager::Intent::Follow: frame = kCursorTracks; break;
+    case Core::InputManager::Intent::Guard: frame = kCursorShield; break;
+    case Core::InputManager::Intent::Signal: frame = kCursorHorn; break;
     }
 
     // The cursors, from the interface archive, at their true size on the

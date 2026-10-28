@@ -52,8 +52,15 @@ public:
     // What an order would do to what is under the cursor, which picks the
     // cursor: a sword over an enemy, an axe over a tree.
     enum class Intent : uint8_t {
-        None, Attack, Gather, Build, Garrison, Heal, Convert, Rally, Target, Guard,
-        Cant, Help, Busy,
+        None,
+        Attack,     // strike it
+        Work,       // a villager's or a fishing ship's job: gather, build, mend, drop off
+        Monk,       // heal it, convert it, pick up a relic
+        Garrison,   // go inside
+        Board,      // board a transport
+        Place,      // a building being placed; the Repair button's target
+        Patrol, Follow, Guard,
+        Signal,     // a signal to the allies
     };
     Intent CursorIntent() const { return intent; }
 

@@ -64,6 +64,9 @@ struct Worker {
     // else has finished it.
     Vector2D resource_at{};
     entt::entity target_dropoff = entt::null;
+    // Sent to `target_dropoff` by an order: it stands there after handing
+    // over its load, rather than going back to work.
+    bool ordered_drop = false;
     // What it is building -- or, Repairing, mending: a building or a unit.
     entt::entity target_building = entt::null;
 

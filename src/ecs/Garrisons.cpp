@@ -8,9 +8,11 @@
 #include "ecs/BuildingGeometry.h"
 #include "ecs/Buildings.h"
 #include "ecs/Combat.h"
+#include "ecs/DropSites.h"
 #include "ecs/Navigation.h"
 #include "ecs/Orders.h"
 #include "ecs/Players.h"
+#include "ecs/Units.h"
 #include "ecs/VillagerJobs.h"
 #include "ecs/components/Building.h"
 #include "ecs/components/Combat.h"
@@ -59,6 +61,11 @@ int KindOf(int unit_class) {
         return 0;
     }
 }
+
+// What banks nothing a villager carries in: the dat's tower class and the
+// Castle.
+constexpr int kTowerClass = 52;
+constexpr int kCastle = 82;
 
 // A unit is in the building once this close to its wall.
 const Core::Fixed32 kEnterReach = Core::Fixed32(6) / Core::Fixed32(10);
@@ -229,9 +236,19 @@ Components::Vector2D Middle(const Buildings::Bounds& ground) {
             (ground.min_y + ground.max_y) / Core::Fixed32(2)};
 }
 
-// Takes `unit` out of the world and into `building`.
+// Takes `unit` out of the world and into `building`. A villager going into a
+// building -- not a tower, not the Castle -- banks what it carries.
 void Enter(entt::registry& registry, entt::entity unit, entt::entity building,
            const Components::Boarding& boarding) {
+    const R::UnitRules* guest = RulesOf(registry, unit);
+    const R::UnitRules* shelter = RulesOf(registry, building);
+    auto* worker = registry.try_get<Components::Worker>(unit);
+    const auto* identity = registry.try_get<Components::Identity>(building);
+    if (worker != nullptr && guest != nullptr && guest->cls == Units::kVillagerClass &&
+        shelter != nullptr && shelter->cls != kTowerClass && identity != nullptr &&
+        identity->unit_id != kCastle && registry.all_of<Components::Building>(building)) {
+        DropSites::Bank(*worker, Players::Find(registry, OwnerOf(registry, unit)));
+    }
     auto& garrison = registry.get_or_emplace<Components::Garrison>(building);
     garrison.inside.push_back(unit);
     registry.emplace_or_replace<Components::Garrisoned>(

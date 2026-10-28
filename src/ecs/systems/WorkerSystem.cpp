@@ -687,6 +687,12 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
             }
                 
             case Core::UnitState::Returning: {
+                // Sent to a building that is gone: the order is over.
+                if (worker.ordered_drop && !registry.valid(worker.target_dropoff)) {
+                    worker.ordered_drop = false;
+                    worker.state = Core::UnitState::Idle;
+                    break;
+                }
                 if (!registry.valid(worker.target_dropoff)) {
                     const int region = Navigation::RegionOf(registry, grid, entity);
                     auto b_view = registry.view<Components::Transform, Components::Building>();
@@ -738,8 +744,12 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                     break;
                 case Approach::Unreachable:
                     // Try another drop site next tick rather than stand here
-                    // holding a full load.
+                    // holding a full load -- unless sent to this one.
                     worker.target_dropoff = entt::null;
+                    if (worker.ordered_drop) {
+                        worker.ordered_drop = false;
+                        worker.state = Core::UnitState::Idle;
+                    }
                     break;
                 case Approach::Arrived: {
                     if (registry.any_of<Components::Path>(entity)) {
@@ -748,13 +758,18 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
 
                     // Hand over everything this site takes; anything it does
                     // not stays in hand for the next one that does.
-                    if (site_id != nullptr) {
-                        const auto* owner = registry.try_get<Components::Owner>(entity);
-                        ECS::DropSites::Deposit(
-                            site_id->unit_id, worker,
-                            owner ? Players::Find(registry, owner->player_id) : nullptr);
-                    }
+                    const auto* owner = registry.try_get<Components::Owner>(entity);
+                    Players::Player* stores = owner ? Players::Find(registry, owner->player_id) : nullptr;
                     worker.target_dropoff = entt::null;
+                    // Sent here by an order: all of it, however little, and
+                    // then it stands.
+                    if (worker.ordered_drop) {
+                        if (site_id != nullptr) ECS::DropSites::DepositAll(site_id->unit_id, worker, stores);
+                        worker.ordered_drop = false;
+                        worker.state = Core::UnitState::Idle;
+                        break;
+                    }
+                    if (site_id != nullptr) ECS::DropSites::Deposit(site_id->unit_id, worker, stores);
 
                     // Straight back to the same resource, so a villager stays
                     // on one job until it runs dry -- or, if it has gone

@@ -34,6 +34,11 @@
 #include "ecs/Vision.h"
 #include "ecs/Walls.h"
 #include "ecs/Repairs.h"
+#include "core/Profile.h"
+#include "core/Rules.h"
+#include "ecs/Diplomacy.h"
+#include "ecs/DropSites.h"
+#include "ecs/Monks.h"
 #include <algorithm>
 #include <cmath>
 
@@ -46,6 +51,32 @@ void Answered(const entt::registry& registry, entt::entity unit, Audio::Voices::
               entt::entity target) {
     Audio::Voices::Acknowledge(registry, unit, order, target, Core::LocalPlayer());
     if (target != entt::null) Rendering::EntityRenderer::Flash(registry, target, true);
+}
+
+// The dat's classes the cursor's choice turns on.
+constexpr int kTradeBoatClass = 2;
+constexpr int kDeepFishClass = 5;
+constexpr int kSiegeClass = 13;
+constexpr int kTradeCartClass = 19;
+constexpr int kTransportClass = 20;
+constexpr int kFishingShipClass = 21;
+constexpr int kWarshipClass = 22;
+constexpr int kWallClass = 27;
+constexpr int kFishClass = 31;
+constexpr int kShoreFishClass = 33;
+constexpr int kGateClass = 39;
+constexpr int kRelicClass = 42;
+constexpr int kFarmClass = 49;
+constexpr int kPackedClass = 51;
+constexpr int kUnpackedSiegeClass = 54;
+constexpr int kSiegeShipClass = 55;
+constexpr int kSheepClass = 58;
+constexpr int kKingClass = 59;
+
+// Whether a right-click on one of the player's buildings sends whoever it can
+// shelter inside: Alt held, or One-Click Garrisoning on in the Options.
+bool GarrisonKey() {
+    return (SDL_GetModState() & KMOD_ALT) != 0 || Core::Profile::Current().one_click_garrison;
 }
 
 } // namespace
@@ -507,14 +538,14 @@ void InputManager::UpdateIntent(ECS::Simulation& sim, Rendering::Renderer& rende
     if (mx < 0 || my < 0 || !mouse_in_window) return;
     if (Rendering::UIRenderer::OverInterface(last_win_w, last_win_h, mx, my)) return;
     // An order waiting for its target hints what to point at (3073: "Click
-    // an area to patrol there.").
+    // an area to patrol there."), with the cursor of its button.
     switch (pending_order) {
     case PendingOrder::Patrol:
-        intent = Intent::Target;
+        intent = Intent::Patrol;
         Rendering::UIRenderer::SetWorldHint(3073);
         return;
     case PendingOrder::Follow:
-        intent = Intent::Target;
+        intent = Intent::Follow;
         Rendering::UIRenderer::SetWorldHint(3072);
         return;
     case PendingOrder::Guard:
@@ -526,16 +557,19 @@ void InputManager::UpdateIntent(ECS::Simulation& sim, Rendering::Renderer& rende
         Rendering::UIRenderer::SetWorldHint(3092);
         return;
     case PendingOrder::Repair:
-        intent = Intent::Build;
+        intent = Intent::Place;
         Rendering::UIRenderer::SetWorldHint(3052);
         return;
     case PendingOrder::Flare:
-        intent = Intent::Target;
+        intent = Intent::Signal;
         Rendering::UIRenderer::SetWorldHint(3097);
         return;
     case PendingOrder::None: break;
     }
-    if (placing_building) return;
+    if (placing_building) {
+        intent = Intent::Place;
+        return;
+    }
 
     auto& registry = sim.GetRegistry();
     const auto wc = Rendering::Ground::Pick(sim.GetGrid(), renderer.camera_x + mx,
@@ -543,24 +577,43 @@ void InputManager::UpdateIntent(ECS::Simulation& sim, Rendering::Renderer& rende
     const float x = static_cast<float>(wc.first);
     const float y = static_cast<float>(wc.second);
 
-    // What the selection is made of.
-    bool villagers = false, fighters = false, monks = false, building = false;
+    // What the selection is made of: villagers, fishing ships (workers that
+    // gather as themselves), whatever can fight, monks, and whether a monk
+    // has the faith to convert.
+    bool villagers = false, boats = false, fighters = false, monks = false, faithful = false;
     auto picked = registry.view<ECS::Components::Selectable, ECS::Components::Owner>();
     for (auto e : picked) {
         if (!picked.get<ECS::Components::Selectable>(e).is_selected) continue;
         if (picked.get<ECS::Components::Owner>(e).player_id != Core::LocalPlayer()) continue;
-        if (registry.all_of<ECS::Components::Building>(e)) { building = true; continue; }
-        if (registry.all_of<ECS::Components::Worker>(e)) villagers = true;
-        if (registry.all_of<ECS::Components::Monk>(e)) monks = true;
-        else if (registry.all_of<ECS::Components::Combat>(e)) fighters = true;
+        if (registry.all_of<ECS::Components::Building>(e)) continue;
+        if (const auto* worker = registry.try_get<ECS::Components::Worker>(e)) {
+            if (worker->gatherer >= 0) boats = true;
+            else villagers = true;
+        }
+        if (const auto* monk = registry.try_get<ECS::Components::Monk>(e)) {
+            monks = true;
+            faithful = faithful || monk->faith >= Fixed32(100);
+        } else if (registry.all_of<ECS::Components::Combat>(e)) {
+            fighters = true;
+        }
     }
-    const bool anyone = villagers || fighters || monks;
+    const bool workers = villagers || boats;
+    const bool anyone = workers || fighters || monks;
+    // Whether any selected unit of the player's passes `test`.
+    auto any = [&](auto test) {
+        for (auto e : picked) {
+            if (!picked.get<ECS::Components::Selectable>(e).is_selected) continue;
+            if (picked.get<ECS::Components::Owner>(e).player_id != Core::LocalPlayer()) continue;
+            if (test(e)) return true;
+        }
+        return false;
+    };
 
     // A dead farm, for villagers to rebuild (LANGUAGE.DLL 3930).
     if (villagers) {
         int farm_unit = -1, fx = 0, fy = 0;
         if (DeadFarmAt(sim, x, y, farm_unit, fx, fy)) {
-            intent = Intent::Build;
+            intent = Intent::Work;
             Rendering::UIRenderer::SetWorldHint(3930);
             return;
         }
@@ -600,18 +653,26 @@ void InputManager::UpdateIntent(ECS::Simulation& sim, Rendering::Renderer& rende
             if (!unit_in_front) nearest = art;
         }
     }
-    if (nearest == entt::null) {
-        if (building) intent = Intent::Rally;
-        if (building) Rendering::UIRenderer::SetWorldHint(3920);
-        return;
-    }
+    // Nothing there: the arrow, whatever is selected.
+    if (nearest == entt::null) return;
 
     const auto* owner = registry.try_get<ECS::Components::Owner>(nearest);
-    const bool mine = owner != nullptr && owner->player_id == Core::LocalPlayer();
-    const bool gaia = owner == nullptr || owner->player_id == Core::PLAYER_GAIA;
+    const Core::PlayerId whose = owner != nullptr ? owner->player_id : Core::PLAYER_GAIA;
+    const bool mine = whose == Core::LocalPlayer();
+    const bool gaia = whose == Core::PLAYER_GAIA;
+    const bool friendly = !gaia && (mine || ECS::Diplomacy::StanceOf(registry, Core::LocalPlayer(), whose) ==
+                                                ECS::Diplomacy::Stance::Ally);
     const auto* resource = registry.try_get<ECS::Components::Resource>(nearest);
     const auto* site = registry.try_get<ECS::Components::Building>(nearest);
     const auto* health = registry.try_get<ECS::Components::Health>(nearest);
+    const bool wounded = health != nullptr && health->current_hp > 0 && health->current_hp < health->max_hp;
+    const auto* identity = registry.try_get<ECS::Components::Identity>(nearest);
+    const Core::Rules::UnitRules* rules = identity != nullptr ? Core::Rules::Unit(identity->unit_id) : nullptr;
+    const int cls = rules != nullptr ? rules->cls : -1;
+    auto one_of = [cls](std::initializer_list<int> classes) {
+        return std::find(classes.begin(), classes.end(), cls) != classes.end();
+    };
+    const bool ship = one_of({kTransportClass, kFishingShipClass, kWarshipClass});
     // The hover hint strings, by resource type.
     auto resource_hint = [&](bool selected) {
         const int base = selected ? 3900 : 3820;
@@ -623,44 +684,141 @@ void InputManager::UpdateIntent(ECS::Simulation& sim, Rendering::Renderer& rende
         }
     };
 
-    if (resource != nullptr && gaia) {
-        if (villagers) {
-            intent = Intent::Gather;
+    // A ship or siege engine in need of repair, whoever's: villagers mend it
+    // -- but not a transport the selection can board.
+    if (villagers && site == nullptr && wounded &&
+        (ship || one_of({kSiegeClass, kPackedClass, kUnpackedSiegeClass, kSiegeShipClass}))) {
+        const bool boards = cls == kTransportClass && mine &&
+                            any([&](entt::entity e) { return ECS::Garrisons::Accepts(registry, nearest, e); });
+        if (!boards) {
+            intent = Intent::Work;
+            Rendering::UIRenderer::SetWorldHint(3933);
+            return;
+        }
+    }
+    // A relic: a monk picks it up.
+    if (cls == kRelicClass) {
+        if (monks) {
+            intent = Intent::Monk;
+            Rendering::UIRenderer::SetWorldHint(3922);
+        }
+        return;
+    }
+    // Gaia's resources: a villager or a fishing ship goes to work on them. Of
+    // the fish, a villager takes only what is by the shore.
+    if (resource != nullptr && gaia && site == nullptr && health == nullptr) {
+        const bool fish = one_of({kDeepFishClass, kFishClass, kShoreFishClass});
+        if (fish && (boats || (villagers && cls == kShoreFishClass))) {
+            intent = Intent::Work;
+            Rendering::UIRenderer::SetWorldHint(3907);
+        } else if (!fish && villagers) {
+            intent = Intent::Work;
             Rendering::UIRenderer::SetWorldHint(resource_hint(true));
         } else if (!anyone) {
             Rendering::UIRenderer::SetWorldHint(resource_hint(false));
         }
         return;
     }
+    // Sheep, Gaia's or the player's: villagers herd them in for food.
+    if (cls == kSheepClass && (mine || gaia)) {
+        if (villagers) {
+            intent = Intent::Work;
+            Rendering::UIRenderer::SetWorldHint(3929);
+        }
+        return;
+    }
+    // Gaia's animals: villagers hunt them; anyone else armed just attacks.
+    if (gaia && health != nullptr && site == nullptr) {
+        if (villagers) {
+            intent = Intent::Work;
+            Rendering::UIRenderer::SetWorldHint(3910);
+        } else if (fighters) {
+            intent = Intent::Attack;
+            Rendering::UIRenderer::SetWorldHint(3960);
+        }
+        return;
+    }
     if (mine && site != nullptr) {
         if (villagers && site->state == ECS::Components::BuildingState::UnderConstruction) {
-            intent = Intent::Build;
+            intent = Intent::Work;
             Rendering::UIRenderer::SetWorldHint(3955);
-        } else if (anyone && ECS::Garrisons::Capacity(registry, nearest) > 0) {
-            intent = Intent::Garrison;
-            Rendering::UIRenderer::SetWorldHint(3934);
+            return;
+        }
+        // A Farm of the player's: villagers farm it.
+        if (resource != nullptr) {
+            if (villagers) {
+                intent = Intent::Work;
+                Rendering::UIRenderer::SetWorldHint(3927);
+            }
+            return;
+        }
+        // Finished, two passes, the garrison first when One-Click
+        // Garrisoning is on: dropping off, a relic put away, repair; and
+        // going inside -- shown with the door only while Alt is held unless
+        // the option is on, as a right-click takes it (GarrisonKey).
+        const bool one_click = Core::Profile::Current().one_click_garrison;
+        auto work_pass = [&]() {
+            int hint = 0;
+            if (any([&](entt::entity e) { return ECS::DropSites::Takes(registry, e, nearest); })) {
+                hint = 3923;
+            } else if (any([&](entt::entity e) { return ECS::Relics::CanDeposit(registry, e, nearest); })) {
+                hint = 3932;
+            } else if (villagers && wounded) {
+                hint = cls == kWallClass ? 3913 : 3905;
+            }
+            if (hint == 0) return false;
+            intent = Intent::Work;
+            Rendering::UIRenderer::SetWorldHint(hint);
+            return true;
+        };
+        auto garrison_pass = [&]() {
+            if (!any([&](entt::entity e) { return ECS::Garrisons::Accepts(registry, nearest, e); })) return false;
+            Rendering::UIRenderer::SetWorldHint(one_click ? 3934 : 3914);
+            if (GarrisonKey()) intent = Intent::Garrison;
+            return true;
+        };
+        if (one_click) {
+            if (!garrison_pass()) work_pass();
+        } else if (!work_pass()) {
+            garrison_pass();
         }
         return;
     }
-    if (mine && health != nullptr && monks && health->current_hp < health->max_hp) {
-        intent = Intent::Heal;
-        Rendering::UIRenderer::SetWorldHint(3900);
+    // The player's own units, and its allies': a transport the selection
+    // boards; a wounded unit for a monk to heal -- not the one monk
+    // selected hovering itself.
+    if (friendly && site == nullptr && health != nullptr) {
+        if (mine && cls == kTransportClass &&
+            any([&](entt::entity e) { return ECS::Garrisons::Accepts(registry, nearest, e); })) {
+            intent = Intent::Board;
+            Rendering::UIRenderer::SetWorldHint(3906);
+        } else if (monks && wounded && !ship &&
+                   !one_of({kSiegeClass, kPackedClass, kUnpackedSiegeClass, kSiegeShipClass}) &&
+                   any([&](entt::entity e) { return e != nearest && registry.all_of<ECS::Components::Monk>(e); })) {
+            intent = Intent::Monk;
+            Rendering::UIRenderer::SetWorldHint(3900);
+        }
         return;
     }
-    if (!mine && !gaia && health != nullptr) {
-        if (monks && !fighters) {
-            intent = Intent::Convert;
-            Rendering::UIRenderer::SetWorldHint(site != nullptr ? 3952 : 3951);
-        } else if (fighters || villagers) {
+    // A neutral's or an enemy's: struck by whatever can strike; failing that,
+    // converted by a monk with its faith full -- never a wall, a gate, a Farm
+    // or a King, and only what it may convert. Trade carts and boats show
+    // nothing.
+    if (!friendly && !gaia && health != nullptr && health->current_hp > 0) {
+        if (one_of({kTradeBoatClass, kTradeCartClass})) return;
+        int hint = site != nullptr ? (cls == kWallClass ? 3903 : 3902) : ship ? 3904 : 3901;
+        if (fighters || villagers) {
             intent = Intent::Attack;
-            Rendering::UIRenderer::SetWorldHint(site != nullptr ? 3902 : 3901);
+            Rendering::UIRenderer::SetWorldHint(hint);
+        } else if (faithful && !one_of({kWallClass, kGateClass, kFarmClass, kKingClass}) &&
+                   any([&](entt::entity e) {
+                       const auto* monk = registry.try_get<ECS::Components::Monk>(e);
+                       return monk != nullptr && monk->faith >= Fixed32(100) &&
+                              ECS::Monks::CanConvert(registry, e, nearest);
+                   })) {
+            intent = Intent::Monk;
+            Rendering::UIRenderer::SetWorldHint(site != nullptr ? 3952 : 3951);
         }
-        return;
-    }
-    if (gaia && health != nullptr && villagers) {
-        // An animal: a villager hunts it.
-        intent = Intent::Gather;
-        Rendering::UIRenderer::SetWorldHint(3910);
     }
 }
 
@@ -1273,6 +1431,68 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
                 }
             }
 
+            // One of the player's own finished buildings, taken unit by unit:
+            // with the garrison key (GarrisonKey), whoever it would shelter
+            // goes in; a worker carrying something it accepts drops that off,
+            // however little, and stands. If anyone does either, the rest
+            // mend it where they can or walk to it.
+            if (!on_minimap) {
+                entt::entity own = entt::null;
+                auto mine = registry.view<ECS::Components::Transform, ECS::Components::Building,
+                                          ECS::Components::Identity, ECS::Components::Owner>();
+                for (auto b : mine) {
+                    if (mine.get<ECS::Components::Owner>(b).player_id != Core::LocalPlayer()) continue;
+                    if (mine.get<ECS::Components::Building>(b).state !=
+                        ECS::Components::BuildingState::Complete) {
+                        continue;
+                    }
+                    const auto* info = ConfigManager::Get().GetUnitInterface(
+                        mine.get<ECS::Components::Identity>(b).unit_id);
+                    const float footprint = (info && info->footprint > 0)
+                                          ? static_cast<float>(info->footprint) : 1.0f;
+                    if (near_click(mine.get<ECS::Components::Transform>(b), footprint * 0.5f)) {
+                        own = b;
+                        break;
+                    }
+                }
+                if (own != entt::null) {
+                    const bool shelter = GarrisonKey();
+                    std::vector<entt::entity> rest;
+                    entt::entity first = entt::null;
+                    auto picked = registry.view<ECS::Components::Selectable, ECS::Components::Owner>();
+                    for (auto e : picked) {
+                        if (!picked.get<ECS::Components::Selectable>(e).is_selected) continue;
+                        if (picked.get<ECS::Components::Owner>(e).player_id != Core::LocalPlayer()) continue;
+                        if (registry.all_of<ECS::Components::Building>(e)) continue;
+                        if (shelter && ECS::Garrisons::Accepts(registry, own, e)) {
+                            CommandQueue::Get().PushCommand(GarrisonCommand{e, own, Core::LocalPlayer()});
+                        } else if (ECS::DropSites::Takes(registry, e, own)) {
+                            CommandQueue::Get().PushCommand(DropOffCommand{e, own, Core::LocalPlayer()});
+                        } else {
+                            rest.push_back(e);
+                            continue;
+                        }
+                        if (first == entt::null) first = e;
+                    }
+                    if (first != entt::null) {
+                        std::vector<entt::entity> menders;
+                        for (entt::entity e : rest) {
+                            if (ECS::Repairs::CanRepair(registry, e, own)) {
+                                menders.push_back(e);
+                            } else {
+                                CommandQueue::Get().PushCommand(MoveCommand{
+                                    e, Fixed32(click_x), Fixed32(click_y), Core::LocalPlayer()});
+                            }
+                        }
+                        if (!menders.empty()) {
+                            CommandQueue::Get().PushCommand(RepairCommand{menders, own, Core::LocalPlayer()});
+                        }
+                        Answered(registry, first, Audio::Voices::Order::Move, own);
+                        return;
+                    }
+                }
+            }
+
             // Something of the player's side damaged -- a building, a ship, a
             // trebuchet -- that the selected villagers can mend: they repair it.
             {
@@ -1369,35 +1589,16 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
                 }
             }
 
-            // One of the player's own finished buildings with room inside:
-            // whoever it would take goes in. A villager with a load the
-            // building accepts is left to drop it off instead.
+            // One of the player's own transport ships: units board it.
             {
                 entt::entity shelter = entt::null;
-                auto own = registry.view<ECS::Components::Transform, ECS::Components::Building,
-                                         ECS::Components::Identity, ECS::Components::Owner>();
-                for (auto b : own) {
-                    if (own.get<ECS::Components::Owner>(b).player_id != Core::LocalPlayer()) continue;
-                    if (ECS::Garrisons::Capacity(registry, b) <= 0) continue;
-                    const auto* info = ConfigManager::Get().GetUnitInterface(
-                        own.get<ECS::Components::Identity>(b).unit_id);
-                    const float footprint = (info && info->footprint > 0)
-                                          ? static_cast<float>(info->footprint) : 1.0f;
-                    if (near_click(own.get<ECS::Components::Transform>(b), footprint * 0.5f)) {
-                        shelter = b;
+                auto ships = registry.view<ECS::Components::Transform, ECS::Components::Owner>();
+                for (auto s : ships) {
+                    if (ships.get<ECS::Components::Owner>(s).player_id != Core::LocalPlayer()) continue;
+                    if (!ECS::Garrisons::IsTransport(registry, s)) continue;
+                    if (near_click(ships.get<ECS::Components::Transform>(s), kPickRadius)) {
+                        shelter = s;
                         break;
-                    }
-                }
-                // Or one of the player's own transport ships: units board it.
-                if (shelter == entt::null) {
-                    auto ships = registry.view<ECS::Components::Transform, ECS::Components::Owner>();
-                    for (auto s : ships) {
-                        if (ships.get<ECS::Components::Owner>(s).player_id != Core::LocalPlayer()) continue;
-                        if (!ECS::Garrisons::IsTransport(registry, s)) continue;
-                        if (near_click(ships.get<ECS::Components::Transform>(s), kPickRadius)) {
-                            shelter = s;
-                            break;
-                        }
                     }
                 }
                 if (shelter != entt::null) {
@@ -1406,13 +1607,6 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
                     for (auto e : picked) {
                         if (!picked.get<ECS::Components::Selectable>(e).is_selected) continue;
                         if (!ECS::Garrisons::Accepts(registry, shelter, e)) continue;
-                        if (const auto* worker = registry.try_get<ECS::Components::Worker>(e)) {
-                            bool loaded = false;
-                            for (int r = 0; r < static_cast<int>(ResourceType::COUNT); ++r) {
-                                if (worker->carried[r] > 0) loaded = true;
-                            }
-                            if (loaded) continue;
-                        }
                         CommandQueue::Get().PushCommand(
                             GarrisonCommand{e, shelter, Core::LocalPlayer()});
                         if (first == entt::null) first = e;

@@ -104,6 +104,8 @@ void Put(Writer& out, const C& c) {
         out.Entity(c.entity);
     } else if constexpr (std::is_same_v<T, Core::GarrisonCommand>) {
         out.Entity(c.unit); out.Entity(c.building);
+    } else if constexpr (std::is_same_v<T, Core::DropOffCommand>) {
+        out.Entity(c.unit); out.Entity(c.building);
     } else if constexpr (std::is_same_v<T, Core::UngarrisonCommand>) {
         out.Entity(c.building);
     } else if constexpr (std::is_same_v<T, Core::TownBellCommand>) {
@@ -191,6 +193,8 @@ T Take(Reader& in) {
     } else if constexpr (std::is_same_v<T, Core::StopCommand>) {
         c.entity = in.Entity();
     } else if constexpr (std::is_same_v<T, Core::GarrisonCommand>) {
+        c.unit = in.Entity(); c.building = in.Entity();
+    } else if constexpr (std::is_same_v<T, Core::DropOffCommand>) {
         c.unit = in.Entity(); c.building = in.Entity();
     } else if constexpr (std::is_same_v<T, Core::UngarrisonCommand>) {
         c.building = in.Entity();

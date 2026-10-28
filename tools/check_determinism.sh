@@ -35,6 +35,7 @@ ARRIVAL="$(echo "$OUTPUT" | grep '^arrived=')"
 BUILDING="$(echo "$OUTPUT" | grep '^building=')"
 PLANNER="$(echo "$OUTPUT" | grep '^planner=')"
 GATHERING="$(echo "$OUTPUT" | grep '^gathering=')"
+DROPOFF="$(echo "$OUTPUT" | grep '^dropoff=')"
 FELLING="$(echo "$OUTPUT" | grep '^felling=')"
 NOTICES="$(echo "$OUTPUT" | grep '^notices=')"
 FOUNDATIONS="$(echo "$OUTPUT" | grep '^foundations=')"
@@ -132,6 +133,15 @@ if [ "$GATHERING" = "gathering=ok" ]; then
 else
     echo "GATHERING FAILED" >&2
     echo "  $GATHERING" >&2
+    STATUS=1
+fi
+
+# Drop-off by order, and the load banked on going into the Town Center.
+if [ "$DROPOFF" = "dropoff=ok" ]; then
+    echo "dropoff OK"
+else
+    echo "DROPOFF FAILED" >&2
+    echo "  $DROPOFF" >&2
     STATUS=1
 fi
 

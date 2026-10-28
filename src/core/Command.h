@@ -327,6 +327,14 @@ struct TreasonCommand {
     PlayerId player;
 };
 
+// Take what a villager carries to one of the player's own buildings that
+// accepts it, and stand there after.
+struct DropOffCommand {
+    entt::entity unit;
+    entt::entity building;
+    PlayerId player;
+};
+
 using Command = std::variant<MoveCommand, GatherCommand, AttackCommand,
                              BuildCommand, DeleteCommand, TrainCommand,
                              CancelTrainCommand, ResearchCommand, RallyCommand,
@@ -339,6 +347,6 @@ using Command = std::variant<MoveCommand, GatherCommand, AttackCommand,
                              FlareCommand, WallCommand, GateCommand, RepairCommand,
                              PackCommand, CheatCommand,
                              ComputerResourceCommand, SelectionCommand,
-                             WaypointCommand, TreasonCommand>;
+                             WaypointCommand, TreasonCommand, DropOffCommand>;
 
 } // namespace Core

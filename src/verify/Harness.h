@@ -30,6 +30,13 @@ bool CheckDeterminism(int ticks);
 // drop site, hand it over. Prints "gathering=".
 bool CheckGathering();
 
+// A villager sent to drop off at one of the player's buildings: all of its
+// load handed over, a part of a unit too, and then it stands; only at a
+// finished building of its own that takes the load; going into the Town
+// Center banks the load, rounded, and into a tower nothing. Prints
+// "dropoff=".
+bool CheckDropoff();
+
 // A lumberjack sent at a standing tree: the felling stroke with no wood cut,
 // then the tree lying as its felled graphic, then wood cut from it.
 // Prints "felling=".

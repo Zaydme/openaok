@@ -26,6 +26,7 @@ int Run(int ticks) {
     bool ok = true;
     if (runs("entities")) ok &= CheckDeterminism(ticks);
     if (runs("gathering")) ok &= CheckGathering();
+    if (runs("dropoff")) ok &= CheckDropoff();
     if (runs("felling")) ok &= CheckFelling();
     if (runs("notices")) ok &= CheckNotices();
     if (runs("foundations")) ok &= CheckFoundations();
