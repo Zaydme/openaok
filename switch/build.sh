@@ -20,7 +20,8 @@ if command -v ninja >/dev/null 2>&1; then GENERATOR="-G Ninja"; fi
 cmake -S . -B build-switch $GENERATOR \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_TOOLCHAIN_FILE="$DEVKITPRO/cmake/Switch.cmake"
-cmake --build build-switch --parallel
+JOBS="$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)"
+cmake --build build-switch --parallel "$JOBS"
 '
 
 if [ -n "${DEVKITPRO:-}" ]; then
