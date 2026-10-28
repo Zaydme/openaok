@@ -49,6 +49,13 @@ computer players' finer play, and polish.
    60 Hz, measured by a stress scenario in the self-check.
 6. **Platforms**: a tested Linux build, a Windows build, and on Android the
    on-screen keyboard keeping the text field it types into in view.
+7. **The Conquerors**: the 2000 expansion, played from the player's own copy
+   when its files are in `original_game_1999/`, with the 1999 game unchanged.
+   - Its data: the dat, the expansion's archives and strings, its scenarios
+     and campaigns, its random map and AI scripts.
+   - The rules it changed, each matched to the expansion's own game: farms
+     reseeded from the Mill, villagers gathering after building a drop site,
+     King of the Hill, Wonder Race and Defend the Wonder, its interface.
 
 ## Known issues
 
