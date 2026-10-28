@@ -11,6 +11,7 @@
 #include "rendering/UIRenderer.h"
 #include "rendering/Ground.h"
 #include "rendering/Placement.h"
+#include "ecs/Animals.h"
 #include "ecs/BuildingGeometry.h"
 #include "core/IsometricMath.h"
 #include "core/CommandQueue.h"
@@ -1924,8 +1925,12 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
                 const bool adding = (mods & (KMOD_CTRL | KMOD_SHIFT | KMOD_GUI)) != 0;
                 std::vector<entt::entity> units, buildings;
                 for (auto e : view) {
-                    // Scenery is never swept up by a box.
-                    if (view.get<ECS::Components::Selectable>(e).priority <= 0) continue;
+                    // Scenery is never swept up by a box; the player's own
+                    // sheep and turkeys are.
+                    if (view.get<ECS::Components::Selectable>(e).priority <= 0 &&
+                        !ECS::Animals::Herdable(registry, e)) {
+                        continue;
+                    }
                     const auto* o = registry.try_get<ECS::Components::Owner>(e);
                     if (o == nullptr || o->player_id != Core::LocalPlayer()) continue;
                     const auto& t = view.get<ECS::Components::Transform>(e);
