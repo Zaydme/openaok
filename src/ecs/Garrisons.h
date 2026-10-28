@@ -60,9 +60,16 @@ bool HasBell(const entt::registry& registry, entt::entity building);
 // Rings `town_center`'s bell, or -- if it is ringing -- calls everyone back.
 void RingBell(entt::registry& registry, const Physics::Grid& grid, entt::entity town_center);
 
-// The pierce damage a second the units inside lend a building's arrows;
-// divided by the building's own, it gives how many arrows they add.
-Core::Fixed32 LentFirepower(const entt::registry& registry, entt::entity building);
+// Damage a second, as a garrison's arrows are reckoned: a villager's is 2.5;
+// one that shoots, its secondary missile's pierce -- or, with none, its own
+// pierce and hand-to-hand damage -- over its reload. Nothing for one that
+// fights hand to hand.
+Core::Fixed32 Firepower(const entt::registry& registry, entt::entity entity);
+
+// What the units inside add to `building`'s missile count: each archer,
+// villager, cavalry archer and hand cannoneer its firepower over the
+// building's. Anyone else inside adds nothing.
+Core::Fixed32 LentMissiles(const entt::registry& registry, entt::entity building);
 
 // Once a tick: units on their way in walk and go in, units inside heal.
 void Update(entt::registry& registry, const Physics::Grid& grid, int32_t dt_ms);

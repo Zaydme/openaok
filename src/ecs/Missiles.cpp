@@ -188,25 +188,16 @@ Volley VolleyOf(const entt::registry& registry, entt::entity shooter) {
     Volley volley;
     const R::UnitRules* rules = Combat::FightingRules(registry, shooter);
     if (rules == nullptr || rules->attack_count == 0) return volley;
-    if (!registry.all_of<Components::Building>(shooter)) {
-        volley.own = rules->projectile >= 0 ? 1 : 0;
-        return volley;
-    }
-    volley.own = rules->projectile >= 0 ? std::max(1, rules->missiles.ToInt()) : 0;
+    volley.own = rules->projectile >= 0 ? 1 : 0;
+    if (!registry.all_of<Components::Building>(shooter)) return volley;
     const int secondary = rules->secondary_projectile >= 0 ? rules->secondary_projectile
                                                            : rules->projectile;
-    if (secondary < 0) return volley;
-
-    // The building's own pierce damage a second, which each extra arrow costs.
-    Core::Fixed32 own_firepower(0);
-    for (int a = 0; a < rules->attack_count; ++a) {
-        if (rules->attacks[a].cls == 3 && rules->reload.value > 0) {
-            own_firepower = own_firepower + Core::Fixed32(rules->attacks[a].amount) / rules->reload;
-        }
-    }
-    if (own_firepower.value <= 0) return volley;
-    const int lent = (Garrisons::LentFirepower(registry, shooter) / own_firepower).ToInt();
-    volley.garrison = std::clamp(lent, 0, std::max(0, rules->max_missiles - volley.own));
+    if (secondary < 0 || rules->max_missiles <= 0) return volley;
+    // The count's first missile is the building's own, which a Town Center
+    // does not have.
+    const int count = std::min((rules->missiles + Garrisons::LentMissiles(registry, shooter)).ToInt(),
+                               rules->max_missiles);
+    volley.extra = std::max(0, count - 1);
     return volley;
 }
 
@@ -226,11 +217,11 @@ void Fire(entt::registry& registry, const Physics::Grid& grid, entt::entity shoo
             }
         }
     }
-    if (volley.garrison > 0) {
+    if (volley.extra > 0) {
         const int secondary = rules->secondary_projectile >= 0 ? rules->secondary_projectile
                                                                : rules->projectile;
         if (const R::UnitRules* missile = Players::UnitOf(registry, owner, secondary)) {
-            for (int i = 0; i < volley.garrison; ++i) {
+            for (int i = 0; i < volley.extra; ++i) {
                 LooseOne(registry, shooter, target, *rules, secondary, *missile);
             }
         }

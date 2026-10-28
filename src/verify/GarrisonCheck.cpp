@@ -165,21 +165,24 @@ bool CheckGarrison() {
 
 
     // How many arrows a garrison of villagers adds, worked from the player's
-    // own Town Center: each villager lends 2.5 pierce a second against the
-    // building's attack over its reload -- a Teuton Town Center's 7 every 2
-    // seconds is 3.5, so one villager adds nothing and fifteen add ten.
+    // own Town Center: each villager's 2.5 pierce a second over its arrow's
+    // pierce over its reload -- the Town Center arrow's 5 every 2 seconds, so
+    // a villager each, even for the Teutons, whose Town Center's own attack
+    // is 7 -- added to the dat's one missile, which a Town Center does not
+    // loose itself, up to the dat's eleven: fifteen villagers loose ten.
     const auto arrows_for = [&](int villagers) {
         const auto* rules = ECS::Players::UnitOf(reg, kUs, tc_id);
+        const auto* arrow = ECS::Players::UnitOf(reg, kUs, rules->secondary_projectile);
         int pierce = 0;
-        for (int a = 0; a < rules->attack_count; ++a) {
-            if (rules->attacks[a].cls == 3) pierce += rules->attacks[a].amount;
+        for (int a = 0; a < arrow->attack_count; ++a) {
+            if (arrow->attacks[a].cls == 3) pierce += arrow->attacks[a].amount;
         }
         const Core::Fixed32 own = Core::Fixed32(pierce) / rules->reload;
-        const int lent = (Core::Fixed32(villagers) * Core::Fixed32(5) / Core::Fixed32(2) / own).ToInt();
-        return std::min(lent, rules->max_missiles);
+        const Core::Fixed32 lent = Core::Fixed32(villagers) * Core::Fixed32(5) / Core::Fixed32(2) / own;
+        return std::min((rules->missiles + lent).ToInt(), rules->max_missiles) - 1;
     };
-    if (ok() && ECS::Missiles::VolleyOf(reg, tc).garrison != arrows_for(1)) {
-        verdict = "one villager inside lent the wrong number of arrows";
+    if (ok() && (ECS::Missiles::VolleyOf(reg, tc).extra != arrows_for(1) || arrows_for(1) != 1)) {
+        verdict = "one villager inside did not lend one arrow";
     }
 
     // Healing inside, at the building's rate.
@@ -226,7 +229,7 @@ bool CheckGarrison() {
         if (inside != tc_rules->garrison) {
             verdict = "a crowd sent into a town center did not fill it exactly";
         } else if (ECS::Missiles::VolleyOf(reg, tc).Total() != arrows_for(inside) ||
-                   arrows_for(inside) == 0) {
+                   arrows_for(inside) != 10) {
             verdict = "a full town center loosed the wrong number of arrows";
         }
     }
@@ -340,6 +343,50 @@ bool CheckGarrison() {
         }
     }
 
+
+    // A Watch Tower's arrows: an archer lends 4 pierce every 2 seconds over
+    // the tower arrow's 5 every 2, so one inside adds no whole arrow and two
+    // add one; swordsmen beside them add nothing.
+    if (ok()) {
+        ECS::Simulation fresh;
+        fresh.Init();
+        auto& freg = fresh.GetRegistry();
+        auto& fgrid = fresh.GetGrid();
+        const int tower_id = cfg.GetUnitIdByName("WCTW");
+        entt::entity tower = entt::null;
+        for (int y = 30; y < 90 && tower == entt::null; y += 3) {
+            for (int x = 30; x < 90 && tower == entt::null; x += 3) {
+                if (ECS::Buildings::CanPlace(fgrid, tower_id, x, y)) {
+                    tower = ECS::Buildings::Place(freg, fgrid, tower_id, kUs, x, y, true);
+                }
+            }
+        }
+        const ECS::Components::Vector2D near{Core::Fixed32(20), Core::Fixed32(20)};
+        auto put_in = [&](const char* unit) {
+            ECS::Garrisons::PutInside(freg, ECS::Units::Spawn(freg, cfg.GetUnitIdByName(unit), kUs, near), tower);
+        };
+        if (tower == entt::null) {
+            verdict = "no watch tower to garrison";
+        } else {
+            const int alone = ECS::Missiles::VolleyOf(freg, tower).Total();
+            put_in("ARCHR");
+            const int one = ECS::Missiles::VolleyOf(freg, tower).Total();
+            put_in("ARCHR");
+            const int two = ECS::Missiles::VolleyOf(freg, tower).Total();
+            put_in("SPRMN");
+            put_in("SPRMN");
+            const int swords = ECS::Missiles::VolleyOf(freg, tower).Total();
+            if (alone != 1) {
+                verdict = "an empty watch tower did not loose its one arrow";
+            } else if (one != 1) {
+                verdict = "one archer in a watch tower added a whole arrow";
+            } else if (two != 2) {
+                verdict = "two archers in a watch tower did not add an arrow";
+            } else if (swords != 2) {
+                verdict = "swordsmen in a watch tower added arrows";
+            }
+        }
+    }
 
     // A King (class 59) goes in where villagers do: a Regicide player hides the
     // King in a building. In a world of its own, the one above having filled

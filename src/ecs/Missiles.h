@@ -13,14 +13,16 @@
 // the missile comes down can be hit instead.
 namespace ECS::Missiles {
 
-// How many missiles a shooter looses at once: its own, and -- for a building --
-// the arrows its garrison adds, which are its secondary missile. A unit looses
-// one. A building's garrison adds one arrow for each share of the building's
-// own pierce damage a second its occupants lend it, up to the dat's most.
+// How many missiles a shooter looses at once: its own missile, if it has one,
+// and -- for a building -- its secondary missile for the rest of its missile
+// count: the dat's (a Castle's five) and what its garrison lends
+// (Garrisons::LentMissiles), whole missiles only, up to the dat's most. A
+// Town Center has no missile of its own and looses only what its garrison
+// lends; a unit looses one.
 struct Volley {
     int own = 0;
-    int garrison = 0;
-    int Total() const { return own + garrison; }
+    int extra = 0;
+    int Total() const { return own + extra; }
 };
 Volley VolleyOf(const entt::registry& registry, entt::entity shooter);
 

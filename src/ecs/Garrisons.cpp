@@ -78,11 +78,20 @@ constexpr int kMaxAttempts = 8;
 // villager.
 const Core::Fixed32 kBellReach = Core::Fixed32(25);
 
-// Villagers lend a fixed share to a building's arrows whatever their own
-// attack: 2.5 pierce a second.
+// The unit classes whose damage lends a building arrows: archers, villagers,
+// cavalry archers and hand cannoneers.
+constexpr int kArcherClass = 0;
+constexpr int kVillagerClass = 4;
+constexpr int kCavalryArcherClass = 36;
+constexpr int kHandCannoneerClass = 44;
+// A villager's damage a second, as its arrows are reckoned, whatever its
+// attack.
 const Core::Fixed32 kVillagerFirepower = Core::Fixed32(5) / Core::Fixed32(2);
-// The dat's pierce attack class.
+// The dat's attack classes counted as damage: pierce, and hand to hand.
 constexpr int kPierceClass = 3;
+constexpr int kMeleeClass = 4;
+// What reaches no further than this, in tiles, fights hand to hand.
+const Core::Fixed32 kMeleeRange = Core::Fixed32(1);
 
 Core::PlayerId OwnerOf(const entt::registry& registry, entt::entity entity) {
     const auto* owner = registry.try_get<Components::Owner>(entity);
@@ -541,24 +550,45 @@ void RingBell(entt::registry& registry, const Physics::Grid& grid, entt::entity 
     }
 }
 
-Core::Fixed32 LentFirepower(const entt::registry& registry, entt::entity building) {
+Core::Fixed32 Firepower(const entt::registry& registry, entt::entity entity) {
+    const R::UnitRules* rules = RulesOf(registry, entity);
+    if (rules == nullptr) return Core::Fixed32(0);
+    if (rules->cls == kVillagerClass) return kVillagerFirepower;
+    if (rules->reload.value <= 0 || rules->max_range <= kMeleeRange) return Core::Fixed32(0);
+    int damage = 0;
+    const R::UnitRules* missile =
+        rules->secondary_projectile >= 0
+            ? Players::UnitOf(registry, Players::RulesPlayer(registry, entity), rules->secondary_projectile)
+            : nullptr;
+    if (missile != nullptr) {
+        for (int a = 0; a < missile->attack_count; ++a) {
+            if (missile->attacks[a].cls == kPierceClass) damage += missile->attacks[a].amount;
+        }
+    } else {
+        for (int a = 0; a < rules->attack_count; ++a) {
+            const int cls = rules->attacks[a].cls;
+            if (cls == kPierceClass || cls == kMeleeClass) damage += rules->attacks[a].amount;
+        }
+    }
+    return Core::Fixed32(damage) / rules->reload;
+}
+
+Core::Fixed32 LentMissiles(const entt::registry& registry, entt::entity building) {
     const auto* garrison = registry.try_get<Components::Garrison>(building);
-    if (garrison == nullptr) return Core::Fixed32(0);
+    if (garrison == nullptr || garrison->inside.empty()) return Core::Fixed32(0);
+    const Core::Fixed32 own = Firepower(registry, building);
+    if (own.value <= 0) return Core::Fixed32(0);
     Core::Fixed32 total(0);
     for (entt::entity unit : garrison->inside) {
         if (!registry.valid(unit)) continue;
-        if (registry.all_of<Components::Worker>(unit)) {
-            total = total + kVillagerFirepower;
+        const R::UnitRules* rules = RulesOf(registry, unit);
+        if (rules == nullptr) continue;
+        // A swordsman, a monk or a knight inside adds nothing.
+        if (rules->cls != kArcherClass && rules->cls != kVillagerClass &&
+            rules->cls != kCavalryArcherClass && rules->cls != kHandCannoneerClass) {
             continue;
         }
-        const R::UnitRules* rules = RulesOf(registry, unit);
-        if (rules == nullptr || rules->reload.value <= 0) continue;
-        // Only pierce damage lends arrows; a swordsman inside adds none.
-        for (int a = 0; a < rules->attack_count; ++a) {
-            if (rules->attacks[a].cls == kPierceClass && rules->attacks[a].amount > 0) {
-                total = total + Core::Fixed32(rules->attacks[a].amount) / rules->reload;
-            }
-        }
+        total = total + Firepower(registry, unit) / own;
     }
     return total;
 }
