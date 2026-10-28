@@ -12,7 +12,9 @@ computer from your own CD and copy to the SD card beside it.
 - On a computer: your copy of the original CD in `original_game_1999/`, and
   the tools that prepare it (Python 3, CMake, a C++ compiler and `cabextract`;
   see the main README).
-- To build the `.nro` yourself, one of:
+- The `.nro`: a release's, from the
+  [releases](https://github.com/Zaydme/openaok/releases), or, to build it
+  yourself, one of:
   - Docker. On a Mac: `brew install colima docker && colima start`.
   - devkitPro's Switch toolchain: install
     [devkitPro's pacman](https://devkitpro.org/wiki/Getting_Started), then

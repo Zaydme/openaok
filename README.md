@@ -168,33 +168,42 @@ Then install `android/app/build/outputs/apk/release/app-release.apk` on a phone
 running Android 10 or later. The first launch copies the game data to the phone.
 The APK carries your game data, so keep it to your own devices.
 
-## Building for the Nintendo Switch
+## On the Nintendo Switch
 
 OpenAoK runs as homebrew, from the Homebrew Menu, on a Switch that runs custom
 firmware. The game is one file, `OpenAoK.nro`, which holds none of the game's
 data; the data is a folder made on a computer from your own CD and copied to
-the SD card beside it.
+the SD card beside it. Nothing needs building for the Switch itself.
 
-**1. Build the `.nro`** with Docker, or with devkitPro's Switch toolchain
-(`switch-dev`, `switch-sdl2`, `switch-freetype`) when `DEVKITPRO` is set:
+**1. Put the game on the card.** Download `OpenAoK-switch-<version>.zip` from
+the [releases](https://github.com/Zaydme/openaok/releases) and unpack it onto
+the SD card's root. It holds `switch/openaok/OpenAoK.nro` and the licenses.
+
+**2. Make the game's data.** Download the same release's source code (or clone
+the repository) and copy your CD into its `original_game_1999/`, as above.
+Preparing the data needs Python 3, cabextract, CMake and a C++ compiler, which
+build only a small helper that reads the game's rules:
 
 ```sh
-switch/build.sh               # writes build-switch/OpenAoK.nro
+# macOS (with the Xcode command-line tools)
+brew install cmake cabextract
+
+# Debian / Ubuntu
+sudo apt install build-essential cmake python3 zlib1g-dev cabextract
 ```
 
-On a Mac, Docker can be `brew install colima docker && colima start`.
-
-**2. Make the SD card's folder.** With your CD in `original_game_1999/` and the
-card in the computer:
+Then, with the card in the computer:
 
 ```sh
 python3 switch/package.py --out "/Volumes/SWITCH SD"
 ```
 
-It prepares the game's data as `build.sh` does, and writes `switch/openaok/`
-on the card: `OpenAoK.nro` and `game/`, about 390 MB. Run it again after an
-update; only what changed is copied. Without `--out` it writes to
-`build-switch/sd/`, to copy to the card yourself.
+It prepares the game's data as `build.sh` does and writes `switch/openaok/game/`
+on the card, beside the `.nro`: about 390 MB. Run it again after an update;
+only what changed is copied. Without `--out` it writes to `build-switch/sd/`,
+to copy to the card yourself. Some USB card readers damage what they write to
+large cards; Hekate's USB mass storage (Tools, USB Tools, SD Card) writes
+through the Switch's own card slot instead.
 
 **3. Play.** Put the card back, hold R while starting any game, which opens the
 Homebrew Menu with all of the console's memory, and choose OpenAoK.
@@ -202,6 +211,19 @@ Homebrew Menu with all of the console's memory, and choose OpenAoK.
 In handheld mode the touch screen plays as on a phone; the controller plays as a
 mouse and the game's hotkeys, as above. Chat and a saved game's name bring up
 the system keyboard. More in [switch/README.md](switch/README.md).
+
+### Building the `.nro` yourself
+
+With Docker, or with devkitPro's Switch toolchain (`switch-dev`, `switch-sdl2`,
+`switch-freetype`) when `DEVKITPRO` is set:
+
+```sh
+switch/build.sh               # writes build-switch/OpenAoK.nro
+```
+
+On a Mac, Docker can be `brew install colima docker && colima start`. Then
+`python3 switch/package.py` copies the `.nro` you built to the card with the
+data.
 
 ## Playing
 
