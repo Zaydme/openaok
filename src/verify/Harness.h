@@ -188,6 +188,7 @@ bool CheckFishing();
 // ship's detonation and blast, Careening. Prints "navy=".
 bool CheckNavy();
 bool CheckShipAngles();
+bool CheckTurning();
 
 // A landing on Islands: a transport takes on a war party under the dat's
 // garrison rules, sails it to the other island and puts it ashore, and the

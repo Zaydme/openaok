@@ -55,6 +55,9 @@ struct Sprite {
     // (Core::FixedMath::WorldVectorToHeading); the graphic shows the nearest
     // of its own angles.
     uint8_t heading = 0;
+    // A unit that turns at the dat's rotation speed: how long before it may
+    // turn its next angle (ecs/Turning).
+    int32_t turn_wait_ms = 0;
 
     // How far above its ground position the graphic is drawn, in screen
     // pixels: a missile in flight. Its ground track is what the simulation

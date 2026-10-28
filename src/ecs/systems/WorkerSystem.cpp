@@ -26,6 +26,7 @@
 #include "ecs/Resources.h"
 #include "ecs/Victory.h"
 #include "ecs/Vision.h"
+#include "ecs/Turning.h"
 #include "ecs/components/Combat.h"
 #include "pathfinding/ApproachPlanner.h"
 #include "pathfinding/Pathfinder.h"
@@ -577,21 +578,16 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                 }
                 worker.resource_at = registry.get<Components::Transform>(worker.target_resource).position;
 
-                // Standing at the resource and taking from it: the job
-                // animation, not the standing one.
-                worker.working = true;
-
                 // Face what is being worked on, so an axe swings at the tree
-                // rather than wherever the villager happened to walk in from.
-                if (auto* look = registry.try_get<Components::Sprite>(entity)) {
-                    const auto& at =
-                        registry.get<Components::Transform>(worker.target_resource);
-                    const Core::Fixed32 fx = at.position.x - transform.position.x;
-                    const Core::Fixed32 fy = at.position.y - transform.position.y;
-                    if (fx.value != 0 || fy.value != 0) {
-                        look->heading = Core::FixedMath::WorldVectorToHeading(fx, fy);
-                    }
-                }
+                // rather than wherever the villager happened to walk in from;
+                // a fishing ship turns to it an angle at a time and only then
+                // fishes. Standing at the resource and taking from it: the job
+                // animation, not the standing one.
+                worker.working = Turning::Toward(
+                    registry, entity,
+                    registry.get<Components::Transform>(worker.target_resource).position,
+                    fixed_dt_ms);
+                if (!worker.working) break;
 
                 auto& resource = registry.get<Components::Resource>(worker.target_resource);
 

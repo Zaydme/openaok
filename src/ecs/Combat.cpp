@@ -16,6 +16,7 @@
 #include "ecs/Players.h"
 #include "ecs/Score.h"
 #include "ecs/VillagerJobs.h"
+#include "ecs/Turning.h"
 #include "ecs/components/Animation.h"
 #include "ecs/components/Building.h"
 #include "ecs/components/Combat.h"
@@ -583,7 +584,10 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
             break;
         }
         case CombatState::Attacking: {
-            Face(registry, self, combat.target);
+            // It swings or shoots only once it faces its target; a ship or a
+            // trebuchet turns to it an angle at a time.
+            const auto* aim = registry.try_get<Components::Transform>(combat.target);
+            const bool facing = aim == nullptr || Turning::Toward(registry, self, aim->position, dt_ms);
             if (combat.strike_ms >= 0) {
                 combat.strike_ms -= dt_ms;
                 if (combat.strike_ms > 0) break;
@@ -612,7 +616,7 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
                 combat.chase_ms = 0;
                 break;
             }
-            if (combat.reload_ms <= 0) StartSwing(registry, self, combat, *rules);
+            if (combat.reload_ms <= 0 && facing) StartSwing(registry, self, combat, *rules);
             break;
         }
         }

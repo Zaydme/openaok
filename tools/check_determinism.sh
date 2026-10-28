@@ -40,6 +40,7 @@ FELLING="$(echo "$OUTPUT" | grep '^felling=')"
 SEQUENCE="$(echo "$OUTPUT" | grep '^sequence=')"
 COLLAPSE="$(echo "$OUTPUT" | grep '^collapse=')"
 SHIPANGLES="$(echo "$OUTPUT" | grep '^shipangles=')"
+TURNING="$(echo "$OUTPUT" | grep '^turning=')"
 NOTICES="$(echo "$OUTPUT" | grep '^notices=')"
 FOUNDATIONS="$(echo "$OUTPUT" | grep '^foundations=')"
 FOG="$(echo "$OUTPUT" | grep '^fog=')"
@@ -175,6 +176,15 @@ if [ "$SHIPANGLES" = "shipangles=ok" ]; then
 else
     echo "SHIP ANGLES FAILED" >&2
     echo "  $SHIPANGLES" >&2
+    STATUS=1
+fi
+
+# A ship or a trebuchet turns to its target an angle at a time before it shoots.
+if [ "$TURNING" = "turning=ok" ]; then
+    echo "turning OK"
+else
+    echo "TURNING FAILED" >&2
+    echo "  $TURNING" >&2
     STATUS=1
 fi
 

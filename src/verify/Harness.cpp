@@ -58,6 +58,7 @@ int Run(int ticks) {
     if (runs("fishing")) ok &= CheckFishing();
     if (runs("navy")) ok &= CheckNavy();
     if (runs("shipangles")) ok &= CheckShipAngles();
+    if (runs("turning")) ok &= CheckTurning();
     if (runs("landing")) ok &= CheckLanding();
     if (runs("market")) ok &= CheckMarket();
     if (runs("trade")) ok &= CheckTrade();
