@@ -114,6 +114,7 @@ struct Launch {
     int battle_size = 0;
     bool walls = false;
     std::string place_name;
+    std::vector<std::string> spawn_names;
     int advance_seconds = 0;
     // --achievements: the Achievements screen open on this page (1-6) once the
     // simulation has advanced; with --achievements-end, as the game's end
@@ -381,6 +382,10 @@ void ParseFlags(int argc, char* argv[], Launch& launch) {
             // A finished building of this dat unit (MRKT, CSTL...) of the
             // player's beside the start, for --select to pick. A test tool.
             launch.place_name = argv[++i];
+        } else if (arg == "--spawn" && i + 1 < argc) {
+            // A unit of this dat unit (PTREB, MONKX...) of the player's beside
+            // the start, for --select to pick; repeatable. A test tool.
+            launch.spawn_names.push_back(argv[++i]);
         } else if (arg == "--walls") {
             // Walls beside the start, finished: palisade runs every way, a
             // stone wall with a tower in it, and gates. A test tool.
@@ -565,6 +570,11 @@ void ApplyCaptureFlags(ECS::Simulation& sim, const Launch& launch, int& mcx, int
                 }
             }
         }
+    }
+    for (size_t n = 0; n < launch.spawn_names.size(); ++n) {
+        const int unit = Core::ConfigManager::Get().GetUnitIdByName(launch.spawn_names[n]);
+        const ECS::Components::Vector2D at{Core::Fixed32(mcx + 4 + 2 * static_cast<int>(n)), Core::Fixed32(mcy + 4)};
+        if (unit >= 0) ECS::Units::Spawn(sim.GetRegistry(), unit, Core::LocalPlayer(), at);
     }
     if (launch.walls) {
         auto& cfg = Core::ConfigManager::Get();

@@ -31,7 +31,8 @@ bash tools/check_determinism.sh  # the gate: must pass before and after every ch
 `--screenshot PATH` renders and exits; use `--windowed` (a fullscreen capture
 takes over the screen). Useful with it: `--game`, `--menu NAME`, `--clicks
 "x,y;key:return;text:words;right:x,y"`, `--advance SECONDS`, `--look X Y`,
-`--select NAME`, `--frame-width N` (a frame of another screen's shape),
+`--select NAME`, `--place NAME` and `--spawn NAME` (a building or a unit beside the
+start), `--frame-width N` (a frame of another screen's shape),
 `--resolution 800x600|1024x768|1280x1024`. Flags are parsed in `src/main.cpp`.
 
 ## Rules
