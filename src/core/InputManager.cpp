@@ -38,6 +38,8 @@
 #include "core/Profile.h"
 #include "core/Rules.h"
 #include "ecs/Diplomacy.h"
+#include "ecs/Missiles.h"
+#include "ecs/Packing.h"
 #include "ecs/DropSites.h"
 #include "ecs/Monks.h"
 #include <algorithm>
@@ -73,6 +75,14 @@ constexpr int kUnpackedSiegeClass = 54;
 constexpr int kSiegeShipClass = 55;
 constexpr int kSheepClass = 58;
 constexpr int kKingClass = 59;
+
+// Whether a building can shoot now: a tower or a Castle, or a Town Center with
+// a garrison to loose its arrows. One that can is sent at what it is pointed
+// at; one that cannot takes the click as its gather point.
+bool Shoots(const entt::registry& registry, entt::entity building) {
+    return registry.all_of<ECS::Components::Combat>(building) &&
+           ECS::Missiles::VolleyOf(registry, building).Total() > 0;
+}
 
 // Whether a right-click on one of the player's buildings sends whoever it can
 // shelter inside: Alt held, or One-Click Garrisoning on in the Options.
@@ -579,14 +589,18 @@ void InputManager::UpdateIntent(ECS::Simulation& sim, Rendering::Renderer& rende
     const float y = static_cast<float>(wc.second);
 
     // What the selection is made of: villagers, fishing ships (workers that
-    // gather as themselves), whatever can fight, monks, and whether a monk
+    // gather as themselves), whatever can fight -- a building that can shoot
+    // now, a packed trebuchet that sets up to -- monks, and whether a monk
     // has the faith to convert.
     bool villagers = false, boats = false, fighters = false, monks = false, faithful = false;
     auto picked = registry.view<ECS::Components::Selectable, ECS::Components::Owner>();
     for (auto e : picked) {
         if (!picked.get<ECS::Components::Selectable>(e).is_selected) continue;
         if (picked.get<ECS::Components::Owner>(e).player_id != Core::LocalPlayer()) continue;
-        if (registry.all_of<ECS::Components::Building>(e)) continue;
+        if (registry.all_of<ECS::Components::Building>(e)) {
+            if (Shoots(registry, e)) fighters = true;
+            continue;
+        }
         if (const auto* worker = registry.try_get<ECS::Components::Worker>(e)) {
             if (worker->gatherer >= 0) boats = true;
             else villagers = true;
@@ -594,7 +608,7 @@ void InputManager::UpdateIntent(ECS::Simulation& sim, Rendering::Renderer& rende
         if (const auto* monk = registry.try_get<ECS::Components::Monk>(e)) {
             monks = true;
             faithful = faithful || monk->faith >= Fixed32(100);
-        } else if (registry.all_of<ECS::Components::Combat>(e)) {
+        } else if (registry.all_of<ECS::Components::Combat>(e) || ECS::Packing::Packed(registry, e)) {
             fighters = true;
         }
     }
@@ -1669,12 +1683,23 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
             for (auto e : sel_view) {
                 if (!sel_view.get<ECS::Components::Selectable>(e).is_selected) continue;
 
-                // A building takes a right-click as its rally point: where the
-                // units it trains go, or what villagers it trains start on.
+                // A building that can shoot is sent at an enemy or an animal;
+                // otherwise it takes a right-click as its rally point: where
+                // the units it trains go, or what villagers it trains start on.
                 if (registry.all_of<ECS::Components::Building>(e)) {
-                    CommandQueue::Get().PushCommand(RallyCommand{
-                        e, Fixed32(click_x), Fixed32(click_y), target_res,
-                        Core::LocalPlayer()});
+                    const auto* theirs = registry.valid(target_enemy)
+                                             ? registry.try_get<ECS::Components::Owner>(target_enemy) : nullptr;
+                    const bool foe = theirs == nullptr || theirs->player_id == Core::PLAYER_GAIA ||
+                                     ECS::Diplomacy::StanceOf(registry, Core::LocalPlayer(), theirs->player_id) !=
+                                         ECS::Diplomacy::Stance::Ally;
+                    if (registry.valid(target_enemy) && target_enemy != e && foe && Shoots(registry, e)) {
+                        CommandQueue::Get().PushCommand(AttackCommand{e, target_enemy, Core::LocalPlayer()});
+                        Rendering::EntityRenderer::Flash(registry, target_enemy, true);
+                    } else {
+                        CommandQueue::Get().PushCommand(RallyCommand{
+                            e, Fixed32(click_x), Fixed32(click_y), target_res,
+                            Core::LocalPlayer()});
+                    }
                     continue;
                 }
                 
@@ -1712,7 +1737,8 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
                         spoken_at = target_heal;
                     }
                 } else if (registry.valid(target_enemy) &&
-                           registry.any_of<ECS::Components::Combat, ECS::Components::Monk>(e) &&
+                           (registry.any_of<ECS::Components::Combat, ECS::Components::Monk>(e) ||
+                            ECS::Packing::Packed(registry, e)) &&
                            e != target_enemy) {
                     CommandQueue::Get().PushCommand(
                         AttackCommand{e, target_enemy, Core::LocalPlayer()});
