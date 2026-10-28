@@ -13,6 +13,7 @@
 #include "ecs/Digest.h"
 #include "ecs/Events.h"
 #include "ecs/Flares.h"
+#include "ecs/Fog.h"
 #include "ecs/Market.h"
 #include "ecs/Players.h"
 #include "ecs/Score.h"
@@ -23,6 +24,7 @@
 #include "ecs/components/Animation.h"
 #include "ecs/components/Building.h"
 #include "ecs/components/Combat.h"
+#include "ecs/components/Doppelganger.h"
 #include "ecs/components/Duty.h"
 #include "ecs/components/Garrison.h"
 #include "ecs/components/Gate.h"
@@ -194,6 +196,7 @@ void EachComponent(F&& f) {
     f.template operator()<C::Capturable>("Capturable");
     f.template operator()<C::Combat>("Combat");
     f.template operator()<C::Corpse>("Corpse");
+    f.template operator()<C::Doppelganger>("Doppelganger");
     f.template operator()<C::Duty>("Duty");
     f.template operator()<C::Dying>("Dying");
     f.template operator()<C::Felled>("Felled");
@@ -215,6 +218,7 @@ void EachComponent(F&& f) {
     f.template operator()<C::RelicBearer>("RelicBearer");
     f.template operator()<C::RelicErrand>("RelicErrand");
     f.template operator()<C::RelicShrine>("RelicShrine");
+    f.template operator()<C::Remembered>("Remembered");
     f.template operator()<C::RulesOf>("RulesOf");
     f.template operator()<C::Resource>("Resource");
     f.template operator()<C::Selectable>("Selectable");
@@ -245,6 +249,7 @@ uint64_t Fingerprint() {
     mix(sizeof(ECS::Market::Prices));
     mix(sizeof(ECS::Diplomacy::Table));
     mix(sizeof(ECS::Flares::Flare));
+    mix(sizeof(ECS::Fog::Ground));
     mix(sizeof(ECS::Score::Table));
     mix(sizeof(ECS::Timeline::Sample));
     mix(sizeof(ECS::Timeline::Event));
@@ -558,10 +563,11 @@ bool Write(const ECS::Simulation& sim, std::vector<uint8_t>& out) {
     const auto* diplomacy = ctx.find<ECS::Diplomacy::Table>();
     const auto* chat = ctx.find<ECS::Chat::Log>();
     const auto* flares = ctx.find<ECS::Flares::Log>();
+    const auto* fog = ctx.find<ECS::Fog::Memory>();
     const auto* score = ctx.find<ECS::Score::Table>();
     const auto* timeline = ctx.find<ECS::Timeline::Table>();
     if (!random || !players || !victory || !vision || !brains || !prices || !diplomacy ||
-        !chat || !flares || !score || !timeline) {
+        !chat || !flares || !fog || !score || !timeline) {
         return false;
     }
     PutPod(w, *random);
@@ -585,6 +591,10 @@ bool Write(const ECS::Simulation& sim, std::vector<uint8_t>& out) {
     PutChat(w, *chat);
     w.I32(flares->lifetime_ms);
     PutPods(w, flares->flares);
+    // The ground each player remembers out of sight; its pictures are
+    // entities, written above.
+    for (const auto& ground : fog->ground) PutPods(w, ground);
+    w.U32(fog->revision);
     // The score's own state: its clock, the most ever held, the ages' times.
     // Its counters are in the players' resources, already written.
     PutPod(w, *score);
@@ -694,6 +704,10 @@ bool Read(ECS::Simulation& sim, const std::vector<uint8_t>& in, std::string* err
     flares.lifetime_ms = r.I32();
     GetPods(r, flares.flares);
     registry.ctx().insert_or_assign(std::move(flares));
+    ECS::Fog::Memory fog;
+    for (auto& ground : fog.ground) GetPods(r, ground);
+    fog.revision = r.U32();
+    registry.ctx().insert_or_assign(std::move(fog));
     ECS::Score::Table score;
     GetPod(r, score);
     registry.ctx().insert_or_assign(score);

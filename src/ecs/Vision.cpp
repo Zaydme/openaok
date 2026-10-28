@@ -9,6 +9,7 @@
 #include "ecs/Flares.h"
 #include "ecs/Players.h"
 #include "ecs/components/Building.h"
+#include "ecs/components/Doppelganger.h"
 #include "ecs/components/Health.h"
 #include "ecs/components/Identity.h"
 #include "ecs/components/Owner.h"
@@ -91,19 +92,16 @@ struct Gains {
     uint16_t Of(uint16_t mask) const { return static_cast<uint16_t>(mask | low[mask & 0xFF] | high[mask >> 8]); }
 };
 
-// Whether this unit stays seen on fogged ground once found: buildings, the
-// map's own objects and what the dat marks, never other units.
+// Whether this stays drawn on fogged ground once found: what the dat marks
+// so -- trees, mines, cliffs, never a building, which is remembered instead
+// (ecs/Fog) -- and, for what the dat does not know, a map object that does
+// not move.
 bool StaysInFog(const entt::registry& registry, entt::entity entity) {
-    if (registry.all_of<Components::Building>(entity)) return true;
+    if (const auto* identity = registry.try_get<Components::Identity>(entity)) {
+        if (const auto* rules = Core::Rules::Unit(identity->unit_id)) return rules->fog_visibility != 0;
+    }
     const auto* owner = registry.try_get<Components::Owner>(entity);
     const bool gaia = owner == nullptr || owner->player_id == Core::PLAYER_GAIA;
-    if (const auto* identity = registry.try_get<Components::Identity>(entity)) {
-        if (const auto* rules = Core::Rules::Unit(identity->unit_id)) {
-            if (rules->fog_visibility != 0) return true;
-        }
-    }
-    // A map object that does not move -- a tree, a mine -- stays where it was
-    // seen; a living one does not.
     return gaia && !registry.all_of<Components::Health>(entity);
 }
 
@@ -253,6 +251,10 @@ bool Explored(const entt::registry& registry, Core::PlayerId player, int x, int 
 }
 
 bool Shows(const entt::registry& registry, Core::PlayerId viewer, entt::entity entity) {
+    // A picture kept in the fog is its player's alone.
+    if (const auto* picture = registry.try_get<Components::Doppelganger>(entity)) {
+        return picture->player == viewer;
+    }
     // A building's piece is shown as its building is.
     entt::entity subject = entity;
     if (const auto* part = registry.try_get<Components::PartOf>(entity)) {
@@ -270,7 +272,13 @@ bool Shows(const entt::registry& registry, Core::PlayerId viewer, entt::entity e
     const int x = Physics::TileOf(at->position.x);
     const int y = Physics::TileOf(at->position.y);
     if (Visible(registry, viewer, x, y)) return true;
-    return Explored(registry, viewer, x, y) && StaysInFog(registry, subject);
+    if (!Explored(registry, viewer, x, y)) return false;
+    // In the fog, what the viewer keeps a picture of is the picture.
+    if (const auto* remembered = registry.try_get<Components::Remembered>(subject);
+        remembered != nullptr && viewer < 16 && (remembered->by & Bit(viewer)) != 0) {
+        return false;
+    }
+    return StaysInFog(registry, subject);
 }
 
 } // namespace ECS::Vision

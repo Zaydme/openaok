@@ -38,6 +38,7 @@ GATHERING="$(echo "$OUTPUT" | grep '^gathering=')"
 FELLING="$(echo "$OUTPUT" | grep '^felling=')"
 NOTICES="$(echo "$OUTPUT" | grep '^notices=')"
 FOUNDATIONS="$(echo "$OUTPUT" | grep '^foundations=')"
+FOG="$(echo "$OUTPUT" | grep '^fog=')"
 FLAG="$(echo "$OUTPUT" | grep '^flag=')"
 SPIES="$(echo "$OUTPUT" | grep '^spies=')"
 CAPTURE="$(echo "$OUTPUT" | grep '^capture=')"
@@ -162,6 +163,15 @@ if [ "$FOUNDATIONS" = "foundations=ok" ]; then
 else
     echo "FOUNDATIONS FAILED" >&2
     echo "  $FOUNDATIONS" >&2
+    STATUS=1
+fi
+
+# Fog memory: pictures of buildings and map objects out of sight; ground.
+if [ "$FOG" = "fog=ok" ]; then
+    echo "fog OK"
+else
+    echo "FOG FAILED" >&2
+    echo "  $FOG" >&2
     STATUS=1
 fi
 

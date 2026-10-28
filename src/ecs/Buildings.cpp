@@ -13,6 +13,7 @@
 #include "core/Rules.h"
 #include "ecs/BuildingGeometry.h"
 #include "ecs/Diplomacy.h"
+#include "ecs/Fog.h"
 #include "ecs/Navigation.h"
 #include "ecs/Players.h"
 #include "ecs/Score.h"
@@ -227,10 +228,15 @@ void SpawnSiteArt(entt::registry& registry, entt::entity building,
     Walls::SiteArt(registry, building);
 }
 
-// Lays `terrain` on every tile of a building's footprint.
-void LayGround(Physics::Grid& grid, int unit_id, int tile_x, int tile_y,
+// Lays `terrain` on every tile of a building's footprint; who does not see a
+// tile keeps it as it was (ecs/Fog).
+void LayGround(entt::registry& registry, Physics::Grid& grid, int unit_id, int tile_x, int tile_y,
                Core::TerrainType terrain) {
     ForEachFootprintTile(unit_id, tile_x, tile_y, [&](int x, int y) {
+        if (!grid.InBounds(x, y)) return;
+        const Core::TerrainType was = grid.GetTile(x, y).terrain;
+        if (was == terrain) return;
+        Fog::GroundChanging(registry, x, y, was);
         grid.SetTerrain(x, y, terrain);
     });
 }
@@ -624,11 +630,11 @@ entt::entity Place(entt::registry& registry, Physics::Grid& grid, int unit_id,
     // dat's foundation terrain only once the building stands (Complete).
     Core::TerrainType ground;
     if (LaysCrop(*rules)) {
-        LayGround(grid, placed, tile_x, tile_y,
+        LayGround(registry, grid, placed, tile_x, tile_y,
                   complete && FoundationGround(*rules, ground) ? ground
                                                                : FarmSiteGround(Core::Fixed32(0)));
     } else if (complete && FoundationGround(*rules, ground)) {
-        LayGround(grid, placed, tile_x, tile_y, ground);
+        LayGround(registry, grid, placed, tile_x, tile_y, ground);
     }
 
     Players::Contribute(registry, player, placed,
@@ -674,7 +680,7 @@ void Complete(entt::registry& registry, Physics::Grid& grid, entt::entity buildi
     Core::TerrainType ground;
     if (rules != nullptr && FoundationGround(*rules, ground)) {
         const auto& at = registry.get<Components::Transform>(building).position;
-        LayGround(grid, unit_id, Physics::TileOf(at.x), Physics::TileOf(at.y), ground);
+        LayGround(registry, grid, unit_id, Physics::TileOf(at.x), Physics::TileOf(at.y), ground);
     }
     Players::Contribute(registry, owner, unit_id, R::StorageMode::WhileStanding, +1);
     Score::BuildingFinished(registry, owner, unit_id);
@@ -703,7 +709,7 @@ void Update(entt::registry& registry, Physics::Grid& grid) {
         const auto* rules = Players::UnitOf(registry, OwnerOf(registry, site), unit_id);
         if (rules != nullptr && LaysCrop(*rules)) {
             const auto& at = sites.get<Components::Transform>(site).position;
-            LayGround(grid, unit_id, Physics::TileOf(at.x), Physics::TileOf(at.y),
+            LayGround(registry, grid, unit_id, Physics::TileOf(at.x), Physics::TileOf(at.y),
                       FarmSiteGround(building.progress));
         }
     }
@@ -749,7 +755,7 @@ void Destroy(entt::registry& registry, Physics::Grid& grid, entt::entity buildin
         // A farm leaves its field harvested out.
         const R::UnitRules* farm = Players::UnitOf(registry, owner, unit_id);
         if (farm != nullptr && LaysCrop(*farm)) {
-            LayGround(grid, unit_id, Physics::TileOf(at.x), Physics::TileOf(at.y), Core::TerrainType::FarmDead);
+            LayGround(registry, grid, unit_id, Physics::TileOf(at.x), Physics::TileOf(at.y), Core::TerrainType::FarmDead);
         }
 
         const bool standing =

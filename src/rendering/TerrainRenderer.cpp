@@ -3,6 +3,7 @@
 #include "Renderer.h"
 #include "core/IsometricMath.h"
 #include "hal/TextureManager.h"
+#include "ecs/Fog.h"
 #include "hal/GraphicCache.h"
 #include "core/ConfigManager.h"
 #include <algorithm>
@@ -138,6 +139,18 @@ void DrawMasked(SDL_Renderer* sdl_r, const TerrainRenderer::TerrainTile& terrain
 
 } // namespace
 
+// Whose memory of the ground the chunks are baked from, and the world it is
+// kept in: set by DrawTerrain each frame.
+static const entt::registry* g_registry = nullptr;
+static Core::PlayerId g_viewer = 0;
+
+// The terrain the player at this machine sees on a tile: what it remembers of
+// ground changed out of its sight (ecs/Fog), or the ground itself.
+static Core::TerrainType TerrainAt(const Physics::Grid& grid, int x, int y) {
+    const Core::TerrainType now = grid.GetTile(x, y).terrain;
+    return g_registry != nullptr ? ECS::Fog::GroundSeen(*g_registry, g_viewer, x, y, now) : now;
+}
+
 static void RenderBlendOverlays(
     SDL_Renderer* sdl_r,
     const Physics::Grid& grid,
@@ -158,7 +171,7 @@ static void RenderBlendOverlays(
         const int nx = x + kNeighbourDx[n];
         const int ny = y + kNeighbourDy[n];
         if (!grid.InBounds(nx, ny)) continue;
-        const Core::TerrainType nt = grid.GetTile(nx, ny).terrain;
+        const Core::TerrainType nt = TerrainAt(grid, nx, ny);
         if (GetTerrainPriority(nt) <= my_prio) continue;
         auto it = std::find_if(influences.begin(), influences.end(),
                                [nt](const auto& p) { return p.first == nt; });
@@ -306,11 +319,11 @@ static TerrainChunk BakeChunk(SDL_Renderer* sdl_r, const Physics::Grid& grid,
     for (int y = start_y; y < end_y; ++y) {
         for (int x = start_x; x < end_x; ++x) {
             const auto& tile = grid.GetTile(x, y);
+            const Core::TerrainType terrain = TerrainAt(grid, x, y);
             auto screen_pos = Core::IsometricMath::WorldToScreen(Core::Fixed32(x), Core::Fixed32(y));
             const float ox = screen_pos.x - min_x;
             const float oy = screen_pos.y - min_y;
-            const auto art = TerrainRenderer::GetTerrainTile(tile.terrain,
-                                                             tile.texture_variant);
+            const auto art = TerrainRenderer::GetTerrainTile(terrain, tile.texture_variant);
 
             // The heights of the tile's corners and middle, in levels.
             const float h_top = Ground::CornerLevel(grid, x, y);
@@ -334,7 +347,7 @@ static TerrainChunk BakeChunk(SDL_Renderer* sdl_r, const Physics::Grid& grid,
                     SDL_SetTextureAlphaMod(art.atlas, 255);
                     SDL_RenderCopyF(sdl_r, art.atlas, &art.src, &dest);
                 }
-                RenderBlendOverlays(sdl_r, grid, x, y, dest, tile.terrain, tile.texture_variant);
+                RenderBlendOverlays(sdl_r, grid, x, y, dest, terrain, tile.texture_variant);
                 continue;
             }
 
@@ -417,20 +430,23 @@ static TerrainChunk BakeChunk(SDL_Renderer* sdl_r, const Physics::Grid& grid,
 void TerrainRenderer::DrawTerrain(ECS::Simulation& sim, Renderer& renderer, SDL_Renderer* sdl_r) {
     const auto& grid = sim.GetGrid();
     ++g_frame;
+    g_registry = &sim.GetRegistry();
+    g_viewer = Core::LocalPlayer();
 
     // Ground changed during play -- a farm planted, a foundation laid -- makes
     // the chunks it touches stale, along with their neighbours, whose blend
     // edges reach one tile over. Read from the grid's own log, never written
     // back: rendering stays downstream of the simulation.
-    static uint32_t seen_revision = 0;
-    if (grid.TerrainRevision() != seen_revision) {
-        const auto& log = grid.TerrainLog();
-        const bool fell_behind = log.empty() || log.front().revision > seen_revision + 1;
-        if (fell_behind && seen_revision != 0) {
+    // The same for the ground players remember out of sight, which changes as
+    // they look again (ecs/Fog).
+    auto restale = [](const std::vector<Physics::TerrainChange>& log, uint32_t revision, uint32_t& seen) {
+        if (revision == seen) return;
+        const bool fell_behind = log.empty() || log.front().revision > seen + 1;
+        if (fell_behind && seen != 0) {
             InvalidateChunks();
         } else {
             for (const auto& change : log) {
-                if (change.revision <= seen_revision) continue;
+                if (change.revision <= seen) continue;
                 for (int dy = -1; dy <= 1; ++dy) {
                     for (int dx = -1; dx <= 1; ++dx) {
                         const int tx = change.x + dx;
@@ -444,7 +460,13 @@ void TerrainRenderer::DrawTerrain(ECS::Simulation& sim, Renderer& renderer, SDL_
                 }
             }
         }
-        seen_revision = grid.TerrainRevision();
+        seen = revision;
+    };
+    static uint32_t seen_revision = 0;
+    restale(grid.TerrainLog(), grid.TerrainRevision(), seen_revision);
+    static uint32_t seen_remembered = 0;
+    if (const ECS::Fog::Memory* memory = ECS::Fog::Read(sim.GetRegistry())) {
+        restale(memory->log, memory->revision, seen_remembered);
     }
 
     const float inv_zoom = 1.0f / renderer.camera_zoom;

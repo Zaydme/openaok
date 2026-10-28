@@ -19,6 +19,7 @@
 #include "ecs/Market.h"
 #include "ecs/components/Garrison.h"
 #include "ecs/components/Building.h"
+#include "ecs/components/Doppelganger.h"
 #include "ecs/components/Combat.h"
 #include "ecs/components/Health.h"
 #include "ecs/components/Transform.h"
@@ -1085,6 +1086,21 @@ void UIRenderer::DrawMinimapIn(ECS::Simulation& sim, Renderer& renderer, SDL_Ren
             static_cast<size_t>(Core::ConfigManager::Get().PlayerMinimapColour(player)));
         SDL_SetRenderDrawColor(sdl_r, colour.r, colour.g, colour.b, 255);
         dot_at(owned.get<ECS::Components::Transform>(entity), dot_size(entity));
+    }
+    // The buildings the viewer keeps pictures of in the fog, in the colour of
+    // whose they were.
+    if (mode != 1) {
+        auto pictures = registry.view<ECS::Components::Transform, ECS::Components::Doppelganger>();
+        for (auto entity : pictures) {
+            const auto& picture = pictures.get<ECS::Components::Doppelganger>(entity);
+            if (!picture.main || picture.player != LocalViewer() || picture.colour == Core::PLAYER_GAIA) continue;
+            const HAL::PaletteColor colour = graphics.GetPaletteColor(
+                static_cast<size_t>(Core::ConfigManager::Get().PlayerMinimapColour(picture.colour)));
+            const auto* info = Core::ConfigManager::Get().GetUnitInterface(picture.unit_id);
+            const int footprint = info != nullptr && info->footprint > 0 ? info->footprint : 1;
+            SDL_SetRenderDrawColor(sdl_r, colour.r, colour.g, colour.b, 255);
+            dot_at(ECS::Components::Transform{picture.origin, picture.origin}, std::max(3, footprint * 2));
+        }
     }
 
     // What is selected, drawn again in white over everything else, and a

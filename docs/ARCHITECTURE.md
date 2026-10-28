@@ -102,6 +102,7 @@ simulation only writes it; sound, the interface and the checks read it.
 | `ecs/Cheats` | The cheat codes typed in chat |
 | `ecs/Allegiance` | Changing an entity's owner; a converted unit keeps its maker's rules (`RulesOf`) |
 | `ecs/Vision` | Each player's visible and explored ground |
+| `ecs/Fog` | What each player keeps of what it does not see: pictures of buildings and map objects, the ground as last seen |
 | `ecs/Victory` | Conquest, Wonders and relics; who is defeated and who has won |
 | `ecs/Spies` | Spies' price and the enemy sight it gives; Treason, which marks the enemy Kings in Regicide |
 | `ecs/Market`, `ecs/Trade`, `ecs/Tribute` | Commodity prices and trading; trade carts and cogs; tribute and its fee |

@@ -49,6 +49,12 @@ bool CheckNotices();
 // Prints "foundations=".
 bool CheckFoundations();
 
+// What a player keeps of what it no longer sees: no building drawn that it
+// never saw; a picture of one gone out of its sight, its alone, staying when
+// the building is destroyed until its ground is seen; a picture of a mine used
+// up unseen; the ground as it was where a farm was laid unseen. Prints "fog=".
+bool CheckFog();
+
 // A scenario's flag of a player's: seeing round itself, and drawn with a frame
 // its graphic has. Prints "flag=".
 bool CheckFlag();
@@ -86,8 +92,9 @@ bool CheckTechs();
 bool CheckCombat();
 
 // Fog of war per player: each sees its own base and not the other's, ground a
-// scout passes stays explored, an enemy building stays shown in the fog and an
-// enemy unit does not, and "all visible" is. Prints "vision=".
+// scout passes stays explored, an enemy building found is shown in the fog by
+// the picture kept of it and an enemy unit not at all, and "all visible" is.
+// Prints "vision=".
 bool CheckVision();
 
 // Sheltering in buildings: going in, refusals by kind and room, garrison

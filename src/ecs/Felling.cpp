@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include "core/ConfigManager.h"
+#include "ecs/Fog.h"
 #include "ecs/components/Felled.h"
 #include "ecs/components/Identity.h"
 #include "ecs/components/Resource.h"
@@ -51,6 +52,8 @@ int32_t FellingMs(const R::UnitRules* job) {
 void Fell(entt::registry& registry, entt::entity tree) {
     const R::UnitRules* rules = TreeRules(registry, tree);
     if (rules == nullptr) return;
+    // Who does not see it fall keeps it standing.
+    Fog::Going(registry, tree);
     const auto art = Core::ConfigManager::Get().GetGraphic(rules->dying_graphic);
     const auto& at = registry.get<Components::Transform>(tree).position;
     // The felled graphic's frames are shapes, one a tile, as a forest's are.

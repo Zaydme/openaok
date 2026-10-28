@@ -27,6 +27,9 @@ struct Building {
     // units cross it, nothing targets it, and only its owner's side sees it
     // (ecs/Buildings::Begin).
     bool begun = true;
+    // The players who saw the tile under its middle last tick, a bit each:
+    // one who stops seeing it keeps a picture of it (ecs/Fog).
+    uint16_t seen = 0;
 };
 
 } // namespace ECS::Components

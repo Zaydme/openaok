@@ -12,6 +12,7 @@
 #include "core/Rules.h"
 #include "core/Types.h"
 #include "ecs/Allegiance.h"
+#include "ecs/Fog.h"
 #include "ecs/Animals.h"
 #include "ecs/Buildings.h"
 #include "ecs/Duties.h"
@@ -163,6 +164,7 @@ void Simulation::Init(const Core::GameSetup& game) {
     Diplomacy::Setup(registry, setup);
     Chat::Setup(registry);
     Flares::Setup(registry);
+    Fog::Setup(registry);
     AI::Setup(registry, setup);
     Victory::Setup(registry, setup);
     // Before the starting age is researched and anything placed: the score
@@ -310,6 +312,8 @@ void Simulation::Update(int32_t dt_ms) {
     Victory::Update(registry, grid, dt_ms);
 
     CalculateVision();
+    // What each player stops seeing, it remembers as it was.
+    Fog::Update(registry);
     // What of Gaia's the players now see, the first of them takes.
     Allegiance::Capture(registry, grid);
     // Last, after everything else that tick.

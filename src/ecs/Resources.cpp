@@ -4,6 +4,7 @@
 #include "core/Rules.h"
 #include "ecs/Buildings.h"
 #include "ecs/Events.h"
+#include "ecs/Fog.h"
 #include "ecs/components/Building.h"
 #include "ecs/components/Identity.h"
 #include "ecs/components/Owner.h"
@@ -29,6 +30,8 @@ void Exhaust(entt::registry& registry, Physics::Grid& grid, entt::entity resourc
         return;
     }
 
+    // Who does not see it go keeps it as it was.
+    Fog::Going(registry, resource);
     if (const auto* at = registry.try_get<Components::Transform>(resource)) {
         const auto position = at->position;
         const int x = Physics::TileOf(position.x);

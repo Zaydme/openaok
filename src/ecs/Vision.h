@@ -67,11 +67,12 @@ void ToggleSeeAll(entt::registry& registry, Core::PlayerId player);
 bool Visible(const entt::registry& registry, Core::PlayerId player, int x, int y);
 bool Explored(const entt::registry& registry, Core::PlayerId player, int x, int y);
 
-// Whether `viewer` sees `entity` drawn: its own things always; a foundation
-// not yet begun only if it is its owner's ally each way; anything else on a
-// tile it can see now; and on a tile it has only explored, what the dat says
-// stays shown in the fog -- buildings and the map's own objects -- but never
-// another player's units.
+// Whether `viewer` sees `entity` drawn: its own things always; a picture of
+// the fog's (ecs/Fog) if it is the viewer's; a foundation not yet begun only
+// if it is its owner's ally each way; anything else on a tile it can see now;
+// and on a tile it has only explored, what the dat keeps shown in the fog --
+// trees, mines, cliffs, never a building or another player's unit -- unless
+// the viewer keeps a picture of it.
 bool Shows(const entt::registry& registry, Core::PlayerId viewer, entt::entity entity);
 
 } // namespace ECS::Vision

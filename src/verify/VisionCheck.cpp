@@ -10,6 +10,7 @@
 #include "ecs/Units.h"
 #include "ecs/Vision.h"
 #include "ecs/components/Building.h"
+#include "ecs/components/Doppelganger.h"
 #include "ecs/components/Identity.h"
 #include "ecs/components/Owner.h"
 #include "ecs/components/Transform.h"
@@ -119,7 +120,8 @@ bool CheckVision() {
         }
     }
 
-    // An enemy unit is never shown in the fog; an enemy building once found is.
+    // An enemy unit is never shown in the fog; an enemy building once found is,
+    // as the picture we keep of it.
     if (ok()) {
         const auto away = tile(theirs);
         const entt::entity spy = ECS::Units::Spawn(
@@ -133,10 +135,16 @@ bool CheckVision() {
         const bool saw_guard = ECS::Vision::Shows(reg, kUs, guard);
         reg.destroy(spy);
         headless.Update(16);
+        bool pictured = false;
+        auto pictures = reg.view<const ECS::Components::Doppelganger>();
+        for (auto e : pictures) {
+            const auto& d = pictures.get<const ECS::Components::Doppelganger>(e);
+            pictured = pictured || (d.source == theirs && d.main && ECS::Vision::Shows(reg, kUs, e));
+        }
         if (!saw_tc || !saw_guard) {
             verdict = "a scout beside the enemy base could not see it";
-        } else if (!ECS::Vision::Shows(reg, kUs, theirs)) {
-            verdict = "an enemy building found once vanished into the fog";
+        } else if (!pictured || ECS::Vision::Shows(reg, kUs, theirs)) {
+            verdict = "an enemy building found once is not shown in the fog by its picture";
         } else if (ECS::Vision::Shows(reg, kUs, guard)) {
             verdict = "an enemy unit was shown in the fog";
         }

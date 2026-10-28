@@ -11,6 +11,7 @@
 #include "ecs/components/Path.h"
 #include "ecs/components/Selectable.h"
 #include "ecs/components/Health.h"
+#include "ecs/components/Doppelganger.h"
 #include "ecs/components/Owner.h"
 #include "ecs/components/Waypoints.h"
 #include "ecs/components/Building.h"
@@ -236,6 +237,16 @@ std::vector<RenderEntry>& Entries() {
 std::vector<SelectionMark>& Marks() {
     static std::vector<SelectionMark> marks;
     return marks;
+}
+
+// Whose colour a sprite is drawn in: its owner's, or for a picture the fog
+// keeps, its owner's then; player 1's for what belongs to nobody.
+int ColourOf(const entt::registry& registry, entt::entity entity) {
+    if (const auto* owner = registry.try_get<ECS::Components::Owner>(entity)) return owner->player_id;
+    if (const auto* picture = registry.try_get<ECS::Components::Doppelganger>(entity)) {
+        return picture->colour != Core::PLAYER_GAIA ? picture->colour : 1;
+    }
+    return 1;
 }
 
 std::vector<SDL_Point>& RingPoints() {
@@ -528,10 +539,7 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
         // pieces, each from its own atlas with its own facings, in the dat's
         // layer order. The first piece carries the selection and health bar.
         if (const auto* pieces = registry.try_get<ECS::Components::SpritePieces>(entity)) {
-            int owner_player = 1;
-            if (const auto* owner = registry.try_get<ECS::Components::Owner>(entity)) {
-                owner_player = owner->player_id;
-            }
+            const int owner_player = ColourOf(registry, entity);
             bool first = true;
             for (int p = 0; p < pieces->count; ++p) {
                 const ECS::Components::SpritePiece& piece = pieces->piece[p];
@@ -663,10 +671,7 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
             e.dest.w = static_cast<float>(gf.rect.w);
             e.dest.h = static_cast<float>(gf.rect.h);
             
-            int owner_player = 1;
-            if (registry.any_of<ECS::Components::Owner>(entity)) {
-                owner_player = registry.get<ECS::Components::Owner>(entity).player_id;
-            }
+            const int owner_player = ColourOf(registry, entity);
             e.player_tex = graphics.GetPlayerLayer(
                 static_cast<uint32_t>(sprite.slp_id), owner_player);
             e.outline_player = owner_player;
