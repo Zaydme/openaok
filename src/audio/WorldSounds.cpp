@@ -7,6 +7,7 @@
 #include "ecs/Players.h"
 #include "ecs/Vision.h"
 #include "ecs/components/Animation.h"
+#include "ecs/components/Mortal.h"
 #include "ecs/components/Owner.h"
 #include "ecs/components/Sprite.h"
 #include "ecs/components/Transform.h"
@@ -78,8 +79,17 @@ void Update(const entt::registry& registry, const Listener& listener,
         g_next[entity] = now;
 
         auto before = g_seen.find(entity);
-        if (before == g_seen.end() || now.graphic < 0) continue;
+        if (now.graphic < 0) continue;
         const int civ = CivOf(registry, entity);
+        if (before == g_seen.end()) {
+            // Something that appears already falling -- a building's
+            // collapse -- is heard as it appears.
+            if (registry.all_of<ECS::Components::Dying>(entity)) {
+                const int start = Core::Media::GraphicSound(now.graphic);
+                if (start >= 0) Sound(start, civ, placement);
+            }
+            continue;
+        }
         if (before->second.graphic != now.graphic) {
             // A new graphic: its own sound, and whatever its frames up to the
             // current one carry.

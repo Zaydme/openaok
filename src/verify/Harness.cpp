@@ -28,6 +28,7 @@ int Run(int ticks) {
     if (runs("gathering")) ok &= CheckGathering();
     if (runs("dropoff")) ok &= CheckDropoff();
     if (runs("sequence")) ok &= CheckSequence();
+    if (runs("collapse")) ok &= CheckCollapse();
     if (runs("felling")) ok &= CheckFelling();
     if (runs("notices")) ok &= CheckNotices();
     if (runs("foundations")) ok &= CheckFoundations();

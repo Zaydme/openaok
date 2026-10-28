@@ -90,7 +90,8 @@ struct Neighbourhood {
 
         // Every unit, not only villagers: a scout or a soldier is walked into
         // just the same. A unit is what has an animation and is not a building.
-        auto view = registry.view<Components::Transform, Components::Animation>();
+        auto view = registry.view<Components::Transform, Components::Animation,
+                                  Components::Identity>();
         for (auto entity : view) {
             if (registry.all_of<Components::Building>(entity)) continue;
             const auto& transform = view.get<Components::Transform>(entity);

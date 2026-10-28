@@ -38,6 +38,7 @@ GATHERING="$(echo "$OUTPUT" | grep '^gathering=')"
 DROPOFF="$(echo "$OUTPUT" | grep '^dropoff=')"
 FELLING="$(echo "$OUTPUT" | grep '^felling=')"
 SEQUENCE="$(echo "$OUTPUT" | grep '^sequence=')"
+COLLAPSE="$(echo "$OUTPUT" | grep '^collapse=')"
 NOTICES="$(echo "$OUTPUT" | grep '^notices=')"
 FOUNDATIONS="$(echo "$OUTPUT" | grep '^foundations=')"
 FOG="$(echo "$OUTPUT" | grep '^fog=')"
@@ -155,6 +156,15 @@ if [ "$SEQUENCE" = "sequence=ok" ]; then
 else
     echo "GRAPHIC SEQUENCES FAILED" >&2
     echo "  $SEQUENCE" >&2
+    STATUS=1
+fi
+
+# A destroyed building falls in its dat dying graphic over its rubble.
+if [ "$COLLAPSE" = "collapse=ok" ]; then
+    echo "collapse OK"
+else
+    echo "BUILDING COLLAPSE FAILED" >&2
+    echo "  $COLLAPSE" >&2
     STATUS=1
 fi
 

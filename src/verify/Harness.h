@@ -41,6 +41,9 @@ bool CheckDropoff();
 // its idle, and a packed trebuchet standing keeps its wheels still.
 bool CheckSequence();
 
+// A destroyed building falls in its dat dying graphic over its rubble.
+bool CheckCollapse();
+
 // A lumberjack sent at a standing tree: the felling stroke with no wood cut,
 // then the tree lying as its felled graphic, then wood cut from it.
 // Prints "felling=".
