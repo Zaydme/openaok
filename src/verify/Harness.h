@@ -42,6 +42,13 @@ bool CheckFelling();
 // relic picked up. Prints "notices=".
 bool CheckNotices();
 
+// Foundations as the original lays them: no ground held, seen only by their
+// side and nobody's target until begun; what placing runs into; the first
+// begun of overlapping foundations standing and the other refunded; the
+// footprint-only sight of a building going up; and deleting's refunds.
+// Prints "foundations=".
+bool CheckFoundations();
+
 // A scenario's flag of a player's: seeing round itself, and drawn with a frame
 // its graphic has. Prints "flag=".
 bool CheckFlag();

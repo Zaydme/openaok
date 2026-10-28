@@ -11,6 +11,7 @@
 #include "ecs/components/Health.h"
 #include "ecs/components/Sprite.h"
 #include "ecs/BuildingGeometry.h"
+#include "ecs/Buildings.h"
 #include "ecs/DropSites.h"
 #include "ecs/Events.h"
 #include "ecs/Felling.h"
@@ -876,7 +877,25 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                     break;
                 }
                 if (!worker.working) break;
-
+                // The first work on a foundation: its ground taken turns the
+                // builder away; its own side standing on it, the builder waits.
+                if (!raising->begun) {
+                    const auto start = ECS::Buildings::Begin(registry, grid, worker.target_building);
+                    if (start == ECS::Buildings::Start::Taken) {
+                        const auto* site_owner = registry.try_get<Components::Owner>(worker.target_building);
+                        Events::Emit(registry, {.kind = Events::Kind::Obstructed,
+                                                .subject = worker.target_building, .other = entity,
+                                                .player = site_owner ? site_owner->player_id : Core::PLAYER_GAIA,
+                                                .id = identity ? identity->unit_id : -1,
+                                                .at = transform.position});
+                        stop_building();
+                        break;
+                    }
+                    if (start == ECS::Buildings::Start::Crowded) {
+                        worker.working = false;
+                        break;
+                    }
+                }
 
                 // Face the building, so a ring of builders all swing inward
                 // rather than keeping whatever direction they walked in on.

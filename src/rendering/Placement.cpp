@@ -108,10 +108,10 @@ bool Collect(ECS::Simulation& sim, const Renderer& renderer, std::vector<Piece>&
                 (Core::Fixed32(ghost.tile_y) + ghost.dy).ToFloat(), ghost.clear, gate && i == 0);
         }
     } else {
-        // Whether every tile it would claim is free -- the buildings module's
-        // own answer, the same one the order is checked against, so the
-        // preview never says yes to a placement the order will refuse.
-        const bool clear = ECS::Buildings::CanPlace(grid, button_id, tile_x, tile_y);
+        // Whether the site is clear -- the same answer the order is checked
+        // against, so the preview never says yes to a placement the order
+        // will refuse.
+        const bool clear = ECS::Walls::SiteOpen(registry, grid, viewer, button_id, tile_x, tile_y);
         // Every piece of a multi-part building: its own piece, then its
         // annexes.
         const auto* parts = cfg.GetAnnexes(art_unit);

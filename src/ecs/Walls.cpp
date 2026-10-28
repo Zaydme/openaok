@@ -349,7 +349,10 @@ std::vector<entt::entity> Lay(entt::registry& registry, Physics::Grid& grid,
     if (rules == nullptr || payer == nullptr || !IsWall(unit_id)) return sites;
     const auto tiles = Line(x0, y0, x1, y1);
     for (const auto& [x, y] : tiles) {
-        if (!Buildings::CanPlace(grid, unit_id, x, y)) continue;
+        if (Buildings::Check(registry, grid, player, unit_id, x, y, Buildings::Ask::Placing) !=
+            Buildings::Site::Clear) {
+            continue;
+        }
         if (!Players::CanPay(*payer, rules->costs, rules->cost_count)) break;
         Players::Pay(*payer, rules->costs, rules->cost_count, -1);
         const entt::entity site = Buildings::Place(registry, grid, unit_id, player, x, y, false);
@@ -453,7 +456,8 @@ bool SiteOpen(const entt::registry& registry, const Physics::Grid& grid, Core::P
         return CanPlaceGate(registry, grid, player, GateFor(registry, player, unit_id, tile_x, tile_y),
                             tile_x, tile_y);
     }
-    return Buildings::CanPlace(grid, unit_id, tile_x, tile_y);
+    return Buildings::Check(registry, grid, player, unit_id, tile_x, tile_y,
+                            Buildings::Ask::Placing) == Buildings::Site::Clear;
 }
 
 bool CanPlaceGate(const entt::registry& registry, const Physics::Grid& grid,

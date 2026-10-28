@@ -67,8 +67,9 @@ enum class Kind : uint8_t {
     // unit `id`. `amount` is 1 when the player is at the game's population
     // limit, which more houses do not lift.
     Halted,
-    // A build order of `player`'s for the unit `id` found the ground at
-    // `at`, a tile, taken: nothing was laid out or paid for.
+    // The first work on a foundation (subject) of `player`'s found its ground
+    // taken: the builder (other, at `at`) is turned away and the foundation
+    // left as it was. `id` is its unit.
     Obstructed,
     // `player` did Treason: the Kings of the players it is not allied with
     // are shown to its side.

@@ -17,6 +17,7 @@
 #include "ecs/Players.h"
 #include "ecs/Simulation.h"
 #include "ecs/Units.h"
+#include "ecs/Vision.h"
 #include "ecs/Walls.h"
 #include "ecs/components/Building.h"
 #include "ecs/components/Combat.h"
@@ -43,6 +44,14 @@ void Run(ECS::Simulation& sim, int seconds) {
 }
 
 Vector2D At(int x, int y) { return {Fixed32(x), Fixed32(y)}; }
+
+// The ground round a point, explored by every player: walls are laid only
+// where their player has looked.
+void Explore(ECS::Simulation& sim, int x, int y, int radius) {
+    for (Core::PlayerId p = 1; p < Core::kMaxPlayers; ++p) {
+        ECS::Vision::Explore(sim.GetRegistry(), p, x, y, radius);
+    }
+}
 
 // The middle of a square of open ground `half` tiles each way, nothing
 // standing on it, nearest the map's middle.
@@ -171,6 +180,7 @@ bool CheckWalls() {
         auto& grid = sim.GetGrid();
         int ax = 0, ay = 0;
         if (!OpenSquare(sim, 10, ax, ay)) verdict = "no open ground for the walls";
+        Explore(sim, ax, ay, 16);
         if (ok()) ClearUnits(sim, ax, ay, 10);
         auto* me = ECS::Players::Find(reg, 1);
         if (ok() && me != nullptr) ECS::Players::AddStock(*me, Core::ResourceType::Wood, 1000);
@@ -275,6 +285,7 @@ bool CheckWalls() {
         auto& grid = sim.GetGrid();
         int ax = 0, ay = 0;
         if (!OpenSquare(sim, 9, ax, ay)) verdict = "no open ground for the gate";
+        Explore(sim, ax, ay, 16);
         if (ok()) ClearUnits(sim, ax, ay, 9);
         for (Core::PlayerId p : {Core::PlayerId(1), Core::PlayerId(2), Core::PlayerId(3)}) {
             if (auto* pl = ECS::Players::Find(reg, p)) {

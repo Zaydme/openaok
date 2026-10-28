@@ -87,10 +87,11 @@ int GateFor(const entt::registry& registry, Core::PlayerId player, int button_un
 bool CanPlaceGate(const entt::registry& registry, const Physics::Grid& grid,
                   Core::PlayerId player, int unit_id, int tile_x, int tile_y);
 
-// Whether a build order for the button `unit_id` at the tile finds its ground
-// open: a gate, turned to the wall under it, on open ground or the player's
-// own wall; anything else on open ground. The order and the interface both ask
-// this, so a site the cursor shows open is one the order takes.
+// Whether a build order for the button `unit_id` at the tile finds its site
+// clear: a gate, turned to the wall under it, on open ground or the player's
+// own wall; anything else as Buildings::Check finds it, with the player's
+// exploring. The order and the interface both ask this, so a site the cursor
+// shows clear is one the order takes.
 bool SiteOpen(const entt::registry& registry, const Physics::Grid& grid, Core::PlayerId player,
               int unit_id, int tile_x, int tile_y);
 

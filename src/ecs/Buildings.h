@@ -26,6 +26,37 @@ int PlacedUnit(int unit_id);
 // Whether every tile of `unit_id`'s footprint at the tile is open ground.
 bool CanPlace(const Physics::Grid& grid, int unit_id, int tile_x, int tile_y);
 
+// What a building of `unit_id` put down by `player` at the tile runs into, as
+// the outline, the order and the first work on a foundation all ask it:
+// ground that is not open (anything that holds ground on it, begun or
+// finished, seen or not), a foundation not yet begun of the player's own or
+// of an ally's each way, or a unit of a player not allied with it each way
+// (not for a farm). Placing it, the ground must also suit it -- its terrain,
+// its slope -- and some tile of it be explored by the player; beginning it
+// (`self`, the foundation, left out of the count), only what stands there
+// counts.
+enum class Site : uint8_t { Clear, Ground, Unexplored, Foundation, Unit };
+enum class Ask : uint8_t { Placing, Beginning };
+Site Check(const entt::registry& registry, const Physics::Grid& grid, Core::PlayerId player,
+           int unit_id, int tile_x, int tile_y, Ask ask, entt::entity self = entt::null);
+
+// Whether `building` holds its ground: anything finished, and a foundation
+// once worked on.
+bool Begun(const entt::registry& registry, entt::entity building);
+
+// The first work on a foundation. Taken: its ground is not clear, and it is
+// left as it was. Crowded: units of its owner's side or Gaia's still stand on
+// it after being told to step off. Otherwise it takes its ground, and every
+// other foundation not yet begun that overlaps it, whoever's, is torn down
+// with its price refunded. Its sight stays its own ground until it stands.
+enum class Start : uint8_t { Begun, Taken, Crowded };
+Start Begin(entt::registry& registry, Physics::Grid& grid, entt::entity site);
+
+// Pays back what `building` cost its owner, as deleting it does: all of it for
+// a foundation not yet begun, the share not yet built for one going up,
+// nothing for a finished one.
+void Refund(entt::registry& registry, entt::entity building);
+
 // Creates a building of `unit_id` for `player` on the tile. A foundation
 // (`complete` false) stands at one hit point and wears the construction art;
 // a complete building gets its real art and starts contributing at once --

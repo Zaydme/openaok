@@ -38,16 +38,18 @@ struct Taken {
 };
 Taken TakenBy(const entt::registry& registry, const Census& census);
 
-// A tile to place `unit_id` on, between `near` and `far` tiles from `anchor`.
+// A tile for `player` to place `unit_id` on, between `near` and `far` tiles
+// from `anchor`, that its build order would take (Buildings::Check: ground it
+// has explored, clear of its side's foundations and its enemies' units).
 // `breathe`: keep a clear tile all round it.
-bool Find(const Physics::Grid& grid, int unit_id, const ECS::Components::Vector2D& anchor,
-          int near, int far, int& tile_x, int& tile_y, bool breathe = true,
-          const Taken* taken = nullptr);
+bool Find(const entt::registry& registry, const Physics::Grid& grid, Core::PlayerId player,
+          int unit_id, const ECS::Components::Vector2D& anchor, int near, int far, int& tile_x,
+          int& tile_y, bool breathe = true, const Taken* taken = nullptr);
 
 // A tile for `unit_id` with its footprint touching `building`'s, nearest
-// the building's middle first.
-bool Hug(const entt::registry& registry, const Physics::Grid& grid, int unit_id,
-         entt::entity building, int& tile_x, int& tile_y, const Taken* taken = nullptr);
+// the building's middle first, that `player`'s build order would take.
+bool Hug(const entt::registry& registry, const Physics::Grid& grid, Core::PlayerId player,
+         int unit_id, entt::entity building, int& tile_x, int& tile_y, const Taken* taken = nullptr);
 
 // Where the player's `build` (or `build-forward`) of `slot` goes.
 bool Site(Turn& turn, int slot, bool forward, int& tile_x, int& tile_y);

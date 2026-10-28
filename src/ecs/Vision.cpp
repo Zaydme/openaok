@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include "core/Rules.h"
+#include "ecs/BuildingGeometry.h"
 #include "ecs/Diplomacy.h"
 #include "ecs/Events.h"
 #include "ecs/Flares.h"
@@ -149,8 +150,11 @@ void Update(entt::registry& registry) {
         const Core::PlayerId player = seers.get<const Components::Owner>(e).player_id;
         if (player == Core::PLAYER_GAIA || player >= 16) return false;
         const auto& at = seers.get<const Components::Transform>(e).position;
+        const auto& sight = seers.get<const Components::Sight>(e);
+        const auto* identity = registry.try_get<Components::Identity>(e);
         out = Map::FixedSeer{entt::to_integral(e), Physics::TileOf(at.x), Physics::TileOf(at.y),
-                             seers.get<const Components::Sight>(e).radius, player};
+                             sight.radius, player, identity != nullptr ? identity->unit_id : -1,
+                             sight.footprint && identity != nullptr};
         return true;
     };
     // The buildings' sight, stamped again only when they have changed; then
@@ -164,7 +168,14 @@ void Update(entt::registry& registry) {
         map->fixed_seers.swap(map->fixed_now);
         map->fixed_visible.assign(map->visible.size(), 0);
         for (const auto& s : map->fixed_seers) {
-            Stamp(*map, map->fixed_visible, s.x, s.y, s.radius, Bit(static_cast<Core::PlayerId>(s.player)));
+            const uint16_t bit = Bit(static_cast<Core::PlayerId>(s.player));
+            if (!s.footprint) {
+                Stamp(*map, map->fixed_visible, s.x, s.y, s.radius, bit);
+                continue;
+            }
+            Buildings::ForEachFootprintTile(s.unit_id, s.x, s.y, [&](int x, int y) {
+                if (InBounds(*map, x, y)) map->fixed_visible[static_cast<size_t>(Index(*map, x, y))] |= bit;
+            });
         }
     }
     std::copy(map->fixed_visible.begin(), map->fixed_visible.end(), map->visible.begin());
@@ -249,6 +260,10 @@ bool Shows(const entt::registry& registry, Core::PlayerId viewer, entt::entity e
     }
     if (const auto* owner = registry.try_get<Components::Owner>(subject)) {
         if (owner->player_id == viewer) return true;
+        // A foundation not yet begun is shown to its owner's side alone.
+        if (const auto* site = registry.try_get<Components::Building>(subject); site != nullptr && !site->begun) {
+            return Diplomacy::Allied(registry, viewer, owner->player_id);
+        }
     }
     const auto* at = registry.try_get<Components::Transform>(subject);
     if (at == nullptr) return true;

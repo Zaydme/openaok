@@ -9,18 +9,22 @@
 #include <vector>
 
 #include "core/ConfigManager.h"
+#include "core/FixedMath.h"
 #include "core/Rules.h"
 #include "ecs/BuildingGeometry.h"
+#include "ecs/Diplomacy.h"
 #include "ecs/Navigation.h"
 #include "ecs/Players.h"
 #include "ecs/Score.h"
 #include "ecs/Production.h"
 #include "ecs/Techs.h"
+#include "ecs/Vision.h"
 #include "ecs/components/Animation.h"
 #include "ecs/components/Building.h"
 #include "ecs/components/Combat.h"
 #include "ecs/components/Health.h"
 #include "ecs/components/Identity.h"
+#include "ecs/components/Mortal.h"
 #include "ecs/components/Owner.h"
 #include "ecs/components/Path.h"
 #include "ecs/components/PartOf.h"
@@ -358,6 +362,152 @@ int PlacedUnit(int unit_id) {
     return unit_id;
 }
 
+namespace {
+
+bool Overlap(const Bounds& a, const Bounds& b) {
+    return a.min_x < b.max_x && b.min_x < a.max_x && a.min_y < b.max_y && b.min_y < a.max_y;
+}
+
+bool SameSide(const entt::registry& registry, Core::PlayerId a, Core::PlayerId b) {
+    return a == b || Diplomacy::Allied(registry, a, b);
+}
+
+// A building takes its ground: its footprint blocked -- a farm's stays open --
+// and whoever stands on it stepping off.
+void Hold(entt::registry& registry, Physics::Grid& grid, entt::entity building) {
+    auto& state = registry.get<Components::Building>(building);
+    const int unit_id = registry.get<Components::Identity>(building).unit_id;
+    const auto origin = registry.get<Components::Transform>(building).position;
+    if (!registry.all_of<Components::Resource>(building)) {
+        ForEachFootprintTile(unit_id, Physics::TileOf(origin.x), Physics::TileOf(origin.y), [&](int x, int y) {
+            grid.SetWalkable(x, y, false);
+        });
+        StepAside(registry, grid, FootprintBounds(origin, unit_id));
+    }
+    state.begun = true;
+}
+
+// Whether a unit stands on `ground`, and whose: the first of a player not on
+// `player`'s side, or else whether any stands there at all.
+bool UnitOn(const entt::registry& registry, const Bounds& ground, Core::PlayerId player, bool& foe) {
+    foe = false;
+    bool any = false;
+    auto units = registry.view<const Components::Transform, const Components::Animation,
+                               const Components::Owner>();
+    for (auto unit : units) {
+        if (registry.any_of<Components::Building, Components::Dying, Components::Corpse>(unit)) continue;
+        if (ground.DistanceFrom(units.get<const Components::Transform>(unit).position).value != 0) continue;
+        const Core::PlayerId owner = units.get<const Components::Owner>(unit).player_id;
+        if (owner != Core::PLAYER_GAIA && !SameSide(registry, player, owner)) {
+            foe = true;
+            return true;
+        }
+        any = true;
+    }
+    return any;
+}
+
+} // namespace
+
+Site Check(const entt::registry& registry, const Physics::Grid& grid, Core::PlayerId player,
+           int unit_id, int tile_x, int tile_y, Ask ask, entt::entity self) {
+    const int placed = PlacedUnit(unit_id);
+    if (ask == Ask::Placing) {
+        if (!CanPlace(grid, unit_id, tile_x, tile_y)) return Site::Ground;
+    } else {
+        bool open = true;
+        ForEachFootprintTile(placed, tile_x, tile_y, [&](int x, int y) {
+            open = open && grid.InBounds(x, y) && !grid.IsBlocked(x, y);
+        });
+        if (!open) return Site::Ground;
+    }
+    if (ask == Ask::Placing) {
+        bool seen = false;
+        ForEachFootprintTile(placed, tile_x, tile_y, [&](int x, int y) {
+            seen = seen || Vision::Explored(registry, player, x, y);
+        });
+        if (!seen) return Site::Unexplored;
+    }
+    const Bounds ground = FootprintBounds({Core::Fixed32(tile_x), Core::Fixed32(tile_y)}, placed);
+    auto sites = registry.view<const Components::Building, const Components::Identity,
+                               const Components::Transform, const Components::Owner>();
+    for (auto site : sites) {
+        if (site == self || sites.get<const Components::Building>(site).begun) continue;
+        if (!SameSide(registry, player, sites.get<const Components::Owner>(site).player_id)) continue;
+        const Bounds theirs = FootprintBounds(sites.get<const Components::Transform>(site).position,
+                                              sites.get<const Components::Identity>(site).unit_id);
+        if (Overlap(ground, theirs)) return Site::Foundation;
+    }
+    // A farm is laid under whoever walks there.
+    const R::UnitRules* rules = R::Unit(placed);
+    if (rules != nullptr && LaysCrop(*rules)) return Site::Clear;
+    bool foe = false;
+    UnitOn(registry, ground, player, foe);
+    return foe ? Site::Unit : Site::Clear;
+}
+
+bool Begun(const entt::registry& registry, entt::entity building) {
+    const auto* state = registry.try_get<Components::Building>(building);
+    return state == nullptr || state->begun;
+}
+
+Start Begin(entt::registry& registry, Physics::Grid& grid, entt::entity site) {
+    if (Begun(registry, site)) return Start::Begun;
+    const int unit_id = registry.get<Components::Identity>(site).unit_id;
+    const auto origin = registry.get<Components::Transform>(site).position;
+    const Core::PlayerId owner = OwnerOf(registry, site);
+    if (Check(registry, grid, owner, unit_id, Physics::TileOf(origin.x), Physics::TileOf(origin.y),
+              Ask::Beginning, site) != Site::Clear) {
+        return Start::Taken;
+    }
+    const Bounds ground = FootprintBounds(origin, unit_id);
+    if (!registry.all_of<Components::Resource>(site)) {
+        bool foe = false;
+        StepAside(registry, grid, ground);
+        if (UnitOn(registry, ground, owner, foe)) return Start::Crowded;
+    }
+    // Whatever else was laid out here and not yet begun goes, refunded.
+    std::vector<entt::entity> overlapping;
+    auto sites = registry.view<const Components::Building, const Components::Identity,
+                               const Components::Transform>();
+    for (auto other : sites) {
+        if (other == site || sites.get<const Components::Building>(other).begun) continue;
+        if (Overlap(ground, FootprintBounds(sites.get<const Components::Transform>(other).position,
+                                            sites.get<const Components::Identity>(other).unit_id))) {
+            overlapping.push_back(other);
+        }
+    }
+    for (entt::entity other : overlapping) {
+        Refund(registry, other);
+        Destroy(registry, grid, other, false);
+    }
+    Hold(registry, grid, site);
+    return Start::Begun;
+}
+
+void Refund(entt::registry& registry, entt::entity building) {
+    const auto* state = registry.try_get<Components::Building>(building);
+    const auto* identity = registry.try_get<Components::Identity>(building);
+    const auto* health = registry.try_get<Components::Health>(building);
+    if (state == nullptr || identity == nullptr) return;
+    Core::Fixed32 share{};
+    if (state->state != Components::BuildingState::Complete) {
+        share = !state->begun ? Core::Fixed32(1)
+                              : Core::FixedMath::Min(Core::Fixed32(1), Core::Fixed32(1) - state->progress);
+    }
+    if (health != nullptr && health->current_hp < 1) share = Core::Fixed32(0);
+    if (share.value <= 0) return;
+    const Core::PlayerId owner = OwnerOf(registry, building);
+    const R::UnitRules* rules = Players::UnitOf(registry, owner, identity->unit_id);
+    Players::Player* player = Players::Find(registry, owner);
+    if (rules == nullptr || player == nullptr) return;
+    for (int i = 0; i < rules->cost_count; ++i) {
+        const R::Cost& cost = rules->costs[i];
+        if (cost.resource < 0 || !cost.paid || cost.amount <= 0) continue;
+        Players::AddResource(*player, cost.resource, Core::Fixed32(cost.amount) * share);
+    }
+}
+
 bool CanPlace(const Physics::Grid& grid, int unit_id, int tile_x, int tile_y) {
     const int placed = PlacedUnit(unit_id);
     bool clear = true;
@@ -436,20 +586,21 @@ entt::entity Place(entt::registry& registry, Physics::Grid& grid, int unit_id,
     const entt::entity building = registry.create();
     const Components::Vector2D origin{Core::Fixed32(tile_x), Core::Fixed32(tile_y)};
     registry.emplace<Components::Transform>(building, origin, origin);
-    registry.emplace<Components::Building>(building,
+    registry.emplace<Components::Building>(building, Components::Building{
         complete ? Components::BuildingState::Complete
                  : Components::BuildingState::UnderConstruction,
-        complete ? Core::Fixed32(1) : Core::Fixed32(0));
+        complete ? Core::Fixed32(1) : Core::Fixed32(0), false});
     registry.emplace<Components::Identity>(building, placed);
     registry.emplace<Components::Owner>(building, player);
     const int hp = std::max(1, rules->hp);
     registry.emplace<Components::Health>(building, complete ? hp : 1, hp);
     // Buildings are selectable, which is what lets one be picked and deleted.
     registry.emplace<Components::Selectable>(building, false, 2);
-    registry.emplace<Components::Sight>(building, std::max(1, rules->los.ToInt()));
+    // Its line of sight once it stands; until then only its own ground.
+    registry.emplace<Components::Sight>(building, Components::Sight{std::max(1, rules->los.ToInt()), !complete});
 
-    // A farm keeps its ground open and carries its food; anything else blocks
-    // its whole footprint from the moment it is placed.
+    // A farm carries its food. A foundation takes its ground and its sight
+    // only when first worked on (Begin); a finished building has both now.
     Components::Resource stock;
     if (Farmland(registry, player, *rules, stock)) {
         registry.emplace<Components::Resource>(building, stock);
@@ -466,21 +617,17 @@ entt::entity Place(entt::registry& registry, Physics::Grid& grid, int unit_id,
             }
             for (entt::entity e : dead) registry.destroy(e);
         }
-    } else {
-        ForEachFootprintTile(placed, tile_x, tile_y, [&](int x, int y) {
-            grid.SetWalkable(x, y, false);
-        });
-        StepAside(registry, grid, FootprintBounds(origin, placed));
     }
+    if (complete) Hold(registry, grid, building);
 
-    // The ground it stands on: a farm site's first stage, or the dat's
-    // foundation terrain for anything laid on bare earth.
+    // The ground it stands on: a farm site's first stage from the start; the
+    // dat's foundation terrain only once the building stands (Complete).
     Core::TerrainType ground;
     if (LaysCrop(*rules)) {
         LayGround(grid, placed, tile_x, tile_y,
                   complete && FoundationGround(*rules, ground) ? ground
                                                                : FarmSiteGround(Core::Fixed32(0)));
-    } else if (FoundationGround(*rules, ground)) {
+    } else if (complete && FoundationGround(*rules, ground)) {
         LayGround(grid, placed, tile_x, tile_y, ground);
     }
 
@@ -509,6 +656,8 @@ void Complete(entt::registry& registry, Physics::Grid& grid, entt::entity buildi
     }
     auto& state = registry.get<Components::Building>(building);
     if (state.state == Components::BuildingState::Complete) return;
+    if (!state.begun) Hold(registry, grid, building);
+    if (auto* sight = registry.try_get<Components::Sight>(building)) sight->footprint = false;
     state.state = Components::BuildingState::Complete;
     state.progress = Core::Fixed32(1);
 
@@ -519,10 +668,11 @@ void Complete(entt::registry& registry, Physics::Grid& grid, entt::entity buildi
     registry.remove<Components::Sprite>(building);
     SpawnArt(registry, building);
     Arm(registry, building);
-    // A finished farm's crop comes up.
+    // Its ground: a farm's crop comes up, anything else lays the dat's
+    // foundation terrain.
     const R::UnitRules* rules = Players::UnitOf(registry, owner, unit_id);
     Core::TerrainType ground;
-    if (rules != nullptr && rules->cls == kFarmClass && FoundationGround(*rules, ground)) {
+    if (rules != nullptr && FoundationGround(*rules, ground)) {
         const auto& at = registry.get<Components::Transform>(building).position;
         LayGround(grid, unit_id, Physics::TileOf(at.x), Physics::TileOf(at.y), ground);
     }
@@ -591,7 +741,7 @@ void Destroy(entt::registry& registry, Physics::Grid& grid, entt::entity buildin
         const Core::PlayerId owner = OwnerOf(registry, building);
 
         if (Walls::IsGate(unit_id)) Walls::GateGone(registry, grid, building);
-        if (!registry.all_of<Components::Resource>(building)) {
+        if (!registry.all_of<Components::Resource>(building) && Begun(registry, building)) {
             ForEachFootprintTile(unit_id, Physics::TileOf(at.x), Physics::TileOf(at.y), [&](int x, int y) {
                 grid.SetWalkable(x, y, true);
             });

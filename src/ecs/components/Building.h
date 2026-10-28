@@ -23,6 +23,10 @@ struct Building {
     // from hit points because the two diverge: a site that is attacked while
     // it goes up loses hit points without losing the work done on it.
     Core::Fixed32 progress{};
+    // Whether it holds its ground: a foundation not yet worked on does not --
+    // units cross it, nothing targets it, and only its owner's side sees it
+    // (ecs/Buildings::Begin).
+    bool begun = true;
 };
 
 } // namespace ECS::Components

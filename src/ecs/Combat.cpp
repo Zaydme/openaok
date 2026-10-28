@@ -1,3 +1,4 @@
+#include "ecs/Buildings.h"
 #include "ecs/Combat.h"
 #include "ecs/Nearby.h"
 
@@ -156,6 +157,8 @@ entt::entity FindTarget(const entt::registry& registry, const Physics::Grid& gri
         }
         if (other == self || !Alive(registry, other)) return;
         if (!Hostile(registry, self, other)) return;
+        // A foundation not yet begun is nobody's target.
+        if (!Buildings::Begun(registry, other)) return;
         const Core::Fixed32 gap = Gap(registry, self, other);
         if (gap > reach) return;
         if (!CanReach(registry, grid, self, other, own)) return;

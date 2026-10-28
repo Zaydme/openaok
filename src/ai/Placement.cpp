@@ -44,6 +44,14 @@ constexpr int kBesideRings = 5;
 constexpr int kDockReach = 40;
 
 // The footprint widened by a tile on every side is clear of anything standing.
+// Whether `player`'s build order would take the site, as Buildings::Check
+// finds it. Asked after the cheaper tests.
+bool Takes(const entt::registry& registry, const Physics::Grid& grid, Core::PlayerId player,
+           int unit_id, int x, int y) {
+    return ECS::Buildings::Check(registry, grid, player, unit_id, x, y, ECS::Buildings::Ask::Placing) ==
+           ECS::Buildings::Site::Clear;
+}
+
 bool Breathing(const Physics::Grid& grid, int unit_id, int x, int y) {
     const auto span = ECS::Buildings::FootprintTileSpan(unit_id);
     for (int dy = span.low - 1; dy <= span.high + 1; ++dy) {
@@ -165,6 +173,7 @@ bool Beside(Turn& turn, int slot, entt::entity resource, int reach, int& x, int&
                     if (reach >= 0 && FromTown(turn, spot) > Core::Fixed32(reach)) continue;
                     const Core::Fixed32 d = Distance(spot, turn.census->home);
                     if (found && d >= best) continue;
+                    if (!Takes(*turn.registry, grid, turn.player, slot, tx, ty)) continue;
                     found = true;
                     best = d;
                     x = tx;
@@ -179,8 +188,8 @@ bool Beside(Turn& turn, int slot, entt::entity resource, int reach, int& x, int&
 
 bool InTown(Turn& turn, int slot, int near, int& x, int& y) {
     const int town = TownSize(turn);
-    return Find(*turn.grid, slot, turn.census->home, near, town, x, y, true) ||
-           Find(*turn.grid, slot, turn.census->home, near, town + 10, x, y, true);
+    return Find(*turn.registry, *turn.grid, turn.player, slot, turn.census->home, near, town, x, y, true) ||
+           Find(*turn.registry, *turn.grid, turn.player, slot, turn.census->home, near, town + 10, x, y, true);
 }
 
 bool IsDock(const R::UnitRules& rules) {
@@ -224,6 +233,7 @@ bool DockSpot(Turn& turn, int dock, int& out_x, int& out_y) {
                     }
                 }
                 if (!big_sea || !our_land) continue;
+                if (!Takes(registry, grid, turn.player, dock, x, y)) continue;
                 out_x = x;
                 out_y = y;
                 return true;
@@ -280,8 +290,9 @@ Taken TakenBy(const entt::registry& registry, const Census& census) {
     return out;
 }
 
-bool Find(const Physics::Grid& grid, int unit_id, const Vector2D& anchor, int near, int far,
-          int& tile_x, int& tile_y, bool breathe, const Taken* taken) {
+bool Find(const entt::registry& registry, const Physics::Grid& grid, Core::PlayerId player, int unit_id,
+          const Vector2D& anchor, int near, int far, int& tile_x, int& tile_y, bool breathe,
+          const Taken* taken) {
     const int ax = Physics::TileOf(anchor.x);
     const int ay = Physics::TileOf(anchor.y);
     for (int r = std::max(0, near); r <= far; ++r) {
@@ -293,6 +304,7 @@ bool Find(const Physics::Grid& grid, int unit_id, const Vector2D& anchor, int ne
                 if (!ECS::Buildings::CanPlace(grid, unit_id, x, y)) continue;
                 if (breathe && !Breathing(grid, unit_id, x, y)) continue;
                 if (taken != nullptr && taken->Overlaps(unit_id, x, y)) continue;
+                if (!Takes(registry, grid, player, unit_id, x, y)) continue;
                 tile_x = x;
                 tile_y = y;
                 return true;
@@ -302,8 +314,8 @@ bool Find(const Physics::Grid& grid, int unit_id, const Vector2D& anchor, int ne
     return false;
 }
 
-bool Hug(const entt::registry& registry, const Physics::Grid& grid, int unit_id, entt::entity building,
-         int& tile_x, int& tile_y, const Taken* taken) {
+bool Hug(const entt::registry& registry, const Physics::Grid& grid, Core::PlayerId player, int unit_id,
+         entt::entity building, int& tile_x, int& tile_y, const Taken* taken) {
     if (!registry.valid(building) || !registry.all_of<ECS::Components::Identity>(building)) return false;
     const int around = registry.get<ECS::Components::Identity>(building).unit_id;
     const Vector2D& origin = registry.get<ECS::Components::Transform>(building).position;
@@ -323,6 +335,7 @@ bool Hug(const entt::registry& registry, const Physics::Grid& grid, int unit_id,
         if (d >= best_d) return;
         if (!ECS::Buildings::CanPlace(grid, unit_id, x, y)) return;
         if (taken != nullptr && taken->Overlaps(unit_id, x, y)) return;
+        if (!Takes(registry, grid, player, unit_id, x, y)) return;
         best_d = d;
         best_x = x;
         best_y = y;
@@ -356,17 +369,20 @@ bool Site(Turn& turn, int slot, bool forward, int& x, int& y) {
         if (!EnemyAnchor(turn, enemy)) return InTown(turn, slot, 4, x, y);
         const Vector2D anchor{home.x + (enemy.x - home.x) * Core::Fixed32(2) / Core::Fixed32(3),
                               home.y + (enemy.y - home.y) * Core::Fixed32(2) / Core::Fixed32(3)};
-        return Find(*turn.grid, slot, anchor, 0, 12, x, y, true) || InTown(turn, slot, 4, x, y);
+        return Find(*turn.registry, *turn.grid, turn.player, slot, anchor, 0, 12, x, y, true) ||
+               InTown(turn, slot, 4, x, y);
     }
     if (IsDock(*rules)) return DockSpot(turn, slot, x, y);
     if (rules->cls == kFarmClass) {
         const Taken taken = TakenBy(registry, *turn.census);
-        if (Hug(registry, *turn.grid, slot, turn.census->town_center, x, y, &taken)) return true;
+        if (Hug(registry, *turn.grid, turn.player, slot, turn.census->town_center, x, y, &taken)) return true;
         const int mill = Catalog::DropSite(registry, turn.player, Core::ResourceType::Food);
         for (const Census::Site& site : turn.census->buildings) {
-            if (site.unit_id == mill && Hug(registry, *turn.grid, slot, site.entity, x, y, &taken)) return true;
+            if (site.unit_id == mill && Hug(registry, *turn.grid, turn.player, slot, site.entity, x, y, &taken)) {
+                return true;
+            }
         }
-        return Find(*turn.grid, slot, home, 3, TownSize(turn), x, y, false, &taken);
+        return Find(*turn.registry, *turn.grid, turn.player, slot, home, 3, TownSize(turn), x, y, false, &taken);
     }
     const int villager = Catalog::Villager(registry, turn.player);
     const R::UnitRules* v = ECS::Players::UnitOf(registry, turn.player, villager);
@@ -375,7 +391,7 @@ bool Site(Turn& turn, int slot, bool forward, int& x, int& y) {
     const int placed = ECS::Buildings::PlacedUnit(slot);
     if (v != nullptr && v->train_loc == placed) {
         // Another Town Center: away from the first, out among the resources.
-        return Find(*turn.grid, slot, home, 14, 40, x, y, true);
+        return Find(*turn.registry, *turn.grid, turn.player, slot, home, 14, 40, x, y, true);
     }
     const bool wood = ECS::DropSites::Accepts(placed, Core::ResourceType::Wood);
     const bool gold = ECS::DropSites::Accepts(placed, Core::ResourceType::Gold);
@@ -399,7 +415,7 @@ bool Site(Turn& turn, int slot, bool forward, int& x, int& y) {
         if (Beside(turn, slot, Nearest(turn, kForageClass, Core::ResourceType::Food, mill_reach, false), mill_reach, x, y)) {
             return true;
         }
-        return Find(*turn.grid, slot, home, 5, TownSize(turn), x, y, true);
+        return Find(*turn.registry, *turn.grid, turn.player, slot, home, 5, TownSize(turn), x, y, true);
     }
     return InTown(turn, slot, Catalog::House(registry, turn.player) == slot ? 3 : 5, x, y);
 }

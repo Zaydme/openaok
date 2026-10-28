@@ -8,9 +8,10 @@
 
 // What each player can see, and has seen.
 //
-// Every unit and building sees a circle of its line of sight; a tile inside
-// any of its owner's circles is visible to that player now, and once visible
-// it stays explored. A player with Cartography (the dat's "reveal ally",
+// Every unit and building sees a circle of its line of sight -- a building
+// not yet finished only the ground under itself; a tile inside any of its
+// owner's circles is visible to that player now, and once visible it stays
+// explored. A player with Cartography (the dat's "reveal ally",
 // resource 50) also sees what its allies see, and knows what they have
 // explored. Kept per player in the simulation, because what a player can see
 // is part of the game -- the AI plays from it -- and every machine has to
@@ -39,6 +40,8 @@ struct Map {
         int y = 0;
         int radius = 0;
         int player = 0;
+        int unit_id = -1;          // the building, for one that sees its footprint
+        bool footprint = false;
         bool operator==(const FixedSeer&) const = default;
     };
     std::vector<FixedSeer> fixed_seers;
@@ -64,7 +67,8 @@ void ToggleSeeAll(entt::registry& registry, Core::PlayerId player);
 bool Visible(const entt::registry& registry, Core::PlayerId player, int x, int y);
 bool Explored(const entt::registry& registry, Core::PlayerId player, int x, int y);
 
-// Whether `viewer` sees `entity` drawn: its own things always; anything on a
+// Whether `viewer` sees `entity` drawn: its own things always; a foundation
+// not yet begun only if it is its owner's ally each way; anything else on a
 // tile it can see now; and on a tile it has only explored, what the dat says
 // stays shown in the fog -- buildings and the map's own objects -- but never
 // another player's units.

@@ -125,6 +125,10 @@ void Hear(const entt::registry& registry, const ECS::Events::Event& event,
         if (event.player != listener) return;
         HAL::Audio::Play(InterfaceSound::kTribute, 1.0f, 0.0f);
         break;
+    case ECS::Events::Kind::Obstructed:
+        if (event.player != listener) return;
+        HAL::Audio::Play(InterfaceSound::kCantDo, 1.0f, 0.0f);
+        break;
     case ECS::Events::Kind::Halted:
         if (event.player != listener) return;
         HAL::Audio::Play(InterfaceSound::kNeedHouses, 1.0f, 0.0f);
