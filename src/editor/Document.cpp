@@ -86,10 +86,11 @@ Scenario::Unit* FindUnit(Scenario::File& f, const Ref& ref, size_t* at = nullptr
     return nullptr;
 }
 
-// How many tiles across a building stands, or 0 for anything else.
+// How many tiles across a building stands, or 0 for anything else -- a
+// trebuchet among the rest, a unit (Rules::IsBuilding).
 int FootprintOf(int unit_id) {
     const R::UnitRules* rules = R::Unit(unit_id);
-    if (rules == nullptr || rules->type != kTypeBuilding) return 0;
+    if (rules == nullptr || !R::IsBuilding(*rules)) return 0;
     const auto* ui = Core::ConfigManager::Get().GetUnitInterface(unit_id);
     return ui != nullptr ? ui->footprint : 0;
 }
@@ -250,7 +251,7 @@ void Erase(State& s, int x0, int y0, int x1, int y1, bool buildings) {
         const auto* id = reg.try_get<C::Identity>(e);
         if (at == nullptr || id == nullptr) continue;
         const R::UnitRules* rules = R::Unit(id->unit_id);
-        if (rules == nullptr || (rules->type == kTypeBuilding) != buildings) continue;
+        if (rules == nullptr || R::IsBuilding(*rules) != buildings) continue;
         const int x = Physics::TileOf(at->position.x), y = Physics::TileOf(at->position.y);
         if (x >= x0 && x <= x1 && y >= y0 && y <= y1) gone.push_back(e);
     }
@@ -420,7 +421,7 @@ void Place(State& s, float wx, float wy) {
     // Refused where it may not stand.
     if (footprint > 0) {
         if (!ECS::Buildings::CanPlace(grid, unit_id, tile_x, tile_y)) return;
-    } else if (rules->type == kTypeCreatable) {
+    } else if (rules->type == kTypeCreatable || R::PackingSiege(*rules)) {
         const auto [fx, fy] = FileTile(s, tile_x, tile_y);
         const int dat = s.doc.terrain[Index(s.doc, fx, fy)];
         if (grid.IsBlocked(tile_x, tile_y) || !R::Passable(rules->terrain_restriction, dat)) return;

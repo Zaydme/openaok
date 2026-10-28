@@ -25,8 +25,6 @@ namespace {
 
 namespace R = Core::Rules;
 
-// The dat's class for a packed unit.
-constexpr int kPackedClass = 51;
 // Its task that sends it at an enemy to set up and shoot.
 constexpr int kUnpackAndAttack = 125;
 // How often a packed engine on its way re-plans, and how many empty routes
@@ -104,7 +102,7 @@ bool Packs(const entt::registry& registry, entt::entity entity) {
 
 bool Packed(const entt::registry& registry, entt::entity entity) {
     const R::UnitRules* rules = RulesOf(registry, entity);
-    return rules != nullptr && rules->cls == kPackedClass;
+    return rules != nullptr && rules->cls == R::UnitClass::PackedUnit;
 }
 
 bool Busy(const entt::registry& registry, entt::entity unit) {

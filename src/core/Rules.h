@@ -77,6 +77,13 @@ constexpr int Building = 80;
 constexpr int Tree = 90;
 } // namespace UnitType
 
+// The dat's classes for the siege engines that pack up to move and set up to
+// shoot (the trebuchet).
+namespace UnitClass {
+constexpr int PackedUnit = 51;
+constexpr int UnpackedSiege = 54;
+} // namespace UnitClass
+
 // An attack or armour entry: so much against so much of one armour class.
 struct ClassAmount {
     int16_t cls = 0;
@@ -438,5 +445,14 @@ const std::string& TechLabel(int tech_id);
 // The amount of one class in an attack or armour list, or `fallback` if the
 // list has no entry for it.
 int ClassValue(const ClassAmount* list, int count, int cls, int fallback);
+
+// Whether these are a siege engine that packs, packed or set up. The dat makes
+// them buildings by type, for the fields that type carries; they are units in
+// everything else: placed, drawn and ordered as units.
+bool PackingSiege(const UnitRules& rules);
+
+// Whether these are a building in the game's sense: the dat's building type,
+// less the siege engines that pack.
+bool IsBuilding(const UnitRules& rules);
 
 } // namespace Core::Rules

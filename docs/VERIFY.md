@@ -48,7 +48,7 @@ that the script reads.
 | `victory`, `modes` | Conquest, Wonders, relics; Regicide, Death Match, starting options |
 | `trade`, `tribute`, `market` | Trade routes and their pay; tribute and its fee; market prices |
 | `diplomacy`, `chat`, `cheats` | Stances, teams and shared sight; chat and flares; the cheat codes |
-| `repair`, `packing`, `converted` | Repairing; siege engines packing, and their icons from the units' sheet; converted units keeping their maker's rules |
+| `repair`, `packing`, `converted` | Repairing; siege engines packing, their icons from the units' sheet, placed as units from a scenario; converted units keeping their maker's rules |
 | `walls`, `waypoints` | Walls, gates and locking; queued waypoints |
 | `scenario`, `editor` | Every scenario on the CD read; triggers; saving and loading; the scenario editor's edits |
 

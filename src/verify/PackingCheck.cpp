@@ -15,13 +15,17 @@
 #include "ecs/Orders.h"
 #include "ecs/Packing.h"
 #include "ecs/Players.h"
+#include "ecs/ScenarioWorld.h"
 #include "ecs/Simulation.h"
 #include "ecs/Units.h"
+#include "ecs/components/Animation.h"
+#include "ecs/components/Building.h"
 #include "ecs/components/Combat.h"
 #include "ecs/components/Health.h"
 #include "ecs/components/Identity.h"
 #include "ecs/components/Owner.h"
 #include "ecs/components/Projectile.h"
+#include "ecs/components/Sprite.h"
 #include "ecs/components/Transform.h"
 
 namespace Verify {
@@ -71,7 +75,8 @@ Fixed32 Apart(Vector2D a, Vector2D b) { return Core::FixedMath::Distance(a.x - b
 // packed again it can. A stop order part way leaves it as it was. Sent at an
 // enemy's Barracks from beyond range, a packed one closes to within the set-up
 // trebuchet's range, sets up there and opens fire -- its Unpack and Attack
-// task. Both draw their icons from the units' sheet.
+// task. Both draw their icons from the units' sheet, and a scenario places
+// both as units.
 bool CheckPacking() {
     const char* verdict = "ok";
     auto ok = [&]() { return std::strcmp(verdict, "ok") == 0; };
@@ -108,6 +113,26 @@ bool CheckPacking() {
         verdict = "a trebuchet's icon is taken from the buildings' sheet";
     } else if (ok() && (!cfg.UsesBuildingIcons(barracks) || !cfg.UsesBuildingIcons(cfg.GetUnitIdByName("GTAA2")))) {
         verdict = "a building's icon is not taken from the buildings' sheet";
+    }
+
+    // Placed as a scenario places it -- from a file or the editor -- each is
+    // the unit it is: drawn as one, packing, the set-up one armed.
+    for (const int placed : {packed, set_up}) {
+        if (!ok()) break;
+        const Vector2D at{home.x, home.y + Fixed32(4)};
+        const entt::entity e = ECS::ScenarioWorld::Place(reg, grid, placed, 1, at, Fixed32(0), 0);
+        sim.Update(16);
+        const auto* sprite = e != entt::null ? reg.try_get<ECS::Components::Sprite>(e) : nullptr;
+        if (e == entt::null || reg.all_of<ECS::Components::Building>(e)) {
+            verdict = "a trebuchet placed in a scenario is made a building";
+        } else if (sprite == nullptr || sprite->slp_id < 0 || !reg.all_of<ECS::Components::Animation>(e)) {
+            verdict = "a trebuchet placed in a scenario is not drawn as a unit";
+        } else if (!ECS::Packing::Packs(reg, e)) {
+            verdict = "a trebuchet placed in a scenario does not pack";
+        } else if (placed == set_up && !reg.all_of<ECS::Components::Combat>(e)) {
+            verdict = "a trebuchet placed set up in a scenario is not armed";
+        }
+        if (e != entt::null) reg.destroy(e);
     }
 
     // Set up: still, for the dat-less packing time, then a trebuchet.

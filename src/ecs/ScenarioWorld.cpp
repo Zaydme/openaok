@@ -259,7 +259,7 @@ entt::entity Place(entt::registry& registry, Physics::Grid& grid, int unit_id,
     if (!grid.InBounds(tile_x, tile_y)) return entt::null;
 
     if (rules->cls == kCliffClass) return PlaceCliff(registry, grid, unit_id, at, frame);
-    if (rules->type == R::UnitType::Building) {
+    if (R::IsBuilding(*rules)) {
         // A building with ground of its own stands finished on the tile its
         // centre is in. A bridge or a ruin has none, and is a map object.
         const auto* ui = Core::ConfigManager::Get().GetUnitInterface(unit_id);
@@ -271,7 +271,9 @@ entt::entity Place(entt::registry& registry, Physics::Grid& grid, int unit_id,
         }
         return PlaceObject(registry, grid, unit_id, owner, at, rotation, frame);
     }
-    if (rules->type == R::UnitType::Creatable && !(owner == Core::PLAYER_GAIA && Wild(rules->cls))) {
+    // A unit, a trebuchet among them, packed or set up.
+    if ((rules->type == R::UnitType::Creatable || R::PackingSiege(*rules)) &&
+        !(owner == Core::PLAYER_GAIA && Wild(rules->cls))) {
         const entt::entity unit = Units::Spawn(registry, unit_id, owner, at);
         if (unit != entt::null) {
             if (auto* sprite = registry.try_get<C::Sprite>(unit)) sprite->facing = FacingOf(rotation);

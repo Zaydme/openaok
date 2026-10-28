@@ -339,6 +339,15 @@ int ClassValue(const ClassAmount* list, int count, int cls, int fallback) {
     return fallback;
 }
 
+bool PackingSiege(const UnitRules& rules) {
+    return rules.type == UnitType::Building &&
+           (rules.cls == UnitClass::PackedUnit || rules.cls == UnitClass::UnpackedSiege);
+}
+
+bool IsBuilding(const UnitRules& rules) {
+    return rules.type == UnitType::Building && !PackingSiege(rules);
+}
+
 namespace {
 
 int RestrictionValue(int restriction, int terrain) {

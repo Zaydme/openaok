@@ -217,7 +217,8 @@ bool CheckRepair();
 // Trebuchets packing and unpacking: setting up still and taking the packing
 // time, armed set up and unable to move, packed and moving, a stop leaving
 // it as it was, and sent at a building out of range, closing, setting up in
-// range and shooting; their icons from the units' sheet. Prints "packing=".
+// range and shooting; their icons from the units' sheet; and placed as units
+// from a scenario or the editor. Prints "packing=".
 bool CheckPacking();
 
 // A converted unit keeps its maker's technology: its maker's Forging, not its

@@ -8,6 +8,7 @@
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include "core/FixedPoint.h"
+#include "core/Rules.h"
 #include "ecs/components/Sprite.h"
 
 namespace Core {
@@ -935,14 +936,11 @@ public:
         return true;
     }
 
-    // Buildings and units draw their icons from separate sheets. The building
-    // sheet's are the dat's buildings (type 80), all but the siege engines
-    // that pack, which the dat also makes type 80 and whose icons are units'.
+    // Buildings and units draw their icons from separate sheets; a siege
+    // engine that packs is a unit's (Rules::IsBuilding).
     bool UsesBuildingIcons(int unit_id) const {
-        auto u = units_json.find(std::to_string(unit_id));
-        if (u == units_json.end() || u->value("type", 0) != kDatTypeBuilding) return false;
-        const int cls = u->value("class", -1);
-        return cls != kDatClassPackedUnit && cls != kDatClassUnpackedSiege;
+        const Rules::UnitRules* rules = Rules::Unit(unit_id);
+        return rules != nullptr && Rules::IsBuilding(*rules);
     }
 
     const UnitInterface* GetUnitInterface(int unit_id) const {
@@ -990,11 +988,6 @@ public:
 
     std::unordered_map<int, int> shadow_slp_by_slp;
     std::unordered_map<int, std::vector<Annex>> annexes;
-    // The dat's unit type for a building, and its classes for a siege engine
-    // packed and set up.
-    static constexpr int kDatTypeBuilding = 80;
-    static constexpr int kDatClassPackedUnit = 51;
-    static constexpr int kDatClassUnpackedSiege = 54;
 
     std::unordered_map<int, UnitInterface> unit_interface;
     std::unordered_map<int, std::vector<int>> produced_at;
