@@ -127,8 +127,9 @@ struct Launch {
     // them. An entry "key:ctrl+1" presses a key instead (modifiers ctrl+,
     // alt+, shift+, then an SDL key name: "1", "H", "Home", "Keypad +"),
     // "text:words" types, "right:x,y" clicks the right button there,
-    // "move:x,y" moves the pointer there and holds it, and "down:x,y"
-    // presses the left button there without letting go.
+    // "move:x,y" moves the pointer there and holds it, "down:x,y" presses
+    // the left button there without letting go, and "up:x,y" lets it go
+    // there: a drag.
     struct Step {
         SDL_Point at{0, 0};
         SDL_Keycode key = SDLK_UNKNOWN;
@@ -137,6 +138,7 @@ struct Launch {
         Uint8 button = SDL_BUTTON_LEFT;
         bool move = false;
         bool held = false;   // pressed and not let go
+        bool released = false;   // let go of, ending a drag
     };
     std::vector<Step> clicks;
     // --load PATH: open on a saved game. --play PATH: watch a recorded game.
@@ -320,6 +322,9 @@ void ParseFlags(int argc, char* argv[], Launch& launch) {
                     } else if (point.rfind("down:", 0) == 0) {
                         step.held = true;
                         from = 5;
+                    } else if (point.rfind("up:", 0) == 0) {
+                        step.released = true;
+                        from = 3;
                     }
                     step.at = SDL_Point{std::atoi(point.c_str() + from),
                                         std::atoi(point.c_str() + comma + 1)};
@@ -815,6 +820,11 @@ bool ScriptedClick(SDL_Event& down, SDL_Event& up) {
     down.button.y = step.at.y;
     up = down;
     up.type = SDL_MOUSEBUTTONUP;
+    if (step.released) {
+        down = up;
+        up = SDL_Event{};
+        up.type = SDL_USEREVENT;
+    }
     if (step.held) {
         if (HAL::Window* window = HAL::MainWindow()) window->HoldMouse(step.at.x, step.at.y);
         up = SDL_Event{};
