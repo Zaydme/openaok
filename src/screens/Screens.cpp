@@ -540,6 +540,7 @@ Core::GameSetup BuildGame(const Setup& s) {
     game.victory = s.victory.selected == 1 ? Core::VictoryKind::Conquest
                                            : Core::VictoryKind::Standard;
     game.regicide = s.kind == 1;
+    game.death_match = s.kind == 2;
     game.difficulty = s.difficulty.selected;
     game.lock_teams = s.lock_teams.checked;
     game.all_techs = s.all_techs.checked;

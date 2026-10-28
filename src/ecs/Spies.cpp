@@ -56,7 +56,7 @@ bool InGame(const entt::registry& registry, Core::PlayerId player) {
 } // namespace
 
 void Setup(entt::registry& registry, const Core::GameSetup& setup) {
-    if (!setup.regicide && setup.resources != Core::StartingResources::DeathMatch) return;
+    if (!setup.regicide && !setup.death_match) return;
     for (int p = 1; p < Core::kMaxPlayers; ++p) {
         Players::Player* seat = Players::Find(registry, static_cast<Core::PlayerId>(p));
         if (seat == nullptr) continue;

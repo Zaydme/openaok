@@ -395,7 +395,7 @@ bool Test(Turn& turn, const Script::Expr& e) {
     case Fact::GameTime:          return Compare(Seconds(turn.now_ms), a[0], a[1]);
     case Fact::Difficulty:        return setup != nullptr && Compare(setup->difficulty, a[0], a[1]);
     case Fact::CheatsEnabled:     return false;
-    case Fact::DeathMatchGame:    return setup != nullptr && setup->resources == Core::StartingResources::DeathMatch;
+    case Fact::DeathMatchGame:    return setup != nullptr && setup->death_match;
     case Fact::RegicideGame:      return setup != nullptr && setup->regicide;
     case Fact::PopulationCap:     return setup != nullptr && Compare(setup->population_limit, a[0], a[1]);
     case Fact::StartingAge:       return setup != nullptr && Compare(setup->starting_age, a[0], a[1]);

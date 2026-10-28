@@ -63,7 +63,7 @@ namespace C = ECS::Components;
 
 constexpr char kMagic[8] = {'A', 'O', 'K', 'C', 'S', 'A', 'V', 'E'};
 // The save format's version; a save of any other version is refused.
-constexpr uint32_t kVersion = 4;
+constexpr uint32_t kVersion = 5;
 
 // Plain data goes out as it lies in memory.
 template <typename T>

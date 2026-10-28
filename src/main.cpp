@@ -475,6 +475,7 @@ void ParseFlags(int argc, char* argv[], Launch& launch) {
             setup.regicide = true;
         } else if (arg == "--deathmatch") {
             // A Death Match: 20,000 of every resource.
+            setup.death_match = true;
             setup.resources = Core::StartingResources::DeathMatch;
         } else if (arg == "--population" && i + 1 < argc) {
             // The lobby's population limit, 25 to 200.

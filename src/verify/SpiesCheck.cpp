@@ -110,15 +110,27 @@ bool CheckSpies() {
         }
     }
 
-    // Death Match: no Spies.
+    // Death Match: no Spies. The game type decides, not the stockpiles: a
+    // random map game with as much has it.
     if (verdict == "ok") {
         Core::GameSetup setup = Core::DefaultSetup();
+        setup.death_match = true;
         setup.resources = Core::StartingResources::DeathMatch;
         ECS::Simulation sim;
         sim.Init(setup);
         const auto* me = ECS::Players::Find(sim.GetRegistry(), kUs);
         if (me->techs[static_cast<size_t>(spies)].state != ECS::Players::TechState::Disabled) {
             verdict = "Spies is offered in Death Match";
+        }
+    }
+    if (verdict == "ok") {
+        Core::GameSetup setup = Core::DefaultSetup();
+        setup.resources = Core::StartingResources::DeathMatch;
+        ECS::Simulation sim;
+        sim.Init(setup);
+        const auto* me = ECS::Players::Find(sim.GetRegistry(), kUs);
+        if (me->techs[static_cast<size_t>(spies)].state == ECS::Players::TechState::Disabled) {
+            verdict = "Spies is taken from a random map game for its stockpiles";
         }
     }
 

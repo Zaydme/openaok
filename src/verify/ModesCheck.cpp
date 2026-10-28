@@ -141,6 +141,7 @@ bool CheckModes() {
     // Death Match: 20,000 of everything, the usual start otherwise.
     if (ok()) {
         Core::GameSetup setup = Core::DefaultSetup();
+        setup.death_match = true;
         setup.resources = Core::StartingResources::DeathMatch;
         ECS::Simulation sim;
         sim.Init(setup);

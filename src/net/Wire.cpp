@@ -298,6 +298,7 @@ void Write(Writer& out, const Core::GameSetup& setup) {
         out.I32(setup.players[seat].colour);
     }
     out.U8(setup.regicide ? 1 : 0);
+    out.U8(setup.death_match ? 1 : 0);
     out.I32(setup.difficulty);
     out.U8(setup.lock_teams ? 1 : 0);
     out.U8(setup.all_techs ? 1 : 0);
@@ -331,6 +332,7 @@ bool Read(Reader& in, Core::GameSetup& setup) {
         setup.players[seat].colour = in.I32();
     }
     setup.regicide = in.U8() != 0;
+    setup.death_match = in.U8() != 0;
     setup.difficulty = in.I32();
     setup.lock_teams = in.U8() != 0;
     setup.all_techs = in.U8() != 0;

@@ -318,6 +318,7 @@ const char* CheckOriginal() {
         if (fishboat != water) verdict = "the map did not decide whether the fishing fleet is loaded";
     }
     setup.map_script = "Arabia";
+    setup.death_match = true;
     setup.resources = Core::StartingResources::DeathMatch;
     if (verdict == nullptr) {
         const AI::Script::Program p = load(setup, verdict);

@@ -85,6 +85,10 @@ struct GameSetup {
     bool regicide = false;
     const char* regicide_king = "KINGX";
     const char* regicide_castle = "CSTL";
+    // Death Match: a random map game with 20,000 of every resource
+    // (`resources` DeathMatch). The game type, not only the stockpiles: the
+    // computer players' scripts and the Castle's Spies read it.
+    bool death_match = false;
     // The computer players' difficulty, 0 hardest to 4 easiest, in the
     // lobby list's order.
     int difficulty = 3;

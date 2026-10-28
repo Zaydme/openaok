@@ -171,11 +171,14 @@ std::vector<std::string> Symbols(const Core::GameSetup& setup, Core::PlayerId se
     static const char* kAges[] = {"DARK-AGE-START", "FEUDAL-AGE-START", "CASTLE-AGE-START",
                                   "IMPERIAL-AGE-START", "POST-IMPERIAL-AGE-START"};
     out.emplace_back(kAges[std::clamp(setup.starting_age, 0, 4)]);
-    switch (setup.resources) {
-    case Core::StartingResources::Medium:     out.emplace_back("MEDIUM-RESOURCES-START"); break;
-    case Core::StartingResources::High:       out.emplace_back("HIGH-RESOURCES-START"); break;
-    case Core::StartingResources::DeathMatch: out.emplace_back("DEATH-MATCH"); break;
-    default:                                  out.emplace_back("LOW-RESOURCES-START"); break;
+    if (setup.death_match) {
+        out.emplace_back("DEATH-MATCH");
+    } else {
+        switch (setup.resources) {
+        case Core::StartingResources::Medium: out.emplace_back("MEDIUM-RESOURCES-START"); break;
+        case Core::StartingResources::High:   out.emplace_back("HIGH-RESOURCES-START"); break;
+        default:                              out.emplace_back("LOW-RESOURCES-START"); break;
+        }
     }
     if (setup.regicide) out.emplace_back("REGICIDE");
     out.emplace_back(setup.victory == Core::VictoryKind::Conquest ? "VICTORY-CONQUEST" : "VICTORY-STANDARD");

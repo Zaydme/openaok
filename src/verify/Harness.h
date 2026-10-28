@@ -46,8 +46,8 @@ bool CheckNotices();
 // its graphic has. Prints "flag=".
 bool CheckFlag();
 
-// Spies' price for each enemy villager and the enemy sight it gives; none in
-// Death Match or Regicide, where Treason marks the enemy Kings instead.
+// Spies' price for each enemy villager and the enemy sight it gives; none in a
+// Death Match or Regicide game, where Treason marks the enemy Kings instead.
 // Prints "spies=".
 bool CheckSpies();
 
