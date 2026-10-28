@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <vector>
 
 #include "core/Command.h"
 #include "core/CommandQueue.h"
@@ -285,6 +286,48 @@ bool CheckFoundations() {
             else if (front) verdict = "a Barracks was placed with a front edge two levels off";
             else if (!flat) verdict = "a Town Center was refused on flat ground";
             else if (beside) verdict = "a Town Center was placed beside a rise";
+        }
+    }
+
+    // A dock by the dat's placement terrains: its middle tile on water, the
+    // beach straight beside that tile -- within its own ground, half ashore --
+    // and nothing asked of the ring around it. Its middle on the beach will
+    // not do, nor the beach only at a corner of the middle.
+    if (ok()) {
+        const int dock = cfg.GetUnitIdByName("DOCK");
+        Core::TerrainType water{}, beach{};
+        for (int t = 0; t < static_cast<int>(Core::TerrainType::COUNT); ++t) {
+            const int dat = cfg.GetTerrainArt(static_cast<Core::TerrainType>(t)).dat_id;
+            if (dat == 1) water = static_cast<Core::TerrainType>(t);
+            if (dat == 2) beach = static_cast<Core::TerrainType>(t);
+        }
+        int wx = 0, wy = 0;
+        if (!Open(sim, hx, hy, 46, 4, wx, wy)) {
+            verdict = "no open ground for the docks";
+        } else {
+            std::vector<Core::TerrainType> was;
+            for (int y = wy - 4; y <= wy + 4; ++y) {
+                for (int x = wx - 4; x <= wx + 4; ++x) {
+                    was.push_back(grid.GetTile(x, y).terrain);
+                    grid.SetTerrain(x, y, water);
+                }
+            }
+            grid.SetTerrain(wx + 1, wy, beach);
+            const bool ashore = ECS::Buildings::CanPlace(grid, dock, wx, wy);
+            grid.SetTerrain(wx + 1, wy, water);
+            grid.SetTerrain(wx + 1, wy + 1, beach);
+            const bool corner = ECS::Buildings::CanPlace(grid, dock, wx, wy);
+            grid.SetTerrain(wx + 1, wy + 1, water);
+            grid.SetTerrain(wx, wy, beach);
+            grid.SetTerrain(wx + 1, wy, beach);
+            const bool aground = ECS::Buildings::CanPlace(grid, dock, wx, wy);
+            size_t i = 0;
+            for (int y = wy - 4; y <= wy + 4; ++y) {
+                for (int x = wx - 4; x <= wx + 4; ++x) grid.SetTerrain(x, y, was[i++]);
+            }
+            if (!ashore) verdict = "a dock was refused with its middle on water and the beach beside it";
+            else if (corner) verdict = "a dock was placed with the beach only at a corner of its middle";
+            else if (aground) verdict = "a dock was placed with its middle on the beach";
         }
     }
 

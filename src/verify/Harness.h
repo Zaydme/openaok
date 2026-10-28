@@ -52,9 +52,9 @@ bool CheckNotices();
 // Foundations as the original lays them: no ground held, seen only by their
 // side and nobody's target until begun; what placing runs into; the first
 // begun of overlapping foundations standing and the other refunded; the
-// footprint-only sight of a building going up; deleting's refunds; and the
-// dat's hill rules for the ground a building is placed on. Prints
-// "foundations=".
+// footprint-only sight of a building going up; deleting's refunds; the dat's
+// hill rules for the ground a building is placed on; and a dock's water and
+// beach. Prints "foundations=".
 bool CheckFoundations();
 
 // What a player keeps of what it no longer sees: no building drawn that it

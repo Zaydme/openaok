@@ -573,41 +573,39 @@ bool CanPlace(const Physics::Grid& grid, int unit_id, int tile_x, int tile_y) {
         }
     });
     if (!clear) return false;
-    // The dat's placement terrains, past the restriction: some of a dock's
-    // footprint is on water or shallows (its placement terrains) and some
-    // ground beside it is beach (its side terrain) -- so it is built against
-    // a shore, on whatever water its restriction allows, and never out at
-    // sea or up on the land. The side terrain is a neighbour's, not the
-    // footprint's own: the shore fish carries the same beach as its side
-    // terrain and a restriction that keeps it off the beach.
+    // The dat's placement terrains, past the restriction. With placement
+    // terrains -- a dock's water and shallows -- its middle tile must be one
+    // of them, and its side terrain, the beach, must lie straight beside that
+    // tile: the dock stands half on the shore. With a side terrain alone --
+    // the shore fish's beach -- it must lie straight beside the footprint.
+    // Corners do not count.
     if (own != nullptr) {
         auto is_one_of = [&](const int* terrains, int x, int y) {
+            if (!grid.InBounds(x, y)) return false;
             const int dat = cfg.GetTerrainArt(grid.GetTile(x, y).terrain).dat_id;
             return dat >= 0 && (dat == terrains[0] || dat == terrains[1]);
         };
         const bool under_rule = own->placement_terrain[0] >= 0 || own->placement_terrain[1] >= 0;
         const bool side_rule =
             own->placement_side_terrain[0] >= 0 || own->placement_side_terrain[1] >= 0;
-        bool beside = !side_rule;
-        bool on = !under_rule;
-        const TileSpan span = FootprintTileSpan(placed);
-        ForEachFootprintTile(placed, tile_x, tile_y, [&](int x, int y) {
-            if (under_rule && is_one_of(own->placement_terrain, x, y)) on = true;
-        });
-        if (!on) return false;
+        if (under_rule && !is_one_of(own->placement_terrain, tile_x, tile_y)) return false;
         if (side_rule) {
-            for (int y = tile_y + span.low - 1; y <= tile_y + span.high + 1 && !beside; ++y) {
-                for (int x = tile_x + span.low - 1; x <= tile_x + span.high + 1 && !beside; ++x) {
-                    const bool ring = x < tile_x + span.low || x > tile_x + span.high ||
-                                      y < tile_y + span.low || y > tile_y + span.high;
-                    if (ring && grid.InBounds(x, y) &&
-                        is_one_of(own->placement_side_terrain, x, y)) {
-                        beside = true;
-                    }
-                }
+            const Footprint f = FootprintOf(placed);
+            const int x0 = under_rule ? tile_x : tile_x + f.x.low;
+            const int x1 = under_rule ? tile_x : tile_x + f.x.high;
+            const int y0 = under_rule ? tile_y : tile_y + f.y.low;
+            const int y1 = under_rule ? tile_y : tile_y + f.y.high;
+            bool beside = false;
+            for (int x = x0; x <= x1 && !beside; ++x) {
+                beside = is_one_of(own->placement_side_terrain, x, y0 - 1) ||
+                         is_one_of(own->placement_side_terrain, x, y1 + 1);
             }
+            for (int y = y0; y <= y1 && !beside; ++y) {
+                beside = is_one_of(own->placement_side_terrain, x0 - 1, y) ||
+                         is_one_of(own->placement_side_terrain, x1 + 1, y);
+            }
+            if (!beside) return false;
         }
-        if (!clear || !beside) return false;
     }
     // The dat's hill rule. A Town Center (2) wants every tile of its ground
     // flat. Most buildings (3) want only the two edges at the front -- the
