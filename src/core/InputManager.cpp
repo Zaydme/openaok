@@ -640,17 +640,19 @@ void InputManager::UpdateIntent(ECS::Simulation& sim, Rendering::Renderer& rende
         const float d = dx * dx + dy * dy;
         if (nearest == entt::null || d < best) { best = d; nearest = e; }
     }
-    // A building or a tree under the pointer by its art, as a click finds it,
-    // unless a unit stands nearer than half a tile.
+    // What is under the pointer by its art, as a click finds it: a unit, or a
+    // building or a tree unless a unit stands nearer than half a tile.
     {
         const float zoom = renderer.camera_zoom > 0.0f ? renderer.camera_zoom : 1.0f;
         const entt::entity art = Rendering::EntityRenderer::PickAt(registry, mx / zoom, my / zoom);
         if (art != entt::null && ECS::Vision::Shows(registry, Core::LocalPlayer(), art)) {
+            const bool art_unit = registry.get<ECS::Components::Selectable>(art).priority >= 1 &&
+                                  !registry.all_of<ECS::Components::Building>(art);
             const bool unit_in_front = nearest != entt::null &&
                                        !registry.all_of<ECS::Components::Building>(nearest) &&
                                        registry.get<ECS::Components::Selectable>(nearest).priority >= 1 &&
                                        best <= 0.25f;
-            if (!unit_in_front) nearest = art;
+            if (art_unit || !unit_in_front) nearest = art;
         }
     }
     // Nothing there: the arrow, whatever is selected.
@@ -1324,7 +1326,7 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
             }
             // Where the click is aimed, not the tile it fell in: the targets
             // below are picked by their distance from it. A click on a
-            // building's or tree's art aims at that object.
+            // unit's, building's or tree's art aims at that object.
             float click_x = static_cast<float>(wc.first);
             float click_y = static_cast<float>(wc.second);
             if (!on_minimap) {
@@ -1801,6 +1803,7 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
                 float best_dist = 0.0f;
                 float best_depth = 0.0f;
                 int best_rank = -1;
+                bool best_building = false;
                 for (auto e : view) {
                     // What the player cannot see cannot be clicked.
                     if (!ECS::Vision::Shows(registry, Core::LocalPlayer(), e)) continue;
@@ -1810,34 +1813,49 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
                     const float ddx = ux - static_cast<float>(wc.first);
                     const float ddy = uy - static_cast<float>(wc.second);
                     const float d = ddx * ddx + ddy * ddy;
-                    if (d > 1.0f) continue;              // outside the pick radius
+                    // Within the pick radius, or on a building's footprint: a
+                    // Farm's field is ground, not art.
+                    const auto* identity = registry.try_get<ECS::Components::Identity>(e);
+                    const bool building = registry.all_of<ECS::Components::Building>(e);
+                    const bool on_footprint =
+                        building && identity != nullptr &&
+                        ECS::Buildings::FootprintBounds(t.position, identity->unit_id)
+                                .DistanceFrom({Fixed32(static_cast<float>(wc.first)),
+                                               Fixed32(static_cast<float>(wc.second))}) == Fixed32(0);
+                    if (d > 1.0f && !on_footprint) continue;
                     const float depth = ux + uy;         // larger means nearer the viewer
                     const int rank =
                         view.get<ECS::Components::Selectable>(e).priority;
                     // A higher selection priority wins regardless of
                     // distance: a unit standing on scenery beats the scenery.
+                    // Among equals a unit beats a building: it stands on a Farm.
+                    const bool nearer = d < best_dist - 0.02f;
+                    const bool level = std::abs(d - best_dist) <= 0.02f;
                     const bool better =
                         best == entt::null || rank > best_rank ||
                         (rank == best_rank &&
-                         (d < best_dist - 0.02f ||
-                          (std::abs(d - best_dist) <= 0.02f && depth > best_depth)));
+                         (nearer || (level && depth > best_depth) ||
+                          (level && depth == best_depth && best_building && !building)));
                     if (better) {
                         best = e;
                         best_dist = d;
                         best_depth = depth;
                         best_rank = rank;
+                        best_building = building;
                     }
                 }
-                // A building or a tree is clicked wherever on its art the
-                // pointer falls, unless a unit stands nearer than half a tile,
-                // in front.
+                // A unit is clicked where its art is under the pointer; a
+                // building or a tree too, unless a unit stands nearer than half
+                // a tile, in front.
                 if (const entt::entity art = Rendering::EntityRenderer::PickAt(registry, dex, dey);
                     art != entt::null && registry.all_of<ECS::Components::Selectable>(art) &&
                     ECS::Vision::Shows(registry, Core::LocalPlayer(), art)) {
+                    const bool art_unit = registry.get<ECS::Components::Selectable>(art).priority >= 1 &&
+                                          !registry.all_of<ECS::Components::Building>(art);
                     const bool unit_in_front = best != entt::null && best_rank >= 1 &&
                                                !registry.all_of<ECS::Components::Building>(best) &&
                                                best_dist <= 0.25f;
-                    if (!unit_in_front) best = art;
+                    if (art_unit || !unit_in_front) best = art;
                 }
                 const SDL_Keymod mods = SDL_GetModState();
                 const bool adding = (mods & (KMOD_CTRL | KMOD_SHIFT | KMOD_GUI)) != 0;

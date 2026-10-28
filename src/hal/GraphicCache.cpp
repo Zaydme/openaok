@@ -127,12 +127,7 @@ const GraphicAtlas* GraphicCache::AtlasFrom(
         return nullptr;
     }
 
-    // Coverage bits only for art tall enough to stand in front of a unit.
-    constexpr int kOccluderHeight = 64;
-    bool tall = false;
-    for (const auto& h : headers) tall = tall || static_cast<int>(h.height) > kOccluderHeight;
-    atlas.base = BuildLayer(src, slp_id, Layer::Base, 0, colours,
-                            tall ? &atlas.opaque : nullptr);
+    atlas.base = BuildLayer(src, slp_id, Layer::Base, 0, colours, &atlas.opaque);
     // Geometry, not pixels, decides validity: a shadow graphic decodes to no
     // colour pixels at all, but its frame rects and hotspots are still needed.
     atlas.valid = !atlas.frames.empty();

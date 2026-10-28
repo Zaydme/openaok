@@ -26,9 +26,8 @@ struct GraphicAtlas {
     int width = 0;
     int height = 0;
     bool valid = false;
-    // One bit per atlas pixel, set where the art is opaque. Kept only for
-    // graphics tall enough to hide a unit, for the outline pass to test
-    // whether a tree or building actually covers one.
+    // One bit per atlas pixel, set where the art is opaque: what a click
+    // lands on, and whether a tree or building actually covers a unit.
     std::vector<uint8_t> opaque;
 
     bool Covers(int frame, int fx, int fy) const {

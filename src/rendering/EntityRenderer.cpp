@@ -380,12 +380,17 @@ void EntityRenderer::ArtOffset(const entt::registry& registry, entt::entity enti
     oy = static_cast<float>(f.y.low + f.y.high) / 2.0f;
 }
 
-entt::entity EntityRenderer::PickAt(const entt::registry& registry, float vx, float vy) {
-    const auto& entries = Entries();
+namespace {
+
+// The frontmost of `entries` -- those lying on the ground, or those standing
+// -- whose art is opaque at the point.
+entt::entity PickIn(const entt::registry& registry, const std::vector<RenderEntry>& entries,
+                    float vx, float vy, bool ground) {
     // Back to front as drawn: the last that covers the point is in front.
     for (size_t i = entries.size(); i-- > 0;) {
         const RenderEntry& e = entries[i];
-        if (e.ent == entt::null || e.ghost != 0 || e.atlas == nullptr || e.atlas->opaque.empty()) continue;
+        if (e.ground != ground) continue;
+        if (e.ent == entt::null || e.ghost != 0 || e.atlas == nullptr) continue;
         if (vx < e.dest.x || vy < e.dest.y || vx >= e.dest.x + e.dest.w || vy >= e.dest.y + e.dest.h) continue;
         int fx = static_cast<int>(vx - e.dest.x);
         const int fy = static_cast<int>(vy - e.dest.y);
@@ -397,6 +402,20 @@ entt::entity EntityRenderer::PickAt(const entt::registry& registry, float vx, fl
         }
         if (!registry.all_of<ECS::Components::Selectable>(e.ent)) continue;
         return e.ent;
+    }
+    return entt::null;
+}
+
+} // namespace
+
+entt::entity EntityRenderer::PickAt(const entt::registry& registry, float vx, float vy) {
+    const auto& entries = Entries();
+    // What lies on the ground -- a Farm's field -- is drawn before everything
+    // standing, so anything standing on it is in front of it.
+    for (const bool ground : {false, true}) {
+        if (const entt::entity found = PickIn(registry, entries, vx, vy, ground); found != entt::null) {
+            return found;
+        }
     }
     return entt::null;
 }

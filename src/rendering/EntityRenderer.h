@@ -29,11 +29,9 @@ public:
     static void Flash(const entt::registry& registry, entt::entity target, bool ends_others);
     static void ClearFlashes();
 
-    // The frontmost thing whose art covers the point (vx, vy) of the view, in
-    // the same unzoomed view pixels the frame was gathered in -- a building
-    // (for any of its pieces) or a tree, wherever on it the point falls --
-    // or null. Only art tall enough to keep an opaque mask answers; units
-    // are picked by their distance from the click.
+    // The frontmost selectable thing whose art is opaque at the point (vx, vy)
+    // of the view, in the same unzoomed view pixels the frame was gathered
+    // in -- a unit, a tree, a building for any of its pieces -- or null.
     static entt::entity PickAt(const entt::registry& registry, float vx, float vy);
 
     // How far a building's art stands from its origin tile, in world units:
