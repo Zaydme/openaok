@@ -229,18 +229,6 @@ bool PlanChase(entt::registry& registry, const Physics::Grid& grid, entt::entity
     return true;
 }
 
-void Face(entt::registry& registry, entt::entity self, entt::entity target) {
-    auto* sprite = registry.try_get<Components::Sprite>(self);
-    if (sprite == nullptr || registry.all_of<Components::Building>(self)) return;
-    const auto& a = registry.get<Components::Transform>(self).position;
-    const auto& b = registry.get<Components::Transform>(target).position;
-    const Core::Fixed32 dx = b.x - a.x;
-    const Core::Fixed32 dy = b.y - a.y;
-    if (dx.value != 0 || dy.value != 0) {
-        sprite->facing = Core::FixedMath::WorldVectorToFacing(dx, dy);
-    }
-}
-
 // Starts one attack: the attack animation from its first frame, the blow or
 // the loosing landing on the dat's frame delay into it, and the reload.
 void StartSwing(entt::registry& registry, entt::entity self, Combat& combat,
@@ -316,6 +304,19 @@ bool SpentInBlow(const R::UnitRules& rules) {
 }
 
 } // namespace
+
+void Face(entt::registry& registry, entt::entity self, entt::entity target) {
+    auto* sprite = registry.try_get<Components::Sprite>(self);
+    if (sprite == nullptr || registry.all_of<Components::Building>(self)) return;
+    const auto* from = registry.try_get<Components::Transform>(self);
+    const auto* to = registry.try_get<Components::Transform>(target);
+    if (from == nullptr || to == nullptr) return;
+    const Core::Fixed32 dx = to->position.x - from->position.x;
+    const Core::Fixed32 dy = to->position.y - from->position.y;
+    if (dx.value != 0 || dy.value != 0) {
+        sprite->facing = Core::FixedMath::WorldVectorToFacing(dx, dy);
+    }
+}
 
 // Both by the table the entity plays by: its owner's, or a converted unit's
 // maker's (Components::RulesOf).

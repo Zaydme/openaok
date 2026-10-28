@@ -68,6 +68,9 @@ bool Friendly(const entt::registry& registry, entt::entity a, entt::entity b);
 // building's wall, or between two units' bodies.
 Core::Fixed32 Gap(const entt::registry& registry, entt::entity from, entt::entity to);
 
+// Turns `self` to face `target`; a building keeps its art as it is.
+void Face(entt::registry& registry, entt::entity self, entt::entity target);
+
 // Sets `attacker` on `target`. An ordered target is held until another order;
 // one picked up on its own can be dropped.
 void Engage(entt::registry& registry, entt::entity attacker, entt::entity target,

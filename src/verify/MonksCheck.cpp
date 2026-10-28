@@ -6,6 +6,7 @@
 #include "core/Command.h"
 #include "core/CommandQueue.h"
 #include "core/ConfigManager.h"
+#include "core/FixedMath.h"
 #include "core/Rules.h"
 #include "ecs/Buildings.h"
 #include "ecs/Events.h"
@@ -19,6 +20,7 @@
 #include "ecs/components/Identity.h"
 #include "ecs/components/Monk.h"
 #include "ecs/components/Owner.h"
+#include "ecs/components/Sprite.h"
 #include "ecs/components/Transform.h"
 
 namespace Verify {
@@ -71,7 +73,8 @@ int Population(const entt::registry& reg, Core::PlayerId player) {
 // Monks by the dat's tasks: a conversion that takes at least its task's
 // shortest time and moves the unit's place in the population, faith that must
 // come back before the next, no buildings without Redemption, healing their
-// own, and the news a conversion has begun.
+// own, the news a conversion has begun, and a monk at work looking at whom it
+// converts.
 bool CheckMonks() {
     ECS::Simulation headless;
     headless.Init();
@@ -253,6 +256,23 @@ bool CheckMonks() {
                     verdict = "a fallen carrier did not drop its relic";
                 }
             }
+        }
+    }
+
+    // At work, a monk looks at whom it converts, whichever way that is from
+    // it: here the other way from how a unit comes into the world.
+    if (ok()) {
+        const ECS::Components::Vector2D at = At(x, y + 3);
+        const ECS::Components::Vector2D west{at.x - Core::Fixed32(3), at.y};
+        const entt::entity looker = ECS::Units::Spawn(reg, monk_id, kUs, at);
+        const entt::entity convert = pacified(ECS::Units::Spawn(reg, militia_id, kThem, west));
+        queue.PushCommand(Core::AttackCommand{looker, convert, kUs});
+        run(kTicksPerSecond);
+        const auto want = Core::FixedMath::WorldVectorToFacing(west.x - at.x, west.y - at.y);
+        if (reg.get<ECS::Components::Monk>(looker).target != convert) {
+            verdict = "a monk did not set to converting the enemy beside it";
+        } else if (reg.get<ECS::Components::Sprite>(looker).facing != want) {
+            verdict = "a monk converting does not look at whom it converts";
         }
     }
 

@@ -109,8 +109,8 @@ bool CheckAnimals();
 // Standing orders: patrol, follow and guard. Prints "duties=".
 bool CheckDuties();
 
-// Monks: conversion and its timing, faith, buildings, healing. Prints
-// "monks=".
+// Monks: conversion and its timing, faith, buildings, healing, and facing
+// whom they convert. Prints "monks=".
 bool CheckMonks();
 
 // The land pass of the random map scripts: islands, continents, beaches,

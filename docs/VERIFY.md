@@ -39,7 +39,7 @@ that the script reads.
 | `combat` | Damage, a duel, arrows, towers, stances, formations, hunting, splash damage |
 | `vision` | Fog per player, explored ground, buildings remembered in the fog |
 | `garrison` | Entering and leaving, refusals, garrison arrows, healing, the town bell |
-| `animals`, `duties`, `monks` | Herding, fleeing, grazing; patrol, follow, guard; conversion, healing, relics |
+| `animals`, `duties`, `monks` | Herding, fleeing, grazing; patrol, follow, guard; conversion, facing whom they convert, healing, relics |
 | `maps` | Islands, continents, beaches, cliffs and fish across several map scripts |
 | `script` | The computer players' rule language: reading, rule passes, every original script loading for every civilisation, difficulty and map |
 | `ai`, `pace`, `seven` | Twenty minutes of the computer against itself; each difficulty's pace; seven computer players |

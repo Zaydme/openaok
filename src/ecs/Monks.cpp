@@ -271,6 +271,8 @@ void Update(entt::registry& registry, const Physics::Grid& grid, int32_t dt_ms) 
             continue;
         }
         registry.remove<Components::Path>(monk);
+        // At work, it looks at whom it works on, following it as it moves.
+        Combat::Face(registry, monk, target);
 
         if (!state.converting) {
             // Healing: the Heal task's hit points a second.
