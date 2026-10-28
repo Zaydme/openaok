@@ -37,6 +37,7 @@ PLANNER="$(echo "$OUTPUT" | grep '^planner=')"
 GATHERING="$(echo "$OUTPUT" | grep '^gathering=')"
 DROPOFF="$(echo "$OUTPUT" | grep '^dropoff=')"
 FELLING="$(echo "$OUTPUT" | grep '^felling=')"
+SEQUENCE="$(echo "$OUTPUT" | grep '^sequence=')"
 NOTICES="$(echo "$OUTPUT" | grep '^notices=')"
 FOUNDATIONS="$(echo "$OUTPUT" | grep '^foundations=')"
 FOG="$(echo "$OUTPUT" | grep '^fog=')"
@@ -147,6 +148,16 @@ fi
 
 # A tree felled with a stroke before its wood is cut, then lying as its felled
 # graphic.
+# Graphics run their dat sequences: a standing scout rests between plays of its
+# idle, and a packed trebuchet standing keeps its wheels still.
+if [ "$SEQUENCE" = "sequence=ok" ]; then
+    echo "sequence OK"
+else
+    echo "GRAPHIC SEQUENCES FAILED" >&2
+    echo "  $SEQUENCE" >&2
+    STATUS=1
+fi
+
 if [ "$FELLING" = "felling=ok" ]; then
     echo "felling OK"
 else

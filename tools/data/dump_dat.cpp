@@ -855,6 +855,22 @@ int main(int argc, char** argv) {
         }
     }
 
+    // How each graphic's sequence runs: the pause before it plays again, in
+    // milliseconds, and the dat's sequence flags (1 animated, 2 directional,
+    // 4 randomized, 8 once).
+    std::printf("},\n  \"graphic_sequence\": {");
+    {
+        bool first_sequence = true;
+        for (size_t id = 0; id < dat.Graphics.size(); ++id) {
+            const genie::Graphic& graphic = dat.Graphics[id];
+            if (graphic.SLP < 0) continue;
+            const int replay = static_cast<int>(graphic.ReplayDelay * 1000.0f + 0.5f);
+            if (!first_sequence) std::printf(", ");
+            first_sequence = false;
+            std::printf("\"%zu\": [%d, %u]", id, replay, static_cast<unsigned>(graphic.SequenceType));
+        }
+    }
+
     // Each civ's building graphics: a civ's unit table names its own
     // architecture set.
     std::printf("},\n  \"civ_buildings\": {");

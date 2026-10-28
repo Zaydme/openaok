@@ -180,10 +180,23 @@ void AnimationSystem::Update(entt::registry& registry, int32_t dt_ms) {
         sprite.slp_id = anim.slp[idx];
         sprite.is_file_sprite = true;
         sprite.frames_per_angle = anim.frames[idx];
-        sprite.still = false;
+        // Standing in its walking graphic -- a packed trebuchet has no other
+        // -- it holds that graphic's first frame.
+        const int walk = static_cast<int>(Components::AnimState::Walk);
+        sprite.still = anim.shown == Components::AnimState::Idle && anim.slp[walk] == anim.slp[idx];
         sprite.animation_speed = anim.frame_ms[idx];
         sprite.current_frame = 0;
         sprite.animation_timer = 0;
+        const auto sequence = Core::ConfigManager::Get().GetSequence(anim.graphic[idx]);
+        sprite.replay_ms = sequence.replay_ms;
+        sprite.once = (sequence.flags & Core::ConfigManager::kSequenceOnce) != 0;
+        // A randomized sequence starts after a rest of its own length, so a
+        // crowd standing about does not all move at once.
+        sprite.replay_left = 0;
+        if ((sequence.flags & Core::ConfigManager::kSequenceRandomized) != 0 && sequence.replay_ms > 0) {
+            sprite.replay_left = static_cast<int>(
+                (entt::to_integral(entity) * 2654435761u) % static_cast<uint32_t>(sequence.replay_ms));
+        }
         // A different graphic has a different companion shadow.
         sprite.shadow_resolved = false;
         ResolvePieces(registry, entity, anim.graphic[idx]);
@@ -217,11 +230,30 @@ void AnimationSystem::Update(entt::registry& registry, int32_t dt_ms) {
         if (sprite.construction_frames > 0 || sprite.site_layer) continue;
 
         if (!sprite.still && sprite.frames_per_angle > 1 && sprite.animation_speed > 0) {
+            // Resting between plays, on the first frame.
+            if (sprite.replay_left > 0) {
+                sprite.replay_left -= dt_ms;
+                if (sprite.replay_left > 0) continue;
+                sprite.replay_left = 0;
+                sprite.animation_timer = 0;
+            }
             sprite.animation_timer += dt_ms;
             if (sprite.animation_timer >= sprite.animation_speed) {
-                int frames_to_advance = sprite.animation_timer / sprite.animation_speed;
-                sprite.current_frame = (sprite.current_frame + frames_to_advance) % sprite.frames_per_angle;
+                const int frames_to_advance = sprite.animation_timer / sprite.animation_speed;
                 sprite.animation_timer %= sprite.animation_speed;
+                const int next = sprite.current_frame + frames_to_advance;
+                if (next < sprite.frames_per_angle) {
+                    sprite.current_frame = next;
+                } else if (sprite.once) {
+                    sprite.current_frame = sprite.frames_per_angle - 1;
+                    sprite.still = true;
+                } else if (sprite.replay_ms > 0) {
+                    sprite.current_frame = 0;
+                    sprite.replay_left = sprite.replay_ms;
+                    sprite.animation_timer = 0;
+                } else {
+                    sprite.current_frame = next % sprite.frames_per_angle;
+                }
             }
         }
     }

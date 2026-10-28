@@ -162,7 +162,11 @@ public:
             }
         }
         for (auto it = j["graphics"].begin(); it != j["graphics"].end(); ++it) {
-            frame_ms[std::stoi(it.key())] = it.value().value("frame_ms", 0);
+            const int id = std::stoi(it.key());
+            frame_ms[id] = it.value().value("frame_ms", 0);
+            const int replay = it.value().value("replay_ms", 0);
+            const int sequence = it.value().value("sequence", 0);
+            if (replay > 0 || sequence != 0) sequences[id] = {replay, sequence};
         }
         std::cout << "[ConfigManager] Loaded " << attack_graphic.size()
                   << " attack graphics, " << frame_ms.size()
@@ -196,6 +200,19 @@ public:
         const int thousandths = static_cast<int>(scaled >= 0.0 ? scaled + 0.5
                                                                : scaled - 0.5);
         return Fixed32(thousandths) / Fixed32(1000);
+    }
+
+    // How a graphic's sequence runs: the pause before it plays again, in
+    // milliseconds, and the dat's sequence flags (kSequence*).
+    struct Sequence {
+        int replay_ms = 0;
+        int flags = 0;
+    };
+    static constexpr int kSequenceRandomized = 0x4;
+    static constexpr int kSequenceOnce = 0x8;
+    Sequence GetSequence(int graphic_id) const {
+        auto it = sequences.find(graphic_id);
+        return it == sequences.end() ? Sequence{} : it->second;
     }
 
     // How long one frame of a graphic lasts, or `fallback` if unknown.
@@ -1023,6 +1040,7 @@ public:
     std::unordered_map<int, int> carry_graphic;
     std::unordered_map<int, Fixed32> work_range;
     std::unordered_map<int, int> frame_ms;
+    std::unordered_map<int, Sequence> sequences;
     // dat name -> json key, so lookups are not a linear scan of 720 units.
     std::unordered_map<std::string, std::string> unit_by_name;
     std::unordered_map<std::string, std::string> graphic_by_name;

@@ -44,6 +44,12 @@ struct Sprite {
     bool still = false;
     int animation_speed = 100; // ms per frame
     int animation_timer = 0;
+    // The graphic's sequence: how long it rests on its first frame between
+    // one play and the next, and how long it has still to rest; and whether
+    // it plays only once, resting on its last frame.
+    int replay_ms = 0;
+    int replay_left = 0;
+    bool once = false;
 
     Core::Direction facing = Core::Direction::South;
 

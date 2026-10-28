@@ -37,6 +37,10 @@ bool CheckGathering();
 // "dropoff=".
 bool CheckDropoff();
 
+// Graphics run their dat sequences: a standing scout rests between plays of
+// its idle, and a packed trebuchet standing keeps its wheels still.
+bool CheckSequence();
+
 // A lumberjack sent at a standing tree: the felling stroke with no wood cut,
 // then the tree lying as its felled graphic, then wood cut from it.
 // Prints "felling=".

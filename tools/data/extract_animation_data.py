@@ -13,7 +13,11 @@ Output:
                                   "work":   <graphic_id>,
                                   "carry":  <graphic_id>,
                                   "work_range": <float, tiles>}},
-       "graphics": {"<graphic_id>": {"frame_ms": <int>}}}
+       "graphics": {"<graphic_id>": {"frame_ms": <int>,
+                                     "replay_ms": <int>, "sequence": <int>}}}
+
+A graphic's replay_ms is the pause before it plays again and its sequence the
+dat's flags (1 animated, 2 directional, 4 randomized, 8 once).
 
 Usage:  python3 tools/data/extract_animation_data.py
 """
@@ -80,6 +84,12 @@ def main():
             continue
         graphic_out[gid] = {'frame_ms': ms}
         durations.append(ms)
+    for gid, (replay, sequence) in dat.get('graphic_sequence', {}).items():
+        if gid not in graphics or (replay <= 0 and sequence == 0):
+            continue
+        entry = graphic_out.setdefault(gid, {})
+        entry['replay_ms'] = replay
+        entry['sequence'] = sequence
 
     with open(OUT, 'w') as fh:
         json.dump({'units': unit_out, 'graphics': graphic_out}, fh,
