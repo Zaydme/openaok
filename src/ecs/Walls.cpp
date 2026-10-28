@@ -112,7 +112,7 @@ Components::Sprite PieceSprite(const Layer& l, int piece, int bias) {
     sprite.width = 0;
     sprite.height = 0;
     sprite.is_file_sprite = true;
-    sprite.facing = static_cast<Core::Direction>(std::clamp(piece, 0, 4));
+    sprite.heading = Core::FixedMath::HeadingOf(static_cast<Core::Direction>(std::clamp(piece, 0, 4)));
     sprite.frames_per_angle = l.frames;
     sprite.animation_speed = l.frame_ms;
     sprite.sort_bias = bias;

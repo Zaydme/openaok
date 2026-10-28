@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include "core/FixedPoint.h"
 #include "core/Types.h"
 
@@ -87,45 +88,70 @@ public:
         return {nx, ny};
     }
 
-    // The 8-way facing of a world movement vector. The sprite angles are
-    // evenly spaced on screen, and +x in world space runs down-right on screen
-    // (south-east), so the vector is rotated 45 degrees before classifying.
-    static Direction WorldVectorToFacing(Fixed32 dx, Fixed32 dy) {
-        return VectorToDirection(dx - dy, dx + dy);
+    // The way a world vector points, in 256ths of a turn: 0 along the world's
+    // (1, 1), which a unit facing South walks, going round the way the facings
+    // do (South, South-West along the world's (0, 1), West, ...). Each value
+    // covers the arc from itself to the next, so any number of facings that
+    // divides 256 has whole values for its boundaries.
+    static uint8_t WorldVectorToHeading(Fixed32 dx, Fixed32 dy) {
+        // Turned an eighth, so 0 lies along u.
+        __int128 u = static_cast<__int128>(dx.value) + dy.value;
+        __int128 v = static_cast<__int128>(dy.value) - dx.value;
+        if (u == 0 && v == 0) return 0;
+        // Turned back a quarter at a time into [0, 64): turning, unlike
+        // mirroring, keeps each arc's lower end its own.
+        int base = 0;
+        while (!(u > 0 && v >= 0)) {
+            const __int128 t = u;
+            u = v;
+            v = -t;
+            base += 64;
+        }
+        // Past the eighth, back by an eighth more.
+        if (v > u) {
+            const __int128 t = u;
+            u = t + v;
+            v = v - t;
+            base += 32;
+        }
+        // The 256ths whose tangent the angle has reached.
+        int steps = 0;
+        while (steps < 32 && (v << 32) >= u * kTan[steps]) ++steps;
+        return static_cast<uint8_t>((base + steps) & 0xFF);
     }
 
-    static Direction VectorToDirection(Fixed32 dx, Fixed32 dy) {
-        Fixed32 adx = Abs(dx);
-        Fixed32 ady = Abs(dy);
-        
-        bool right = dx.value > 0;
-        bool down  = dy.value > 0;
-        
-        // Cardinal when one axis is more than tan(67.5 degrees) ~ 2.41 times
-        // the other: adx * 100 > ady * 241.
-        
-        Fixed32 threshold_x = adx * Fixed32(100);
-        Fixed32 threshold_y = ady * Fixed32(241);
-        
-        if (threshold_x > threshold_y) {
-            // Primarily horizontal
-            return right ? Direction::East : Direction::West;
-        }
-        
-        Fixed32 threshold_y2 = ady * Fixed32(100);
-        Fixed32 threshold_x2 = adx * Fixed32(241);
-        
-        if (threshold_y2 > threshold_x2) {
-            // Primarily vertical
-            return down ? Direction::South : Direction::North;
-        }
-        
-        // Diagonal
-        if (right && down)  return Direction::SouthEast;
-        if (!right && down) return Direction::SouthWest;
-        if (right && !down) return Direction::NorthEast;
-        return Direction::NorthWest;
+    // The nearest of `angles` facings evenly round a turn, the first at
+    // heading 0: of eight, a Direction.
+    static int Facet(uint8_t heading, int angles) {
+        if (angles <= 1) return 0;
+        return ((static_cast<int>(heading) * angles + 128) / 256) % angles;
     }
+
+    static uint8_t HeadingOf(Direction facing) {
+        return static_cast<uint8_t>(static_cast<int>(facing) * 32);
+    }
+
+    static Direction FacingOf(uint8_t heading) {
+        return static_cast<Direction>(Facet(heading, 8));
+    }
+
+    // The 8-way facing of a world movement vector.
+    static Direction WorldVectorToFacing(Fixed32 dx, Fixed32 dy) {
+        return FacingOf(WorldVectorToHeading(dx, dy));
+    }
+
+private:
+    // tan(k * pi / 128) for k = 1..32, in 32.32.
+    static constexpr int64_t kTan[32] = {
+        105435529, 210998213, 316815821, 423017356,
+        529733691, 637098215, 745247522, 854322113,
+        964467159, 1075833302, 1188577525, 1302864085,
+        1418865542, 1536763871, 1656751707, 1779033704,
+        1903828065, 2031368245, 2161904859, 2295707848,
+        2433068920, 2574304328, 2719758045, 2869805398,
+        3024857252, 3185364841, 3351825376, 3524788567,
+        3704864268, 3892731450, 4089148798, 4294967296,
+    };
 };
 
 } // namespace Core

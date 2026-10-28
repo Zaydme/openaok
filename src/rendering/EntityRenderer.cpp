@@ -1,4 +1,5 @@
 #include "EntityRenderer.h"
+#include "core/FixedMath.h"
 #include "Renderer.h"
 #include "Ground.h"
 #include "UIRenderer.h"
@@ -598,7 +599,7 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
                 // Of n facings the first n/2 + 1 are stored, clockwise from
                 // south, and the rest mirror them.
                 const int n = std::max(1, piece.angles);
-                int angle = static_cast<int>(sprite.facing) * n / 8;
+                int angle = Core::FixedMath::Facet(sprite.heading, n);
                 bool flip = false;
                 if (n > 1 && angle > n / 2) {
                     flip = true;
@@ -639,16 +640,17 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
             return;
         }
 
-        // Pick the frame. AoE2 stores 5 of the 8 facings and mirrors the rest.
+        // Pick the frame: the nearest of the graphic's angles, of which the
+        // first half and one more are stored and the rest mirror them -- of
+        // eight, North-East, East and South-East mirror North-West, West and
+        // South-West.
         if (sprite.is_file_sprite) {
-            int angle_index = static_cast<int>(sprite.facing);
+            const int n = std::max(1, sprite.angles);
+            int angle_index = Core::FixedMath::Facet(sprite.heading, n);
             sprite.flip_h = false;
-            // Directions NE(5), E(6), SE(7) mirror NW(3), W(2), SW(1)
-            if (angle_index >= 5) {
+            if (n > 1 && angle_index > n / 2) {
                 sprite.flip_h = true;
-                if (angle_index == 5) angle_index = 3;      // NE -> NW
-                else if (angle_index == 6) angle_index = 2;  // E -> W
-                else if (angle_index == 7) angle_index = 1;  // SE -> SW
+                angle_index = n - angle_index;
             }
             sprite.slp_frame = angle_index * sprite.frames_per_angle + sprite.current_frame;
         }

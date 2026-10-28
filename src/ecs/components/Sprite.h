@@ -51,7 +51,10 @@ struct Sprite {
     int replay_left = 0;
     bool once = false;
 
-    Core::Direction facing = Core::Direction::South;
+    // The way it faces, in 256ths of a turn from South
+    // (Core::FixedMath::WorldVectorToHeading); the graphic shows the nearest
+    // of its own angles.
+    uint8_t heading = 0;
 
     // How far above its ground position the graphic is drawn, in screen
     // pixels: a missile in flight. Its ground track is what the simulation
@@ -78,8 +81,11 @@ struct Sprite {
     bool site_layer = false;
 
     // Multi-frame graphics pick a frame from facing plus animation step; static
-    // ones just use slp_frame as given.
+    // ones just use slp_frame as given. Of a graphic's `angles` the first
+    // half and one more are stored, clockwise from South, and the rest are
+    // their mirrors: of eight, five.
     int frames_per_angle = 1;    // e.g. 15 for a villager's walk cycle
+    int angles = 8;              // the dat's angle count: 8, or 16 for a ship
     bool is_file_sprite = false; // true = frame is chosen from facing/animation
     bool flip_h = false;         // true when facing NE/E/SE (mirrored)
 };

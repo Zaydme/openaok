@@ -120,7 +120,7 @@ void CompleteAll(ECS::Simulation& sim, const std::vector<entt::entity>& sites) {
 // sprite at the angle its facing names.
 int ShownPiece(const entt::registry& reg, entt::entity wall) {
     const auto* sprite = reg.try_get<ECS::Components::Sprite>(wall);
-    return sprite != nullptr ? static_cast<int>(sprite->facing) : -1;
+    return sprite != nullptr ? static_cast<int>(Core::FixedMath::FacingOf(sprite->heading)) : -1;
 }
 
 int Stock(const entt::registry& reg, Core::PlayerId p, Core::ResourceType type) {

@@ -68,11 +68,12 @@ void LayDown(entt::registry& registry, entt::entity dead) {
     sprite.slp_id = art.slp_id;
     sprite.is_file_sprite = true;
     sprite.frames_per_angle = std::max(1, art.frame_count);
+    sprite.angles = std::max(1, art.angle_count);
     sprite.still = true;   // lies still, facing the way it fell
     sprite.width = 0;
     sprite.height = 0;
     if (const auto* fell = registry.try_get<Components::Sprite>(dead)) {
-        sprite.facing = fell->facing;
+        sprite.heading = fell->heading;
     }
     registry.emplace<Components::Sprite>(body, sprite);
     registry.emplace<Components::Owner>(body, owner);

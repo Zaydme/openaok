@@ -5,6 +5,7 @@
 #include "core/Types.h"
 #include "core/RMSParser.h"
 #include "core/ConfigManager.h"
+#include "core/FixedMath.h"
 #include "../ecs/components/Transform.h"
 #include "../ecs/components/Sprite.h"
 #include "../ecs/components/Resource.h"
@@ -295,11 +296,13 @@ void PlaceObjectArt(entt::registry& registry, entt::entity entity,
             static_cast<uint32_t>(art.frame_count)));
         // A graphic of one angle, a flag's, has no facings to turn through.
         const auto facing = static_cast<Direction>(rng.NextInt(8));
-        sprite.facing = art.angle_count > 1 ? facing : Direction::South;
+        sprite.heading = art.angle_count > 1 ? FixedMath::HeadingOf(facing) : 0;
+        sprite.angles = std::max(1, art.angle_count);
 
         ECS::Components::Animation anim{};
         anim.slp[static_cast<int>(ECS::Components::AnimState::Idle)] = art.slp_id;
         anim.frames[static_cast<int>(ECS::Components::AnimState::Idle)] = art.frame_count;
+        anim.angles[static_cast<int>(ECS::Components::AnimState::Idle)] = std::max(1, art.angle_count);
         anim.frame_ms[static_cast<int>(ECS::Components::AnimState::Idle)] =
             sprite.animation_speed;
         anim.job = ECS::Components::VillagerJob::None;
@@ -313,6 +316,7 @@ void PlaceObjectArt(entt::registry& registry, entt::entity entity,
             if (anim.slp[idle] < 0) {
                 anim.slp[idle] = art.slp_id;
                 anim.frames[idle] = art.frame_count;
+                anim.angles[idle] = std::max(1, art.angle_count);
             }
         }
         registry.emplace<ECS::Components::Animation>(entity, anim);

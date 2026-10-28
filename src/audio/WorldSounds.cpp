@@ -1,4 +1,5 @@
 #include "audio/WorldSounds.h"
+#include "core/FixedMath.h"
 
 #include <unordered_map>
 
@@ -44,12 +45,12 @@ void Sound(int sound_id, int civ, const Placement& placement) {
 
 // Every frame sound in (from, to], stepping forward round a looping cycle of
 // `frames`.
-void FrameSounds(int graphic, int facing, int from, int to, int frames, int civ,
+void FrameSounds(int graphic, uint8_t heading, int from, int to, int frames, int civ,
                  const Placement& placement) {
     const auto& angles = Core::Media::FrameSounds(graphic);
     if (angles.empty() || frames <= 0) return;
     const Core::Media::AngleSounds& angle =
-        angles[static_cast<size_t>(facing) % angles.size()];
+        angles[static_cast<size_t>(Core::FixedMath::Facet(heading, static_cast<int>(angles.size())))];
     // Frames passed since last seen, at most one whole cycle.
     int steps = (to - from + frames) % frames;
     for (int s = 1; s <= steps; ++s) {
@@ -95,10 +96,10 @@ void Update(const entt::registry& registry, const Listener& listener,
             // current one carry.
             const int start = Core::Media::GraphicSound(now.graphic);
             if (start >= 0) Sound(start, civ, placement);
-            FrameSounds(now.graphic, static_cast<int>(sprite.facing), -1, now.frame,
+            FrameSounds(now.graphic, sprite.heading, -1, now.frame,
                         sprite.frames_per_angle, civ, placement);
         } else if (before->second.frame != now.frame) {
-            FrameSounds(now.graphic, static_cast<int>(sprite.facing), before->second.frame,
+            FrameSounds(now.graphic, sprite.heading, before->second.frame,
                         now.frame, sprite.frames_per_angle, civ, placement);
         }
     }

@@ -271,7 +271,7 @@ bool CheckMonks() {
         const auto want = Core::FixedMath::WorldVectorToFacing(west.x - at.x, west.y - at.y);
         if (reg.get<ECS::Components::Monk>(looker).target != convert) {
             verdict = "a monk did not set to converting the enemy beside it";
-        } else if (reg.get<ECS::Components::Sprite>(looker).facing != want) {
+        } else if (Core::FixedMath::FacingOf(reg.get<ECS::Components::Sprite>(looker).heading) != want) {
             verdict = "a monk converting does not look at whom it converts";
         }
     }

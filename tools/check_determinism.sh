@@ -39,6 +39,7 @@ DROPOFF="$(echo "$OUTPUT" | grep '^dropoff=')"
 FELLING="$(echo "$OUTPUT" | grep '^felling=')"
 SEQUENCE="$(echo "$OUTPUT" | grep '^sequence=')"
 COLLAPSE="$(echo "$OUTPUT" | grep '^collapse=')"
+SHIPANGLES="$(echo "$OUTPUT" | grep '^shipangles=')"
 NOTICES="$(echo "$OUTPUT" | grep '^notices=')"
 FOUNDATIONS="$(echo "$OUTPUT" | grep '^foundations=')"
 FOG="$(echo "$OUTPUT" | grep '^fog=')"
@@ -165,6 +166,15 @@ if [ "$COLLAPSE" = "collapse=ok" ]; then
 else
     echo "BUILDING COLLAPSE FAILED" >&2
     echo "  $COLLAPSE" >&2
+    STATUS=1
+fi
+
+# A ship shows the nearest of its graphic's sixteen angles, a soldier of eight.
+if [ "$SHIPANGLES" = "shipangles=ok" ]; then
+    echo "shipangles OK"
+else
+    echo "SHIP ANGLES FAILED" >&2
+    echo "  $SHIPANGLES" >&2
     STATUS=1
 fi
 

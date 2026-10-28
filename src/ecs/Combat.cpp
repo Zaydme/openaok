@@ -314,7 +314,7 @@ void Face(entt::registry& registry, entt::entity self, entt::entity target) {
     const Core::Fixed32 dx = to->position.x - from->position.x;
     const Core::Fixed32 dy = to->position.y - from->position.y;
     if (dx.value != 0 || dy.value != 0) {
-        sprite->facing = Core::FixedMath::WorldVectorToFacing(dx, dy);
+        sprite->heading = Core::FixedMath::WorldVectorToHeading(dx, dy);
     }
 }
 

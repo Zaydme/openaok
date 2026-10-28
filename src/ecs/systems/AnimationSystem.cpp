@@ -70,6 +70,7 @@ void AnimationSystem::LoadSet(Components::Animation& anim,
         anim.graphic[a] = gfx.slp_id >= 0 ? gfx.graphic_id : -1;
         anim.slp[a] = gfx.slp_id;
         anim.frames[a] = gfx.frame_count;
+        anim.angles[a] = std::max(1, gfx.angle_count);
         anim.frame_ms[a] = cfg.GetFrameMs(gfx.graphic_id, 80);
     }
 }
@@ -180,6 +181,7 @@ void AnimationSystem::Update(entt::registry& registry, int32_t dt_ms) {
         sprite.slp_id = anim.slp[idx];
         sprite.is_file_sprite = true;
         sprite.frames_per_angle = anim.frames[idx];
+        sprite.angles = anim.angles[idx];
         // Standing in its walking graphic -- a packed trebuchet has no other
         // -- it holds that graphic's first frame.
         const int walk = static_cast<int>(Components::AnimState::Walk);

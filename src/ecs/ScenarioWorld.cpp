@@ -104,17 +104,16 @@ bool Worth(int unit_id, Core::ResourceType& type, int& amount) {
     return false;
 }
 
-// The facing nearest the file's rotation: radians from the file's x axis
-// toward its y, an eighth of a turn at a time, seen as a unit walking that way
-// would be seen -- the way turned onto the grid as the file is (a step along
-// the file's x is one along the grid's -y, along its y one along the grid's x).
-Core::Direction FacingOf(Core::Fixed32 rotation) {
-    const Core::Fixed32 eighth = Core::Fixed32(785398) / Core::Fixed32(1000000);
-    int k = ((rotation + eighth / Core::Fixed32(2)) / eighth).ToInt();
-    k = ((k % 8) + 8) % 8;
-    static const int kX[8] = {1, 1, 0, -1, -1, -1, 0, 1};
-    static const int kY[8] = {0, 1, 1, 1, 0, -1, -1, -1};
-    return Core::FixedMath::WorldVectorToFacing(Core::Fixed32(kY[k]), Core::Fixed32(-kX[k]));
+// The heading of the file's rotation: radians from the file's x axis toward
+// its y, seen as a unit walking that way would be seen -- the way turned onto
+// the grid as the file is (a step along the file's x is one along the grid's
+// -y, along its y one along the grid's x), so the file's 0 is a heading of
+// three eighths of a turn short of a whole one.
+uint8_t HeadingOf(Core::Fixed32 rotation) {
+    const Core::Fixed32 pi = Core::Fixed32(3141593) / Core::Fixed32(1000000);
+    const Core::Fixed32 steps = rotation * Core::Fixed32(128) / pi;
+    const int whole = (steps.value >> 32) - 96;
+    return static_cast<uint8_t>(((whole % 256) + 256) % 256);
 }
 
 // A cliff piece as the editor left it: the cliff unit drawing piece `frame`,
@@ -175,7 +174,7 @@ entt::entity PlaceObject(entt::registry& registry, Physics::Grid& grid, int unit
             if (!art.Animated()) {
                 sprite->slp_frame = frame % std::max(1, art.angle_count);
             } else if (art.angle_count > 1) {
-                sprite->facing = FacingOf(rotation);
+                sprite->heading = HeadingOf(rotation);
             }
         }
     } else {
@@ -276,7 +275,7 @@ entt::entity Place(entt::registry& registry, Physics::Grid& grid, int unit_id,
         !(owner == Core::PLAYER_GAIA && Wild(rules->cls))) {
         const entt::entity unit = Units::Spawn(registry, unit_id, owner, at);
         if (unit != entt::null) {
-            if (auto* sprite = registry.try_get<C::Sprite>(unit)) sprite->facing = FacingOf(rotation);
+            if (auto* sprite = registry.try_get<C::Sprite>(unit)) sprite->heading = HeadingOf(rotation);
         }
         MayBeTaken(registry, unit, unit_id, owner);
         return unit;

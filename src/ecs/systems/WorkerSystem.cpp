@@ -589,7 +589,7 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                     const Core::Fixed32 fx = at.position.x - transform.position.x;
                     const Core::Fixed32 fy = at.position.y - transform.position.y;
                     if (fx.value != 0 || fy.value != 0) {
-                        look->facing = Core::FixedMath::WorldVectorToFacing(fx, fy);
+                        look->heading = Core::FixedMath::WorldVectorToHeading(fx, fy);
                     }
                 }
 
@@ -918,7 +918,7 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                     const Core::Fixed32 fx = site.position.x - transform.position.x;
                     const Core::Fixed32 fy = site.position.y - transform.position.y;
                     if (fx.value != 0 || fy.value != 0) {
-                        look->facing = Core::FixedMath::WorldVectorToFacing(fx, fy);
+                        look->heading = Core::FixedMath::WorldVectorToHeading(fx, fy);
                     }
                 }
 
@@ -1024,7 +1024,7 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                     const Core::Fixed32 fx = there.x - transform.position.x;
                     const Core::Fixed32 fy = there.y - transform.position.y;
                     if (fx.value != 0 || fy.value != 0) {
-                        look->facing = Core::FixedMath::WorldVectorToFacing(fx, fy);
+                        look->heading = Core::FixedMath::WorldVectorToHeading(fx, fy);
                     }
                 }
                 // This repairer's share of the crew's pace, a fraction of a

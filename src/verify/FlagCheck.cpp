@@ -1,4 +1,5 @@
 #include "verify/Harness.h"
+#include "core/FixedMath.h"
 
 #include <cstdio>
 #include <string>
@@ -46,11 +47,12 @@ bool Unexplored(const ECS::Simulation& sim, int half, int& out_x, int& out_y) {
     return false;
 }
 
-// The frame the renderer draws a file sprite with: five facings stored, the
-// other three their mirrors.
+// The frame the renderer draws a file sprite with: the first half and one
+// more of its angles stored, the rest their mirrors.
 int DrawnFrame(const ECS::Components::Sprite& sprite) {
-    int angle = static_cast<int>(sprite.facing);
-    if (angle >= 5) angle = 8 - angle;
+    const int n = std::max(1, sprite.angles);
+    int angle = Core::FixedMath::Facet(sprite.heading, n);
+    if (n > 1 && angle > n / 2) angle = n - angle;
     return angle * sprite.frames_per_angle + sprite.current_frame;
 }
 

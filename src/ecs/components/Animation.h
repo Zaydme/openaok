@@ -33,11 +33,12 @@ enum class VillagerJob : uint8_t {
 
 struct Animation {
     // Parallel arrays indexed by AnimState: the dat graphic, its SLP, its
-    // frames per angle, and how long one frame lasts. The graphic id is what
+    // frames per angle, its angles, and how long one frame lasts. The graphic id is what
     // the dat hangs a graphic's sounds on.
     int graphic[static_cast<int>(AnimState::COUNT)] = {-1, -1, -1, -1, -1, -1};
     int slp[static_cast<int>(AnimState::COUNT)] = {-1, -1, -1, -1, -1, -1};
     int frames[static_cast<int>(AnimState::COUNT)] = {0, 0, 0, 0, 0, 0};
+    int angles[static_cast<int>(AnimState::COUNT)] = {8, 8, 8, 8, 8, 8};
     int frame_ms[static_cast<int>(AnimState::COUNT)] = {80, 80, 80, 80, 80, 80};
 
     AnimState state = AnimState::Idle;

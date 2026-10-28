@@ -4,6 +4,7 @@
 #include <string>
 
 #include "core/ConfigManager.h"
+#include "core/FixedMath.h"
 #include "core/Rules.h"
 #include "ecs/Players.h"
 #include "ecs/Score.h"
@@ -44,7 +45,7 @@ entt::entity Spawn(entt::registry& registry, int unit_id, Core::PlayerId player,
 
     auto& sprite = registry.emplace<Components::Sprite>(unit);
     sprite.is_file_sprite = true;
-    sprite.facing = Core::Direction::SouthEast;
+    sprite.heading = Core::FixedMath::HeadingOf(Core::Direction::SouthEast);
     sprite.width = 0;   // read off the graphic on first draw
     sprite.height = 0;
 

@@ -105,7 +105,7 @@ void LooseOne(entt::registry& registry, entt::entity shooter, entt::entity targe
         sprite.color = 0xFF3A2A10;
     }
     if (flight.length.value > 0) {
-        sprite.facing = Core::FixedMath::WorldVectorToFacing(to.x - from.x, to.y - from.y);
+        sprite.heading = Core::FixedMath::WorldVectorToHeading(to.x - from.x, to.y - from.y);
     }
     registry.emplace<Components::Sprite>(arrow, sprite);
     registry.emplace<Components::Projectile>(arrow, flight);

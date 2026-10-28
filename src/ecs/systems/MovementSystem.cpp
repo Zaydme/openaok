@@ -362,8 +362,8 @@ void MovementSystem::Update(entt::registry& registry, const Physics::Grid& grid,
         // and in screen terms -- otherwise the animation angle disagrees with
         // the direction of motion.
         if (velocity.x.value != 0 || velocity.y.value != 0) {
-            sprite.facing =
-                Core::FixedMath::WorldVectorToFacing(velocity.x, velocity.y);
+            sprite.heading =
+                Core::FixedMath::WorldVectorToHeading(velocity.x, velocity.y);
         }
 
         // Progress is getting closer to the waypoint. A new waypoint starts a
