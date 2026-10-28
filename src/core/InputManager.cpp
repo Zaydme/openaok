@@ -1363,7 +1363,17 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
                 auto& t = res_view.get<ECS::Components::Transform>(r);
                 const float dx = click_x - t.position.x.ToFloat();
                 const float dy = click_y - t.position.y.ToFloat();
-                const float d2 = dx * dx + dy * dy;
+                float d2 = dx * dx + dy * dy;
+                // A Farm is under the click anywhere on its field, as far as
+                // anything right at the cursor goes.
+                if (on_minimap) continue;
+                if (const auto* id = registry.try_get<ECS::Components::Identity>(r);
+                    id != nullptr && registry.all_of<ECS::Components::Building>(r) &&
+                    ECS::Buildings::FootprintBounds(t.position, id->unit_id)
+                            .DistanceFrom({Fixed32(click_x), Fixed32(click_y)})
+                            .value == 0) {
+                    d2 = std::min(d2, pick_reach);
+                }
                 if (d2 <= nearest_res) { nearest_res = d2; target_res = r; }
             }
 
