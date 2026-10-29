@@ -1015,22 +1015,22 @@ void InputManager::RunCommand(ECS::Simulation& sim, const Rendering::UIRenderer:
         }
         break;
     }
-    case Rendering::UIRenderer::Action::Ungarrison:
     case Rendering::UIRenderer::Action::Treason: {
         const entt::entity castle = Rendering::UIRenderer::SelectedBuilding(sim);
         if (castle != entt::null) CommandQueue::Get().PushCommand(TreasonCommand{castle, Core::LocalPlayer()});
         break;
     }
+    case Rendering::UIRenderer::Action::Ungarrison: {
+        const entt::entity building = Rendering::UIRenderer::SelectedBuilding(sim);
+        if (building != entt::null) {
+            CommandQueue::Get().PushCommand(UngarrisonCommand{building, Core::LocalPlayer()});
+        }
+        break;
+    }
     case Rendering::UIRenderer::Action::TownBell: {
-        const entt::entity building =
-            Rendering::UIRenderer::SelectedBuilding(sim);
-        if (building == entt::null) break;
-        if (cmd.kind == Rendering::UIRenderer::CommandKind::Ungarrison) {
-            CommandQueue::Get().PushCommand(
-                UngarrisonCommand{building, Core::LocalPlayer()});
-        } else {
-            CommandQueue::Get().PushCommand(
-                TownBellCommand{building, Core::LocalPlayer()});
+        const entt::entity building = Rendering::UIRenderer::SelectedBuilding(sim);
+        if (building != entt::null) {
+            CommandQueue::Get().PushCommand(TownBellCommand{building, Core::LocalPlayer()});
         }
         break;
     }
