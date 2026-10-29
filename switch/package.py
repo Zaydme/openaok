@@ -10,6 +10,7 @@ It prepares the game's data as build.sh does, and writes
   DIR/switch/openaok/game/            the game's data, laid out as the source tree is
   DIR/switch/openaok/game/manifest.txt  every data file's checksum, size and path,
                                       which the game checks on its first start
+                                      (tools/data/package_data.py)
 
 DIR is build-switch/sd by default; give the SD card's own folder to write
 straight to it. Files already there and unchanged are left alone, and what the
@@ -19,101 +20,12 @@ Everything it writes holds your copy of the game: keep it to your own console.
 """
 import argparse
 import os
-import shutil
-import subprocess
 import sys
-import zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-
-# What the engine reads, from where the source tree keeps it.
-ASSETS = ['extracted_data', 'original', 'sprites/terrain/blendmasks.png']
-CD = ['SYSTEM/FONTS', 'GOODIES', 'GAME/AVI', 'GAME/SOUND', 'GAME/CAMPAIGN']
-
-# Arial, which the CD does not carry: the computer's own, or Liberation Sans,
-# which has Arial's metrics.
-ARIAL = [
-    ('/System/Library/Fonts/Supplemental/Arial.ttf', '/System/Library/Fonts/Supplemental/Arial Bold.ttf'),
-    ('/Library/Fonts/Arial.ttf', '/Library/Fonts/Arial Bold.ttf'),
-    ('C:/Windows/Fonts/arial.ttf', 'C:/Windows/Fonts/arialbd.ttf'),
-    ('/usr/share/fonts/truetype/msttcorefonts/Arial.ttf', '/usr/share/fonts/truetype/msttcorefonts/Arial_Bold.ttf'),
-    ('/usr/share/fonts/truetype/msttcorefonts/arial.ttf', '/usr/share/fonts/truetype/msttcorefonts/arialbd.ttf'),
-    ('/usr/share/fonts/TTF/arial.ttf', '/usr/share/fonts/TTF/arialbd.ttf'),
-    ('/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
-     '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf'),
-    ('/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf',
-     '/usr/share/fonts/liberation-sans/LiberationSans-Bold.ttf'),
-]
-
-copied = 0
-kept = 0
-size = 0
-written = []   # (destination, source) of every file
-
-
-def copy(src, dst):
-    """Copies one file unless an identical one is there. FAT keeps a file's
-    time to two seconds."""
-    global copied, kept, size
-    info = os.stat(src)
-    size += info.st_size
-    written.append((dst, src))
-    if os.path.exists(dst):
-        there = os.stat(dst)
-        if there.st_size == info.st_size and abs(there.st_mtime - info.st_mtime) <= 2:
-            kept += 1
-            return
-    os.makedirs(os.path.dirname(dst), exist_ok=True)
-    shutil.copyfile(src, dst)
-    os.utime(dst, (info.st_atime, info.st_mtime))
-    copied += 1
-
-
-def copy_tree(src, dst):
-    if os.path.isfile(src):
-        copy(src, dst)
-        return
-    for folder, _, files in os.walk(src):
-        for name in files:
-            if name == '.DS_Store' or name.startswith('._'):
-                continue
-            path = os.path.join(folder, name)
-            copy(path, os.path.join(dst, os.path.relpath(path, src)))
-
-
-def checksum(path):
-    crc = 0
-    with open(path, 'rb') as f:
-        for block in iter(lambda: f.read(1 << 20), b''):
-            crc = zlib.crc32(block, crc)
-    return crc & 0xffffffff
-
-
-def write_manifest(game):
-    """One line per data file: its CRC-32, its size and its path under game/."""
-    lines = []
-    for dst, src in written:
-        rel = os.path.relpath(dst, game)
-        if rel.startswith('..'):
-            continue
-        lines.append('%08x %d %s' % (checksum(src), os.path.getsize(src), rel.replace(os.sep, '/')))
-    with open(os.path.join(game, 'manifest.txt'), 'w') as f:
-        f.write('\n'.join(sorted(lines, key=lambda line: line.split(' ', 2)[2])) + '\n')
-
-
-def remove_apple_double(folder):
-    """macOS keeps files' extended attributes on a FAT card as a ._ file beside
-    each one, which the Switch has no use for."""
-    if sys.platform != 'darwin':
-        return
-    beside = os.path.join(os.path.dirname(folder), '._' + os.path.basename(folder))
-    if os.path.isfile(beside):
-        os.remove(beside)
-    for parent, _, files in os.walk(folder):
-        for name in files:
-            if name.startswith('._'):
-                os.remove(os.path.join(parent, name))
+sys.path.insert(0, os.path.join(ROOT, 'tools', 'data'))
+import package_data  # noqa: E402
 
 
 def main():
@@ -124,35 +36,17 @@ def main():
                         help='where to write switch/openaok/: the SD card, or a folder to copy to it')
     args = parser.parse_args()
 
-    if subprocess.call([sys.executable, os.path.join(ROOT, 'tools', 'data', 'prepare_data.py')]) != 0:
-        sys.exit(1)
-
+    package_data.prepare()
     folder = os.path.join(args.out, 'switch', 'openaok')
-    game = os.path.join(folder, 'game')
-    for item in ASSETS:
-        copy_tree(os.path.join(ROOT, 'assets', item), os.path.join(game, 'assets', item))
-    for item in CD:
-        src = os.path.join(ROOT, 'original_game_1999', item)
-        if os.path.exists(src):
-            copy_tree(src, os.path.join(game, 'original_game_1999', item))
-    arial = next((pair for pair in ARIAL if all(os.path.exists(p) for p in pair)), None)
-    if arial is not None:
-        copy(arial[0], os.path.join(game, 'fonts', 'Arial.ttf'))
-        copy(arial[1], os.path.join(game, 'fonts', 'Arial Bold.ttf'))
-    else:
-        print('warning: no Arial or Liberation Sans on this computer; the game will draw without Arial.')
-    os.makedirs(os.path.join(game, 'build'), exist_ok=True)
-
+    packer = package_data.Packer()
+    packer.lay_out(os.path.join(folder, 'game'))
     if os.path.exists(args.nro):
-        copy(args.nro, os.path.join(folder, 'OpenAoK.nro'))
+        packer.copy(args.nro, os.path.join(folder, 'OpenAoK.nro'))
     else:
         print('note: no %s yet; build it with switch/build.sh, or put a released OpenAoK.nro beside game/.'
               % os.path.relpath(args.nro, ROOT))
-
-    write_manifest(game)
-    remove_apple_double(folder)
-    print('==> %s: %d files copied, %d already there, %d MB in all'
-          % (folder, copied, kept, size // (1024 * 1024)))
+    package_data.remove_apple_double(folder)
+    print('==> ' + packer.summary(folder))
 
 
 if __name__ == '__main__':

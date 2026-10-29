@@ -123,8 +123,8 @@ cp -R /Volumes/AOE2/. original_game_1999/
 The folder should then hold `GAME/`, `SYSTEM/` and `GOODIES/`. That's all: the
 build unpacks and converts what it needs. Everything taken from your copy stays
 on your machine and is ignored by git. Please don't share it, or the builds you
-make from it: a build, the Android APK included, contains your game data.
-The Switch's `OpenAoK.nro` holds none of it; the folder made beside it does.
+make from it: a desktop build contains your game data. The Android APK and the
+Switch's `OpenAoK.nro` hold none of it; the data folders made for them do.
 
 ## Building for desktop (macOS, Linux)
 
@@ -152,21 +152,22 @@ game files. Run the game from `build/`:
 cd build && ./OpenAoK
 ```
 
-## Building for Android
+## On Android
 
-The APK is built on a desktop machine with the Android SDK and NDK; the game
-data is prepared the same way and packed into it. See
-[android/README.md](android/README.md). In short:
+OpenAoK runs on arm64 phones and tablets with Android 10 or later. The APK
+holds none of the game's data; the data is a folder made on a computer from
+your own CD and copied to the phone.
 
-```sh
-cd android
-./fetch_deps.sh
-./gradlew assembleRelease
-```
+1. Install `OpenAoK-<version>.apk` from the
+   [releases](https://github.com/Zaydme/openaok/releases).
+2. With the same release's source code and your CD in `original_game_1999/`,
+   run `python3 android/package.py`. It needs the same tools as the Switch's
+   data (below) and writes `android/build/OpenAoK-data/`, about 350 MB.
+3. Copy `OpenAoK-data` to the phone, into Download for example, open OpenAoK
+   and choose the folder. The app copies it in; then the folder can go.
 
-Then install `android/app/build/outputs/apk/release/app-release.apk` on a phone
-running Android 10 or later. The first launch copies the game data to the phone.
-The APK carries your game data, so keep it to your own devices.
+More, building the APK yourself included, in
+[android/README.md](android/README.md).
 
 ## On the Nintendo Switch
 
