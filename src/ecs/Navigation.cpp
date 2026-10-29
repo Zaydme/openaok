@@ -1,9 +1,15 @@
 #include "ecs/Navigation.h"
 
+#include <algorithm>
+
 #include "core/FixedMath.h"
 #include "ecs/BuildingGeometry.h"
+#include "ecs/Combat.h"
 #include "ecs/Players.h"
+#include "ecs/components/Animation.h"
+#include "ecs/components/Building.h"
 #include "ecs/components/Identity.h"
+#include "ecs/components/Mortal.h"
 #include "ecs/components/Owner.h"
 #include "pathfinding/ApproachPlanner.h"
 #include "pathfinding/Pathfinder.h"
@@ -35,10 +41,87 @@ bool CanStand(const entt::registry& registry, const Physics::Grid& grid,
                          Physics::TileOf(at.y));
 }
 
+Core::Fixed32 RadiusOf(const entt::registry& registry, entt::entity entity) {
+    const auto* identity = registry.try_get<Components::Identity>(entity);
+    const Core::Rules::UnitRules* rules =
+        identity != nullptr ? Players::RulesFor(registry, entity, identity->unit_id) : nullptr;
+    return rules != nullptr ? rules->size_x : Core::Fixed32(0);
+}
+
+void Survey(entt::registry& registry, const Physics::Grid& grid) {
+    auto& traffic = registry.ctx().emplace<Traffic>();
+    traffic.width = grid.GetWidth();
+    traffic.height = grid.GetHeight();
+    traffic.bodies.clear();
+    // Every unit: what has an animation and is not a building, and still has
+    // a body -- not one dying.
+    auto units = registry.view<const Components::Transform, const Components::Animation>();
+    for (auto e : units) {
+        if (registry.any_of<Components::Building, Components::Dying, Components::Corpse>(e)) continue;
+        const auto& at = units.get<const Components::Transform>(e).position;
+        if (!grid.InBounds(Physics::TileOf(at.x), Physics::TileOf(at.y))) continue;
+        const auto* path = registry.try_get<Components::Path>(e);
+        traffic.bodies.push_back({e, at.x, at.y, RadiusOf(registry, e),
+                                  path != nullptr && path->current_waypoint_index < path->waypoints.size()});
+    }
+    const int w = traffic.width;
+    auto tile_of = [w](const Body& b) {
+        return static_cast<int32_t>(Physics::TileOf(b.y)) * w + Physics::TileOf(b.x);
+    };
+    std::sort(traffic.bodies.begin(), traffic.bodies.end(), [&](const Body& a, const Body& b) {
+        const int32_t ta = tile_of(a), tb = tile_of(b);
+        return ta != tb ? ta < tb : a.entity < b.entity;
+    });
+    const size_t tiles = static_cast<size_t>(w) * traffic.height;
+    traffic.first.assign(tiles + 1, 0);
+    for (const Body& b : traffic.bodies) ++traffic.first[static_cast<size_t>(tile_of(b)) + 1];
+    for (size_t i = 1; i <= tiles; ++i) traffic.first[i] += traffic.first[i - 1];
+}
+
+const Traffic* TrafficOf(const entt::registry& registry) {
+    return registry.ctx().find<Traffic>();
+}
+
+namespace {
+
+// How far past the box round the start and the goal the units standing about
+// are taken in, in tiles.
+constexpr int kStandingReach = 3;
+
+} // namespace
+
+Core::Fixed32 GapAt(const entt::registry& registry, entt::entity entity, Components::Vector2D at,
+                    entt::entity target) {
+    const Core::Fixed32 r = RadiusOf(registry, entity);
+    const Buildings::Bounds box = Combat::BoxOf(registry, target);
+    const Buildings::Bounds reach{box.min_x - r, box.min_y - r, box.max_x + r, box.max_y + r};
+    return reach.DistanceFrom(at);
+}
+
 Components::Path Route(const entt::registry& registry, const Physics::Grid& grid,
                        entt::entity entity, Components::Vector2D from,
-                       Components::Vector2D to) {
-    return Pathfinding::AStar::FindPathTo(grid, from, to, LayerOf(registry, grid, entity));
+                       Components::Vector2D to, entt::entity target, Core::Fixed32 range) {
+    static std::vector<Pathfinding::Standing> standing;
+    standing.clear();
+    if (const Traffic* traffic = TrafficOf(registry)) {
+        const int x0 = std::max(0, std::min(Physics::TileOf(from.x), Physics::TileOf(to.x)) - kStandingReach);
+        const int y0 = std::max(0, std::min(Physics::TileOf(from.y), Physics::TileOf(to.y)) - kStandingReach);
+        const int x1 = std::min(traffic->width - 1, std::max(Physics::TileOf(from.x), Physics::TileOf(to.x)) + kStandingReach);
+        const int y1 = std::min(traffic->height - 1, std::max(Physics::TileOf(from.y), Physics::TileOf(to.y)) + kStandingReach);
+        for (int ty = y0; ty <= y1; ++ty) {
+            const size_t row = static_cast<size_t>(ty) * traffic->width;
+            for (int32_t i = traffic->first[row + x0]; i < traffic->first[row + x1 + 1]; ++i) {
+                const Body& b = traffic->bodies[static_cast<size_t>(i)];
+                if (b.entity == entity || b.entity == target || b.moving) continue;
+                standing.push_back({b.x - b.radius, b.y - b.radius, b.x + b.radius, b.y + b.radius});
+            }
+        }
+    }
+    auto path = Pathfinding::AStar::FindRoute(grid, from, to, LayerOf(registry, grid, entity),
+                                              RadiusOf(registry, entity), &standing);
+    path.target = target;
+    path.range = range;
+    return path;
 }
 
 Components::Vector2D Toward(const entt::registry& registry, const Physics::Grid& grid,

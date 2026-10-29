@@ -284,6 +284,11 @@ bool StepOut(entt::registry& registry, const Physics::Grid& grid, entt::entity u
     return true;
 }
 
+// How near a building's wall a unit goes in from, box to box.
+Core::Fixed32 EnterRange(const entt::registry& registry, entt::entity unit) {
+    return Core::FixedMath::Max(Core::Fixed32(0), kEnterReach - Navigation::RadiusOf(registry, unit));
+}
+
 // Plans the walk to `building`'s wall.
 bool RouteTo(entt::registry& registry, const Physics::Grid& grid, entt::entity unit,
              entt::entity building) {
@@ -296,7 +301,9 @@ bool RouteTo(entt::registry& registry, const Physics::Grid& grid, entt::entity u
     ask.layer = Navigation::LayerOf(registry, grid, unit);
     const auto plan = Pathfinding::FindStandingSpot(grid, ask);
     if (!plan.found) return false;
-    auto path = Navigation::Route(registry, grid, unit, at, plan.spot);
+    // The walk ends as the unit comes within reach of going in.
+    auto path = Navigation::Route(registry, grid, unit, at, plan.spot, building,
+                                  EnterRange(registry, unit));
     if (path.waypoints.empty()) return false;
     registry.emplace_or_replace<Components::Path>(unit, std::move(path));
     return true;
@@ -606,7 +613,7 @@ void Update(entt::registry& registry, const Physics::Grid& grid, int32_t dt_ms) 
             continue;
         }
         const auto& at = walkers.get<Components::Transform>(unit).position;
-        if (GroundOf(registry, building).DistanceFrom(at) <= kEnterReach) {
+        if (Navigation::GapAt(registry, unit, at, building) <= EnterRange(registry, unit)) {
             arriving.emplace_back(unit, building);
             continue;
         }

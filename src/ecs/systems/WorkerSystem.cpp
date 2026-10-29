@@ -45,43 +45,26 @@ Core::Fixed32 CrewRate(int crew) {
     return Core::Fixed32(crew + 2) / Core::Fixed32(3);
 }
 
-// Half a villager's width: how far its middle sits from a wall it is pressed
-// against.
-const Core::Fixed32 kBuilderRadius = Core::Fixed32(35) / Core::Fixed32(100);
 
-// How far apart two workers on one job are placed along the wall. Equal to
-// the separation MovementSystem lets working units keep: the two describe the
-// same spacing, and a wider one here would declare a wall full while there is
-// still room.
-const Core::Fixed32 kWorkClearance = Core::Fixed32(50) / Core::Fixed32(100);
+// How far apart two workers on one job stand, as a share of a worker's width:
+// side by side. Past the room for that the rest wait, this many widths
+// further out, for a spot to come free.
+const Core::Fixed32 kCrewSpacing = Core::Fixed32(1);
+const Core::Fixed32 kWaitOut = Core::Fixed32(1);
+
+// How much further than its range a worker may be and still be at the job:
+// what a walk ending on the range's edge may fall short by.
+const Core::Fixed32 kArriveSlack = Core::Fixed32(5) / Core::Fixed32(100);
 
 // Fallback reach when the dat has no work range for the unit. The dat's own
 // figure for a villager's build task is 0.1 tiles -- close enough to touch the
 // wall -- and that is what is used when it is there.
 const Core::Fixed32 kDefaultWorkRange = Core::Fixed32(1) / Core::Fixed32(10);
 
-// Slack on top of the reach before a builder that is already working decides it
-// has been pushed off the job. A crew jostles, so a villager nudged half a step
-// by a neighbour keeps working.
-const Core::Fixed32 kWorkSlack = Core::Fixed32(6) / Core::Fixed32(10);
-
-// Slack on the reach for a villager that has just finished walking. Wide
-// enough for a second rank -- a villager held about one body back by the crew
-// in front builds from there -- and wider than MovementSystem's arrival
-// radius, so a walk that ends a fraction short of its target is in range.
-const Core::Fixed32 kApproachSlack = Core::Fixed32(9) / Core::Fixed32(10);
-
 // Give up on a site after this many approaches have failed to get the villager
 // near the wall. A crowd shifts constantly and each retry is one short walk, so
 // this allows a good many. Reset the moment the villager starts working.
 constexpr int kMaxBuildAttempts = 40;
-
-// How near a villager has to be to gather from something, and to hand what it
-// carries to a drop site: distances, not tile comparisons. A drop site is a
-// building, so its reach is measured to the middle of a footprint and has to
-// be the wider of the two.
-const Core::Fixed32 kGatherReach = Core::Fixed32(15) / Core::Fixed32(10);
-const Core::Fixed32 kDropoffReach = Core::Fixed32(25) / Core::Fixed32(10);
 
 // What a worker is currently making its way to. Every job has one, and the
 // approach is the same walk whichever it is, so one routine serves all three.
@@ -98,69 +81,126 @@ entt::entity ActiveTarget(const Components::Worker& worker) {
 enum class Approach {
     Arrived,      // within reach; get on with the work
     Walking,      // still on the way, nothing to decide
+    Waiting,      // every spot at it taken: standing by for one to come free
     Unreachable,  // nowhere to stand, or no route to it
 };
 
-// Walks `self` up to `ground` and reports whether it is there yet.
+// Walks `self` up to `target`, whose ground is `ground`, until its box is
+// within `range` of it -- the dat's work range for the job -- and reports
+// whether it is there yet.
 //
 // The one place a worker approaches anything: a tree, a drop site and a
-// foundation are all a patch of ground to stand beside and not on.
+// foundation are all a patch of ground to stand beside and not on. The walk
+// makes for a spot beside the ground facing the worker -- at a job (`crew`),
+// clear of the rest of the crew; at a drop site, which takes a load at once,
+// the nearest -- and ends as soon as the worker is in range, wherever that is.
 Approach ApproachGround(entt::registry& registry, const Physics::Grid& grid,
                         entt::entity self, const Components::Worker& worker,
-                        const Components::Transform& transform,
-                        const ECS::Buildings::Bounds& ground,
-                        Core::Fixed32 reach, Core::Fixed32 slack) {
-    const Core::Fixed32 gap = ground.DistanceFrom(transform.position);
-
-    // Finish the walk before judging the distance, so a crew gathers against
-    // the job rather than stopping in a loose ring short of it.
-    const auto* route = registry.try_get<Components::Path>(self);
-    if (route && route->current_waypoint_index < route->waypoints.size()) {
-        return Approach::Walking;
-    }
-
-    if (gap <= reach + slack) return Approach::Arrived;
+                        const Components::Transform& transform, entt::entity target_entity,
+                        const ECS::Buildings::Bounds& ground, Core::Fixed32 range,
+                        bool crew = true) {
+    const Core::Fixed32 radius = Navigation::RadiusOf(registry, self);
+    const ECS::Buildings::Bounds reach{ground.min_x - radius, ground.min_y - radius,
+                                       ground.max_x + radius, ground.max_y + radius};
+    const Core::Fixed32 gap = reach.DistanceFrom(transform.position);
+    const bool within = gap <= range + kArriveSlack;
+    const Core::Fixed32 spacing = (radius + radius) * kCrewSpacing;
 
     // What the rest of the crew on this same job has taken: where those already
-    // at work stand, and where those still walking are headed (a destination
-    // is chosen once and held). Counting walkers keeps a group ordered together
-    // from all being handed the same spot.
+    // at work stand, where those still walking are headed (a destination is
+    // chosen once and held), and where those waiting for a spot stand.
+    // Counting walkers keeps a group ordered together from all being handed
+    // the same spot.
     const entt::entity target = ActiveTarget(worker);
     std::vector<Components::Vector2D> taken;
-    auto crew = registry.view<Components::Worker, Components::Transform>();
-    for (auto mate : crew) {
+    bool crowded = false;
+    auto mates = registry.view<Components::Worker, Components::Transform>();
+    for (auto mate : mates) {
+        if (!crew) break;
         if (mate == self) continue;
-        const auto& other = crew.get<Components::Worker>(mate);
+        const auto& other = mates.get<Components::Worker>(mate);
         if (ActiveTarget(other) != target) continue;
         if (other.working) {
-            taken.push_back(crew.get<Components::Transform>(mate).position);
+            const auto& there = mates.get<Components::Transform>(mate).position;
+            taken.push_back(there);
+            if (Core::FixedMath::Distance(there.x - transform.position.x,
+                                          there.y - transform.position.y) * Core::Fixed32(2) < spacing) {
+                crowded = true;
+            }
             continue;
         }
         const auto* heading = registry.try_get<Components::Path>(mate);
         if (heading && heading->has_goal &&
             heading->current_waypoint_index < heading->waypoints.size()) {
             taken.push_back(heading->goal);
+        } else {
+            taken.push_back(mates.get<Components::Transform>(mate).position);
         }
+    }
+    // Within reach and not standing over a crew mate at work: at work here.
+    if (within && !crowded) return Approach::Arrived;
+
+    const auto* route = registry.try_get<Components::Path>(self);
+    if (route && route->current_waypoint_index < route->waypoints.size()) {
+        return Approach::Walking;
     }
 
     Pathfinding::ApproachRequest ask;
     ask.target = ground;
     ask.from = transform.position;
-    ask.standoff = reach;
-    ask.clearance = kWorkClearance;
+    ask.standoff = radius + range;
+    ask.clearance = spacing;
     ask.taken = taken.empty() ? nullptr : taken.data();
     ask.taken_count = taken.size();
     ask.layer = Navigation::LayerOf(registry, grid, self);
 
     const Pathfinding::ApproachResult plan =
         Pathfinding::FindStandingSpot(grid, ask);
-    if (!plan.found) return Approach::Unreachable;
+    if (!plan.found && !plan.full) return within ? Approach::Arrived : Approach::Unreachable;
+    if (!plan.found) {
+        // Every spot taken: it stands by a body's width outside the crew, as
+        // the original's do, and takes the first spot to come free.
+        ask.standoff = ask.standoff + spacing * kWaitOut;
+        const Pathfinding::ApproachResult by = Pathfinding::FindStandingSpot(grid, ask);
+        if (!by.found || Core::FixedMath::Distance(by.spot.x - transform.position.x,
+                                                   by.spot.y - transform.position.y) * Core::Fixed32(2) < spacing) {
+            return Approach::Waiting;
+        }
+        auto walk = Navigation::Route(registry, grid, self, transform.position, by.spot, entt::null,
+                                      Core::Fixed32(0));
+        if (walk.waypoints.empty()) return Approach::Waiting;
+        registry.emplace_or_replace<Components::Path>(self, std::move(walk));
+        return Approach::Waiting;
+    }
+    // Over a crew mate, the free spot where it already stands: at work there.
+    if (within && Core::FixedMath::Distance(plan.spot.x - transform.position.x,
+                                            plan.spot.y - transform.position.y) * Core::Fixed32(2) < spacing) {
+        return Approach::Arrived;
+    }
 
-    auto path = Navigation::Route(registry, grid, self, transform.position, plan.spot);
+    // Stepping aside from a crew mate, already within reach: a walk to the
+    // spot itself, which a walk to the job would end before it began.
+    auto path = within ? Navigation::Route(registry, grid, self, transform.position, plan.spot,
+                                           entt::null, Core::Fixed32(0))
+                       : Navigation::Route(registry, grid, self, transform.position, plan.spot,
+                                           target_entity, range);
     if (path.waypoints.empty()) return Approach::Unreachable;
 
     registry.emplace_or_replace<Components::Path>(self, std::move(path));
     return Approach::Walking;
+}
+
+// The dat's work range for `rules`' tasks of `action`: how near the job has
+// to be done from, box to box. Zero when none says.
+Core::Fixed32 TaskRange(const Core::Rules::UnitRules* rules, std::initializer_list<int> actions) {
+    Core::Fixed32 range(0);
+    if (rules == nullptr) return range;
+    for (const auto& task : rules->tasks) {
+        for (int action : actions) {
+            if (task.action == action) range = Core::FixedMath::Max(range, task.work_range);
+        }
+    }
+    return range;
 }
 
 // The rules a worker gathers by: a villager its job's unit -- a lumberjack's
@@ -545,19 +585,20 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                     break;
                 }
 
-                // A resource stands on its own tile and blocks it, so the
-                // villager walks up to that tile rather than onto it.
-                const auto& res_transform =
-                    registry.get<Components::Transform>(worker.target_resource);
-                const auto ground =
-                    ECS::Buildings::TileBounds(res_transform.position);
+                // Up to the resource's own box -- a tree's tile, a carcass's
+                // body -- within the job's range.
+                const auto ground = Combat::BoxOf(registry, worker.target_resource);
+                const Core::Fixed32 range = TaskRange(
+                    GathererRules(registry, entity, worker, OwnerOf(registry, entity)),
+                    {Core::Rules::TaskAction::Gather, Core::Rules::TaskAction::Hunt});
 
                 switch (ApproachGround(registry, grid, entity, worker, transform,
-                                       ground, kBuilderRadius, kGatherReach)) {
+                                       worker.target_resource, ground, range)) {
                 case Approach::Walking:
+                case Approach::Waiting:
                     break;
                 case Approach::Unreachable:
-                    // Walled in, or someone else has every side of it.
+                    // Walled in: no open ground beside it.
                     worker.target_resource = entt::null;
                     worker.state = Core::UnitState::Idle;
                     break;
@@ -745,8 +786,9 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                             : ECS::Buildings::TileBounds(site_at.position);
 
                 switch (ApproachGround(registry, grid, entity, worker, transform,
-                                       ground, kBuilderRadius, kDropoffReach)) {
+                                       worker.target_dropoff, ground, Core::Fixed32(0), false)) {
                 case Approach::Walking:
+                case Approach::Waiting:
                     break;
                 case Approach::Unreachable:
                     // Try another drop site next tick rather than stand here
@@ -871,16 +913,10 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                                   self_id->unit_id, kDefaultWorkRange)
                             : kDefaultWorkRange;
 
-                // The allowance is generous: a villager that pressed in as far
-                // as the crowd allowed is building, even if the front rank has
-                // the wall itself.
-                const Core::Fixed32 reach = work_range + kBuilderRadius;
-                const Core::Fixed32 slack =
-                    worker.working ? kWorkSlack : kApproachSlack;
-
                 switch (ApproachGround(registry, grid, entity, worker, transform,
-                                       ground, reach, slack)) {
+                                       worker.target_building, ground, work_range)) {
                 case Approach::Walking:
+                case Approach::Waiting:
                     worker.working = false;
                     break;
                 case Approach::Unreachable:
@@ -1010,10 +1046,10 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                     self_id ? Core::ConfigManager::Get().GetWorkRange(
                                   self_id->unit_id, kDefaultWorkRange)
                             : kDefaultWorkRange;
-                const Core::Fixed32 reach = work_range + kBuilderRadius;
-                switch (ApproachGround(registry, grid, entity, worker, transform, ground, reach,
-                                       worker.working ? kWorkSlack : kApproachSlack)) {
+                switch (ApproachGround(registry, grid, entity, worker, transform, target, ground,
+                                       work_range)) {
                 case Approach::Walking:
+                case Approach::Waiting:
                     worker.working = false;
                     break;
                 case Approach::Unreachable:

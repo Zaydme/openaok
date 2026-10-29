@@ -1,4 +1,7 @@
 #pragma once
+#include <cstdint>
+#include <vector>
+
 #include <entt/entt.hpp>
 
 #include "core/Types.h"
@@ -31,11 +34,49 @@ Physics::Layer LayerOf(const entt::registry& registry, const Physics::Grid& grid
 bool CanStand(const entt::registry& registry, const Physics::Grid& grid,
               entt::entity entity, Components::Vector2D at);
 
-// `entity`'s route from `from` to `to`, on its own layer. Empty when there is
-// none (Pathfinding::AStar::FindPathTo).
+// A unit's radius: half its body's width, the dat's size.
+Core::Fixed32 RadiusOf(const entt::registry& registry, entt::entity entity);
+
+// Where every unit stands at the start of the tick, for routes to go round
+// and arrivals to stop against: its middle, its radius and whether it is on
+// its way somewhere, filed by the tile it stands on.
+struct Body {
+    entt::entity entity = entt::null;
+    Core::Fixed32 x, y;
+    Core::Fixed32 radius;
+    bool moving = false;
+};
+
+struct Traffic {
+    int width = 0;
+    int height = 0;
+    std::vector<Body> bodies;       // by tile, then by entity
+    std::vector<int32_t> first;     // per tile, its first body; one past the last tile at the end
+};
+
+// Takes the tick's survey: at the start of every tick, before anything plans
+// a route or takes a step.
+void Survey(entt::registry& registry, const Physics::Grid& grid);
+
+// The tick's survey; null before the first.
+const Traffic* TrafficOf(const entt::registry& registry);
+
+// `entity`'s route from `from` to `to`, on its own layer, for its body
+// (Pathfinding::AStar::FindRoute): round the units standing still about the
+// way where that is short, keeping off walls and trees. Empty when there is
+// none.
+//
+// With a `target`, the walk ends as soon as the unit's box comes within
+// `range` of the target's (Components::Path::target).
 Components::Path Route(const entt::registry& registry, const Physics::Grid& grid,
                        entt::entity entity, Components::Vector2D from,
-                       Components::Vector2D to);
+                       Components::Vector2D to, entt::entity target = entt::null,
+                       Core::Fixed32 range = Core::Fixed32(0));
+
+// How far apart a unit standing at `at` is from `target`, box to box: the
+// unit's box its radius each way, the target's Combat::BoxOf.
+Core::Fixed32 GapAt(const entt::registry& registry, entt::entity entity, Components::Vector2D at,
+                    entt::entity target);
 
 // Where `entity` should make for when sent to `to`: `to` itself if it can
 // stand there, else the nearest point it can reach on its own ground -- a

@@ -35,9 +35,12 @@ struct ApproachRequest {
 };
 
 struct ApproachResult {
-    // False when the whole reachable edge is blocked or taken. The caller
-    // starts work only on a true.
+    // False when the whole edge is blocked or taken. The caller starts work
+    // only on a true.
     bool found = false;
+    // Not found because the open ground there is all spoken for: a spot will
+    // come free, where a blocked edge never will.
+    bool full = false;
     ECS::Components::Vector2D spot{};
 };
 

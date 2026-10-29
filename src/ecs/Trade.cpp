@@ -130,7 +130,9 @@ Approach ApproachSite(entt::registry& registry, const Physics::Grid& grid, entt:
     const Core::Fixed32 radius = rules != nullptr ? rules->size_x : Core::Fixed32(0);
     const auto ground = Buildings::FootprintBounds(
         registry.get<Components::Transform>(building).position, UnitIdOf(registry, building));
-    if (ground.DistanceFrom(at) <= radius + kStandoff + kArriveSlack) return Approach::Arrived;
+    if (Navigation::GapAt(registry, unit, at, building) <= kStandoff + kArriveSlack) {
+        return Approach::Arrived;
+    }
 
     Pathfinding::ApproachRequest ask;
     ask.target = ground;
@@ -139,7 +141,9 @@ Approach ApproachSite(entt::registry& registry, const Physics::Grid& grid, entt:
     ask.layer = Navigation::LayerOf(registry, grid, unit);
     const auto plan = Pathfinding::FindStandingSpot(grid, ask);
     if (!plan.found) return Approach::Unreachable;
-    auto path = Navigation::Route(registry, grid, unit, at, plan.spot);
+    // The walk ends as the trader comes within reach of the building.
+    auto path = Navigation::Route(registry, grid, unit, at, plan.spot, building,
+                                  kStandoff + kArriveSlack);
     if (path.waypoints.empty()) return Approach::Unreachable;
     registry.emplace_or_replace<Components::Path>(unit, std::move(path));
     return Approach::Walking;

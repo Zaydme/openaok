@@ -370,9 +370,11 @@ bool CheckCombat() {
         } else {
             const entt::entity guard = ECS::Units::Spawn(reg, militia_id, kUs, At(x, y));
             reg.get<ECS::Components::Combat>(guard).stance = ECS::Components::Stance::StandGround;
+            // Touching: a soldier's blow reaches no further (its combat
+            // task's work range is 0).
             const entt::entity passer = ECS::Units::Spawn(
                 reg, militia_id, kThem,
-                {At(x, y).x + Core::Fixed32(1) / Core::Fixed32(2), At(x, y).y});
+                {At(x, y).x + Core::Fixed32(2) / Core::Fixed32(5), At(x, y).y});
             reg.get<ECS::Components::Combat>(passer).stance = ECS::Components::Stance::NoAttack;
             run(kTicksPerSecond);
             const bool engaged =

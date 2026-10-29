@@ -178,13 +178,33 @@ void Gather(entt::registry& registry, const Core::GatherCommand& cmd) {
     GatherFrom(registry, cmd.entity, cmd.target_resource);
 }
 
+// Whether a unit is a villager: one that gathers by whichever job it is on.
+bool IsVillager(const entt::registry& registry, entt::entity unit) {
+    const auto* worker = registry.try_get<Components::Worker>(unit);
+    return worker != nullptr && worker->gatherer < 0;
+}
+
+// Where each villager of a group sent to `at` stands, apart from the rest:
+// villagers march in no formation, but come to stand side by side about the
+// point, each at its own pace.
+std::vector<std::pair<entt::entity, Components::Vector2D>> VillagerPlaces(
+    const entt::registry& registry, const std::vector<entt::entity>& villagers, Components::Vector2D at) {
+    return Formations::Layout(registry, villagers, at, Core::Formation::Line);
+}
+
 // A group marches together: each to its place in the formation, none faster
-// than the slowest of them.
+// than the slowest of them. Villagers take no part in the formation (see
+// VillagerPlaces).
 void MarchInFormation(entt::registry& registry, Physics::Grid& grid,
                       const Core::FormationMoveCommand& cmd) {
     std::vector<entt::entity> ours;
+    std::vector<entt::entity> villagers;
     for (auto unit : cmd.units) {
-        if (Commands(registry, unit, cmd.player)) ours.push_back(unit);
+        if (!Commands(registry, unit, cmd.player)) continue;
+        (IsVillager(registry, unit) ? villagers : ours).push_back(unit);
+    }
+    for (const auto& place : VillagerPlaces(registry, villagers, {cmd.target_x, cmd.target_y})) {
+        WalkTo(registry, grid, place.first, place.second);
     }
     const auto places = Formations::Layout(registry, ours, {cmd.target_x, cmd.target_y},
                                            cmd.formation);
@@ -220,8 +240,20 @@ bool Walking(const entt::registry& registry, entt::entity unit) {
 // to go.
 void AddWaypoint(entt::registry& registry, Physics::Grid& grid, const Core::WaypointCommand& cmd) {
     std::vector<entt::entity> ours;
+    std::vector<entt::entity> villagers;
     for (auto unit : cmd.units) {
-        if (Commands(registry, unit, cmd.player)) ours.push_back(unit);
+        if (!Commands(registry, unit, cmd.player)) continue;
+        (IsVillager(registry, unit) ? villagers : ours).push_back(unit);
+    }
+    // Villagers each to its own place at the point, as with a move.
+    for (const auto& [unit, place] : VillagerPlaces(registry, villagers, {cmd.target_x, cmd.target_y})) {
+        if (auto* queue = registry.try_get<Components::Waypoints>(unit); queue != nullptr || Walking(registry, unit)) {
+            auto& route = queue != nullptr ? *queue : registry.emplace<Components::Waypoints>(unit);
+            if (route.count < Components::Waypoints::kMax) route.points[route.count++] = place;
+            continue;
+        }
+        WalkTo(registry, grid, unit, place);
+        registry.emplace<Components::Waypoints>(unit);
     }
     if (ours.empty()) return;
     const auto places = ours.size() == 1

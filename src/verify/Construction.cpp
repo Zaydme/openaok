@@ -199,11 +199,12 @@ bool CheckConstruction() {
                         if (!qq.has_goal) continue;
                         const float dx = pp.goal.x.ToFloat() - qq.goal.x.ToFloat();
                         const float dy = pp.goal.y.ToFloat() - qq.goal.y.ToFloat();
-                        // The planner keeps destinations a clearance (half
-                        // a tile) apart; two closer than that, by more than
-                        // the rounding of reading fixed point back as float,
-                        // were handed the same spot.
-                        if (dx * dx + dy * dy < 0.49f * 0.49f) {
+                        // The planner keeps destinations three quarters of
+                        // a villager's width apart (0.3 tiles); two closer
+                        // than that, by more than the rounding of reading
+                        // fixed point back as float, were handed the same
+                        // spot.
+                        if (dx * dx + dy * dy < 0.29f * 0.29f) {
                             crowd_fault = "two builders sent to the same "
                                           "spot";
                         }

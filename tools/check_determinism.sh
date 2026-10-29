@@ -18,7 +18,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TICKS=3000
-GOLDEN="entities=1970 ticks=3000 hash=d3be6ef1a614e0c2"
+GOLDEN="entities=1970 ticks=3000 hash=469215ad506be71e"
 
 # Build first; stop on failure.
 if ! "$ROOT/build.sh" >/dev/null 2>&1; then
@@ -42,6 +42,9 @@ COLLAPSE="$(echo "$OUTPUT" | grep '^collapse=')"
 SHIPANGLES="$(echo "$OUTPUT" | grep '^shipangles=')"
 TURNING="$(echo "$OUTPUT" | grep '^turning=')"
 POCKET="$(echo "$OUTPUT" | grep '^pocket=')"
+HERDING="$(echo "$OUTPUT" | grep '^herding=')"
+CROWD="$(echo "$OUTPUT" | grep '^crowd=')"
+SPREAD="$(echo "$OUTPUT" | grep '^spread=')"
 NOTICES="$(echo "$OUTPUT" | grep '^notices=')"
 FOUNDATIONS="$(echo "$OUTPUT" | grep '^foundations=')"
 FOG="$(echo "$OUTPUT" | grep '^fog=')"
@@ -195,6 +198,35 @@ if [ "$POCKET" = "pocket=ok" ]; then
 else
     echo "POCKET FAILED" >&2
     echo "  $POCKET" >&2
+    STATUS=1
+fi
+
+# Villagers sent at a sheep kill it, take its food within the dat's range and
+# bring it home.
+if [ "$HERDING" = "herding=ok" ]; then
+    echo "herding OK"
+else
+    echo "HERDING FAILED" >&2
+    echo "  $HERDING" >&2
+    STATUS=1
+fi
+
+# A crowd at one sheep works side by side, the rest standing by, none staying
+# over another.
+if [ "$CROWD" = "crowd=ok" ]; then
+    echo "crowd OK"
+else
+    echo "CROWD FAILED" >&2
+    echo "  $CROWD" >&2
+    STATUS=1
+fi
+
+# Villagers sent together to a point stand about it side by side.
+if [ "$SPREAD" = "spread=ok" ]; then
+    echo "spread OK"
+else
+    echo "SPREAD FAILED" >&2
+    echo "  $SPREAD" >&2
     STATUS=1
 fi
 

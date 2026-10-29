@@ -6,6 +6,8 @@
 #include <queue>
 #include <vector>
 
+#include "core/FixedMath.h"
+
 namespace Pathfinding {
 
 namespace {
@@ -364,6 +366,347 @@ ECS::Components::Path AStar::FindPathTo(const Physics::Grid& grid,
     path.goal = to;
     path.has_goal = true;
     return path;
+}
+
+
+namespace {
+
+using Core::Fixed32;
+using ECS::Components::Vector2D;
+
+// What a step onto a tile beside closed ground costs over the plain step, so
+// routes keep a little off walls and trees; and what each unit standing on a
+// tile adds, so a route goes round a standing crowd when the way round is
+// short, and through it when it is not.
+constexpr int32_t kBesideClosed = 4;
+constexpr int32_t kPastStanding = 40;
+
+// The least step there is: a body only touching a tile's edge is not on it.
+const Fixed32 kHair(1, true);
+// How far apart a line is tested, and the narrowest body tested along it, so
+// no tile slips between two tests.
+const Fixed32 kSampleStep = Fixed32(1) / Fixed32(4);
+const Fixed32 kThinnest = Fixed32(1) / Fixed32(8);
+
+// The tiles a body reaching `r` each way from `p` lies on.
+struct TileSpan {
+    int x0, y0, x1, y1;
+    bool Holds(int x, int y) const { return x >= x0 && x <= x1 && y >= y0 && y <= y1; }
+};
+
+TileSpan Under(Vector2D p, Fixed32 r) {
+    return {Physics::TileOf(p.x - r + kHair), Physics::TileOf(p.y - r + kHair),
+            Physics::TileOf(p.x + r - kHair), Physics::TileOf(p.y + r - kHair)};
+}
+
+__int128 Cross(Vector2D o, Vector2D a, Vector2D b) {
+    return static_cast<__int128>((a.x - o.x).value) * (b.y - o.y).value -
+           static_cast<__int128>((a.y - o.y).value) * (b.x - o.x).value;
+}
+
+// Whether the segment from a to b touches the closed box, exactly: the box
+// lies across the segment's span and not wholly to one side of its line.
+bool Touches(Vector2D a, Vector2D b, const Standing& q) {
+    if (std::max(a.x, b.x) < q.x0 || std::min(a.x, b.x) > q.x1 ||
+        std::max(a.y, b.y) < q.y0 || std::min(a.y, b.y) > q.y1) {
+        return false;
+    }
+    if (a.x == b.x && a.y == b.y) return true;
+    const Vector2D corners[4] = {{q.x0, q.y0}, {q.x1, q.y0}, {q.x1, q.y1}, {q.x0, q.y1}};
+    int above = 0, below = 0;
+    for (const Vector2D& c : corners) {
+        const __int128 side = Cross(a, b, c);
+        if (side > 0) ++above;
+        if (side < 0) ++below;
+    }
+    return above != 4 && below != 4;
+}
+
+Standing Grown(const Standing& q, Fixed32 by) {
+    return {q.x0 - by, q.y0 - by, q.x1 + by, q.y1 + by};
+}
+
+bool Overlaps(const Standing& a, const Standing& b) {
+    return a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+}
+
+// One route's question: the ground, the body, and who stands about.
+struct Walker {
+    const Physics::Grid& grid;
+    Physics::Layer layer;
+    Fixed32 radius;
+    const std::vector<Standing>* standing;
+    // Per standing unit: whether lines may go through it -- it stands where
+    // the walk starts or ends, or on a tile the search went across.
+    std::vector<uint8_t> passed;
+
+    // A body brushing past a standing unit's box by half its own width is
+    // passing it, not going through it.
+    Fixed32 Graze() const { return radius / Fixed32(2); }
+
+    bool Clear(Vector2D a, Vector2D b) const {
+        if (!AStar::BodyClear(grid, a, b, layer, radius)) return false;
+        if (standing == nullptr) return true;
+        for (size_t i = 0; i < standing->size(); ++i) {
+            if (passed[i] != 0) continue;
+            if (Touches(a, b, Grown((*standing)[i], Graze()))) return false;
+        }
+        return true;
+    }
+};
+
+// Every tile the line from a to b crosses, in order, each passed to `visit`
+// until it answers false; a line through a corner exactly takes in both tiles
+// beside it. False if `visit` stopped it.
+template <typename Visit>
+bool AcrossTiles(Vector2D a, Vector2D b, Visit visit) {
+    int cx = Physics::TileOf(a.x);
+    int cy = Physics::TileOf(a.y);
+    const int ex = Physics::TileOf(b.x);
+    const int ey = Physics::TileOf(b.y);
+    const Fixed32 dx = b.x - a.x;
+    const Fixed32 dy = b.y - a.y;
+    const int sx = dx.value > 0 ? 1 : dx.value < 0 ? -1 : 0;
+    const int sy = dy.value > 0 ? 1 : dy.value < 0 ? -1 : 0;
+    const Fixed32 half = Fixed32(1) / Fixed32(2);
+    // How far along each axis to the next tile's edge the line runs into.
+    Fixed32 to_x = sx > 0 ? Fixed32(cx) + half - a.x : a.x - (Fixed32(cx) - half);
+    Fixed32 to_y = sy > 0 ? Fixed32(cy) + half - a.y : a.y - (Fixed32(cy) - half);
+    const __int128 adx = Core::FixedMath::Abs(dx).value;
+    const __int128 ady = Core::FixedMath::Abs(dy).value;
+    const int steps = std::abs(ex - cx) + std::abs(ey - cy) + 2;
+    for (int i = 0; i <= steps; ++i) {
+        if (!visit(cx, cy)) return false;
+        if (cx == ex && cy == ey) break;
+        int along = 0;   // 1 for x, 2 for y, 3 for both
+        if (sx == 0) {
+            along = 2;
+        } else if (sy == 0) {
+            along = 1;
+        } else {
+            const __int128 lhs = static_cast<__int128>(to_x.value) * ady;
+            const __int128 rhs = static_cast<__int128>(to_y.value) * adx;
+            along = lhs < rhs ? 1 : lhs > rhs ? 2 : 3;
+        }
+        if (along == 3) {
+            if (!visit(cx + sx, cy) || !visit(cx, cy + sy)) return false;
+        }
+        if (along & 1) {
+            cx += sx;
+            to_x = to_x + Fixed32(1);
+        }
+        if (along & 2) {
+            cy += sy;
+            to_y = to_y + Fixed32(1);
+        }
+    }
+    return true;
+}
+
+} // namespace
+
+bool AStar::MiddleClear(const Physics::Grid& grid, Vector2D a, Vector2D b, Physics::Layer layer) {
+    const int ax = Physics::TileOf(a.x);
+    const int ay = Physics::TileOf(a.y);
+    return AcrossTiles(a, b, [&](int x, int y) {
+        return (x == ax && y == ay) || grid.Passable(layer, x, y);
+    });
+}
+
+bool AStar::BodyClear(const Physics::Grid& grid, Vector2D a, Vector2D b, Physics::Layer layer,
+                      Fixed32 radius) {
+    const Fixed32 reach = std::max(radius, kThinnest);
+    const Fixed32 dx = b.x - a.x;
+    const Fixed32 dy = b.y - a.y;
+    const Fixed32 length = Core::FixedMath::Distance(dx, dy);
+    const int samples = (length / kSampleStep).ToInt() + 1;
+    // The closed tiles the body touches on the way, each with the first and
+    // last test it touches it at and how many: one it touches without a break
+    // from the start is one it is leaving, without a break to the end one it
+    // is coming up against. Its middle never goes onto one but at either end.
+    struct Touched {
+        int32_t tile;
+        int first, last, count;
+    };
+    static std::vector<Touched> touched;
+    touched.clear();
+    const int32_t w = grid.GetWidth();
+    const int32_t from_tile = Physics::TileOf(a.y) * w + Physics::TileOf(a.x);
+    const int32_t to_tile = Physics::TileOf(b.y) * w + Physics::TileOf(b.x);
+    const bool middle_clear = AcrossTiles(a, b, [&](int x, int y) {
+        const int32_t tile = y * w + x;
+        return tile == from_tile || tile == to_tile || grid.Passable(layer, x, y);
+    });
+    if (!middle_clear) return false;
+    for (int i = 0; i <= samples; ++i) {
+        const Vector2D p{a.x + dx * Fixed32(i) / Fixed32(samples),
+                         a.y + dy * Fixed32(i) / Fixed32(samples)};
+        const TileSpan under = Under(p, reach);
+        for (int y = under.y0; y <= under.y1; ++y) {
+            for (int x = under.x0; x <= under.x1; ++x) {
+                if (grid.Passable(layer, x, y)) continue;
+                const int32_t tile = y * w + x;
+                auto it = std::find_if(touched.begin(), touched.end(),
+                                       [tile](const Touched& t) { return t.tile == tile; });
+                if (it == touched.end()) {
+                    touched.push_back({tile, i, i, 1});
+                } else {
+                    it->last = i;
+                    ++it->count;
+                }
+            }
+        }
+    }
+    for (const Touched& t : touched) {
+        const bool unbroken = t.last - t.first + 1 == t.count;
+        if (!unbroken || (t.first != 0 && t.last != samples)) return false;
+    }
+    return true;
+}
+
+ECS::Components::Path AStar::FindRoute(const Physics::Grid& grid, Vector2D from, Vector2D to,
+                                       Physics::Layer layer, Fixed32 radius,
+                                       const std::vector<Standing>* standing) {
+    ECS::Components::Path path;
+    Walker walker{grid, layer, radius, standing, {}};
+    const int w = grid.GetWidth();
+    const int h = grid.GetHeight();
+    const int start_x = Physics::TileOf(from.x);
+    const int start_y = Physics::TileOf(from.y);
+    const int end_x = Physics::TileOf(to.x);
+    const int end_y = Physics::TileOf(to.y);
+    if (!grid.InBounds(start_x, start_y) || !grid.InBounds(end_x, end_y)) return path;
+
+    // Who the body already stands against, at either end, may be gone through.
+    const Standing self_from{from.x - radius, from.y - radius, from.x + radius, from.y + radius};
+    const Standing self_to{to.x - radius, to.y - radius, to.x + radius, to.y + radius};
+    std::vector<int32_t> crowd;   // the tiles standing units are on, sorted
+    if (standing != nullptr) {
+        walker.passed.assign(standing->size(), 0);
+        crowd.reserve(standing->size());
+        for (size_t i = 0; i < standing->size(); ++i) {
+            const Standing& q = (*standing)[i];
+            if (Overlaps(q, self_from) || Overlaps(q, self_to)) walker.passed[i] = 1;
+            const int qx = Physics::TileOf((q.x0 + q.x1) / Fixed32(2));
+            const int qy = Physics::TileOf((q.y0 + q.y1) / Fixed32(2));
+            if (grid.InBounds(qx, qy)) crowd.push_back(qy * w + qx);
+        }
+        std::sort(crowd.begin(), crowd.end());
+    }
+    auto finish = [&](std::vector<Vector2D> points) {
+        path.waypoints = std::move(points);
+        path.goal = path.waypoints.back();
+        path.has_goal = true;
+        return path;
+    };
+    // In plain sight: straight there.
+    if (walker.Clear(from, to)) return finish({to});
+    if (!grid.Passable(layer, end_x, end_y)) return path;
+    {
+        const auto& region = RegionsOf(grid, layer);
+        const int32_t start_region = region[static_cast<size_t>(start_y) * w + start_x];
+        if (start_region >= 0 && start_region != region[static_cast<size_t>(end_y) * w + end_x]) {
+            return path;
+        }
+    }
+
+    Scratch& sc = GetScratch();
+    sc.Prepare(w, h);
+    auto index_of = [w](int x, int y) { return static_cast<int32_t>(y) * w + x; };
+    const int32_t start_index = index_of(start_x, start_y);
+    const int32_t goal_index = index_of(end_x, end_y);
+    auto beside_closed = [&](int x, int y) {
+        for (int oy = -1; oy <= 1; ++oy) {
+            for (int ox = -1; ox <= 1; ++ox) {
+                if ((ox != 0 || oy != 0) && !grid.Passable(layer, x + ox, y + oy)) return true;
+            }
+        }
+        return false;
+    };
+    auto standing_on = [&](int32_t tile) {
+        const auto range = std::equal_range(crowd.begin(), crowd.end(), tile);
+        return static_cast<int32_t>(range.second - range.first);
+    };
+
+    std::priority_queue<Node, std::vector<Node>, std::greater<Node>> open;
+    sc.Touch(start_index);
+    sc.g_score[start_index] = 0;
+    open.push({start_index, 0, Heuristic(start_x, start_y, end_x, end_y)});
+    static const int dx[8] = { 0,  0,  1, -1,  1, -1,  1, -1};
+    static const int dy[8] = {-1,  1,  0,  0, -1, -1,  1,  1};
+    int expansions = 0;
+    int32_t reached = -1;
+    int32_t nearest = start_index;
+    int32_t nearest_h = Heuristic(start_x, start_y, end_x, end_y);
+    while (!open.empty()) {
+        const Node current = open.top();
+        open.pop();
+        if (sc.closed[current.index]) continue;
+        sc.closed[current.index] = 1;
+        if (current.index == goal_index) {
+            reached = current.index;
+            break;
+        }
+        if (current.h_cost < nearest_h) {
+            nearest_h = current.h_cost;
+            nearest = current.index;
+        }
+        if (++expansions > kMaxExpansions) break;
+        const int cx = current.index % w;
+        const int cy = current.index / w;
+        for (int i = 0; i < 8; ++i) {
+            const int nx = cx + dx[i];
+            const int ny = cy + dy[i];
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            if (!grid.Passable(layer, nx, ny)) continue;
+            if (i >= 4 && (!grid.Passable(layer, cx, ny) || !grid.Passable(layer, nx, cy))) continue;
+            const int32_t neighbour = index_of(nx, ny);
+            sc.Touch(neighbour);
+            if (sc.closed[neighbour]) continue;
+            int32_t step = i < 4 ? kStraight : kDiagonal;
+            if (beside_closed(nx, ny)) step += kBesideClosed;
+            step += kPastStanding * standing_on(neighbour);
+            const int32_t tentative = current.g_cost + step;
+            if (tentative >= sc.g_score[neighbour]) continue;
+            sc.g_score[neighbour] = tentative;
+            sc.came_from[neighbour] = current.index;
+            open.push({neighbour, tentative, Heuristic(nx, ny, end_x, end_y)});
+        }
+    }
+    const int32_t end = reached >= 0 ? reached : nearest;
+    if (end == start_index) return path;
+
+    // The tile centres from the start to the end, the exact destination last
+    // when it was reached.
+    std::vector<int32_t> tiles;
+    for (int32_t i = end; i != -1 && i != start_index; i = sc.came_from[i]) tiles.push_back(i);
+    std::reverse(tiles.begin(), tiles.end());
+    std::vector<Vector2D> points;
+    points.reserve(tiles.size() + 1);
+    points.push_back(from);
+    for (int32_t t : tiles) points.push_back({Fixed32(t % w), Fixed32(t / w)});
+    if (reached >= 0) points.back() = to;
+    // Those the search walked across may be walked through.
+    if (standing != nullptr) {
+        for (size_t i = 0; i < standing->size(); ++i) {
+            const Standing& q = (*standing)[i];
+            const int32_t tile = index_of(Physics::TileOf((q.x0 + q.x1) / Fixed32(2)),
+                                          Physics::TileOf((q.y0 + q.y1) / Fixed32(2)));
+            if (std::find(tiles.begin(), tiles.end(), tile) != tiles.end()) walker.passed[i] = 1;
+        }
+    }
+
+    // Pulled straight: from each point kept, on to the furthest of the next
+    // in sight, one after another.
+    std::vector<Vector2D> kept;
+    size_t anchor = 0;
+    while (anchor + 1 < points.size()) {
+        size_t next = anchor + 1;
+        while (next + 1 < points.size() && walker.Clear(points[anchor], points[next + 1])) ++next;
+        kept.push_back(points[next]);
+        anchor = next;
+    }
+    return finish(std::move(kept));
 }
 
 } // namespace Pathfinding

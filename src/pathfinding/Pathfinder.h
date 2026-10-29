@@ -1,4 +1,7 @@
 #pragma once
+#include <vector>
+
+#include "core/FixedPoint.h"
 #include "physics/Grid.h"
 #include "ecs/components/Path.h"
 
@@ -24,6 +27,12 @@ int RegionSize(const Physics::Grid& grid, int region, Physics::Layer layer = Phy
 bool Approachable(const Physics::Grid& grid, int region, int x, int y,
                   Physics::Layer layer = Physics::kLand);
 
+// A unit standing still, as a route goes round it: its body's box, in world
+// units.
+struct Standing {
+    Core::Fixed32 x0, y0, x1, y1;
+};
+
 class AStar {
 public:
     // A deterministic tile path from start to end, with integer costs.
@@ -39,6 +48,31 @@ public:
                                             ECS::Components::Vector2D from,
                                             ECS::Components::Vector2D to,
                                             Physics::Layer layer = Physics::kLand);
+
+    // A unit's route as it walks it, between two exact positions, for a body
+    // reaching `radius` each way from its middle. Over the tiles, keeping off
+    // the edges of closed ground, round the units `standing` where that
+    // costs little and through them where it does not; then pulled into the
+    // fewest straight lines the body can walk without touching closed ground
+    // or going through anyone the search went round. A destination that
+    // cannot be reached is come as near as the search gets. Empty when that
+    // is no nearer.
+    static ECS::Components::Path FindRoute(const Physics::Grid& grid,
+                                           ECS::Components::Vector2D from,
+                                           ECS::Components::Vector2D to, Physics::Layer layer,
+                                           Core::Fixed32 radius,
+                                           const std::vector<Standing>* standing = nullptr);
+
+    // Whether a body reaching `radius` each way can go straight from a to b
+    // without touching closed ground, but for what it touches already at
+    // either end: a villager at a tree walks away from it.
+    static bool BodyClear(const Physics::Grid& grid, ECS::Components::Vector2D a,
+                          ECS::Components::Vector2D b, Physics::Layer layer, Core::Fixed32 radius);
+
+    // Whether the line from a to b crosses no closed tile, exactly, but for
+    // the one it starts on.
+    static bool MiddleClear(const Physics::Grid& grid, ECS::Components::Vector2D a,
+                            ECS::Components::Vector2D b, Physics::Layer layer);
 };
 
 } // namespace Pathfinding

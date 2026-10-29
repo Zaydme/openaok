@@ -23,8 +23,8 @@ namespace {
 // comes in is set aside for it. Easy and easiest advance by the "crude age
 // advancement rules" of their difficulty files: only after a human player has
 // reached that age, and as soon as they can after.
-constexpr int kHardFeudalBy = 18;
-constexpr int kModerateFeudalBy = 18;
+constexpr int kHardFeudalBy = 22;
+constexpr int kModerateFeudalBy = 22;
 // Easy and easiest: the computer player is handed the age's price at the
 // first minute below, so it could advance at once -- and must not have begun
 // to when the human seat goes to the Feudal Age at the second; then it

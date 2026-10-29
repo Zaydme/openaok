@@ -47,6 +47,7 @@
 #include "ecs/Missiles.h"
 #include "ecs/Mortality.h"
 #include "systems/AnimationSystem.h"
+#include "ecs/Navigation.h"
 #include "systems/MovementSystem.h"
 #include "systems/WorkerSystem.h"
 
@@ -268,6 +269,8 @@ void Simulation::Update(int32_t dt_ms) {
     current_tick++;
     Events::BeginTick(registry);
     Score::Advance(registry, dt_ms);
+    // Where everyone stands, before anything plans a route or takes a step.
+    Navigation::Survey(registry, grid);
 
     for (const auto& command : Core::CommandQueue::Get().PopAllCommands()) {
         Orders::Execute(registry, grid, command);

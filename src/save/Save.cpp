@@ -65,7 +65,7 @@ namespace C = ECS::Components;
 
 constexpr char kMagic[8] = {'A', 'O', 'K', 'C', 'S', 'A', 'V', 'E'};
 // The save format's version; a save of any other version is refused.
-constexpr uint32_t kVersion = 5;
+constexpr uint32_t kVersion = 6;
 
 // Plain data goes out as it lies in memory.
 template <typename T>
@@ -107,11 +107,9 @@ void Put(Writer& w, const C::Path& p) {
     PutPod(w, p.goal);
     w.U8(p.has_goal ? 1 : 0);
     w.Fixed(p.speed_cap);
-    PutPod(w, p.avoid_side);
-    PutPod(w, p.blocked_ticks);
-    w.Fixed(p.closest);
-    w.U64(p.closest_for);
-    PutPod(w, p.repaths);
+    w.Entity(p.target);
+    w.Fixed(p.range);
+    PutPod(w, p.replans);
 }
 void Get(Reader& r, C::Path& p) {
     GetPods(r, p.waypoints);
@@ -119,11 +117,9 @@ void Get(Reader& r, C::Path& p) {
     GetPod(r, p.goal);
     p.has_goal = r.U8() != 0;
     p.speed_cap = r.Fixed();
-    GetPod(r, p.avoid_side);
-    GetPod(r, p.blocked_ticks);
-    p.closest = r.Fixed();
-    p.closest_for = static_cast<size_t>(r.U64());
-    GetPod(r, p.repaths);
+    p.target = r.Entity();
+    p.range = r.Fixed();
+    GetPod(r, p.replans);
 }
 void Put(Writer& w, const C::Garrison& g) {
     PutPods(w, g.inside);

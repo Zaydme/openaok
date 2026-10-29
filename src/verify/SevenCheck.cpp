@@ -42,6 +42,8 @@ bool CheckSeven() {
     }
     AIGame::Progress progress;
     constexpr int kMinutes = 3;
+    // Its three villagers and at least three more trained.
+    constexpr int kPeakVillagers = 6;
     for (int minute = 1; minute <= kMinutes && verdict == nullptr; ++minute) {
         AIGame::Minute(sim, nullptr, minute, progress);
         if (std::getenv("AOE_AI_TRACE") != nullptr) {
@@ -50,7 +52,7 @@ bool CheckSeven() {
     }
     for (Core::PlayerId p = 2; p < Core::kMaxPlayers && verdict == nullptr; ++p) {
         const AI::Census c = AI::Take(reg, p);
-        if (progress.peak_villagers[p] < 7) verdict = "a computer player of seven did not train its villagers";
+        if (progress.peak_villagers[p] < kPeakVillagers) verdict = "a computer player of seven did not train its villagers";
         else if (static_cast<int>(c.buildings.size()) <= buildings[p]) verdict = "a computer player of seven built nothing";
     }
     std::printf("seven=%s\n", verdict == nullptr ? "ok" : verdict);

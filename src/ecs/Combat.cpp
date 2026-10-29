@@ -44,11 +44,9 @@ using Components::CombatState;
 // choosing targets.
 constexpr int kMilitaryLevel = 4;
 
-// How far past touching a melee blow reaches -- enough to strike a neighbour
-// standing at the ordinary spacing units keep, 0.7 between middles -- and the
-// slack before a unit in a fight decides its target has slipped away: enough
-// that a target drifting on the spot does not make its attacker start and stop.
-const Core::Fixed32 kMeleeReach = Core::Fixed32(35) / Core::Fixed32(100);
+// The slack before a unit in a fight decides its target has slipped away:
+// enough that a target drifting on the spot does not make its attacker start
+// and stop.
 const Core::Fixed32 kDisengageSlack = Core::Fixed32(3) / Core::Fixed32(10);
 
 // How often a chase re-plans its route, and how often an idle unit looks for
@@ -83,12 +81,30 @@ bool Shoots(const R::UnitRules& rules) {
     return rules.projectile >= 0 || rules.secondary_projectile >= 0;
 }
 
+// How far past touching a melee blow reaches: the dat's work range of the
+// unit's fighting tasks -- a soldier's combat task 0, a villager's hunt 0.1.
+Core::Fixed32 MeleeReach(const R::UnitRules& rules) {
+    Core::Fixed32 reach(0);
+    for (const auto& task : rules.tasks) {
+        if (task.action == R::TaskAction::Combat || task.action == R::TaskAction::Hunt) {
+            reach = Core::FixedMath::Max(reach, task.work_range);
+        }
+    }
+    return reach;
+}
+
+// How far, edge to edge, these rules strike from.
+Core::Fixed32 Reach(const R::UnitRules& rules) {
+    return Shoots(rules) && rules.max_range.value > 0 ? rules.max_range
+                                                       : rules.max_range + MeleeReach(rules);
+}
+
 // Whether the target is within reach of these rules, by gap.
 bool InReach(const R::UnitRules& rules, Core::Fixed32 gap, Core::Fixed32 slack) {
     if (Shoots(rules) && rules.max_range.value > 0) {
         return gap <= rules.max_range + slack && gap >= rules.min_range;
     }
-    return gap <= rules.max_range + kMeleeReach + slack;
+    return gap <= Reach(rules) + slack;
 }
 
 // Whether a unit looks for fights of its own: military units and armed
@@ -217,14 +233,15 @@ bool PlanChase(entt::registry& registry, const Physics::Grid& grid, entt::entity
                                     at, registry.get<Components::Identity>(target).unit_id)
                               : Buildings::TileBounds(at);
         ask.from = from;
-        const Core::Fixed32 reach = Shoots(rules) ? rules.max_range : kMeleeReach;
+        const Core::Fixed32 reach = Reach(rules);
         ask.standoff = Radius(registry, self) + reach / Core::Fixed32(2);
         ask.clearance = Core::Fixed32(1) / Core::Fixed32(2);
         ask.layer = layer;
         const auto spot = Pathfinding::FindStandingSpot(grid, ask);
         if (spot.found) goal = spot.spot;
     }
-    auto path = Navigation::Route(registry, grid, self, from, goal);
+    // The walk ends once the target is within reach, wherever it has got to.
+    auto path = Navigation::Route(registry, grid, self, from, goal, target, Reach(rules));
     if (path.waypoints.empty()) return false;
     registry.emplace_or_replace<Components::Path>(self, std::move(path));
     return true;
@@ -537,7 +554,7 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
             // Stand ground looks only as far as it can reach.
             const Core::Fixed32 look =
                 combat.stance == Components::Stance::StandGround
-                    ? rules->max_range + kMeleeReach : SearchReach(*rules, building);
+                    ? Reach(*rules) : SearchReach(*rules, building);
             const entt::entity found = FindTarget(registry, grid, self, look, *rules, candidates);
             if (found != entt::null) Engage(registry, self, found, false);
             break;
