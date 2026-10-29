@@ -1,6 +1,7 @@
 # Builds OpenAoK.nro for the Nintendo Switch, which needs no game data, and on
-# a version tag (v*) publishes it as a release: a zip to unpack onto the SD
-# card's root, holding switch/openaok/OpenAoK.nro and the licenses.
+# a version tag (v*) adds it to that version's release (.github/publish.sh):
+# a zip to unpack onto the SD card's root, holding switch/openaok/OpenAoK.nro
+# and the licenses.
 name: Switch
 
 on:
@@ -37,6 +38,7 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: OpenAoK-switch
@@ -46,9 +48,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           (cd dist && zip -r "../OpenAoK-switch-$GITHUB_REF_NAME.zip" switch)
-          # Versions before 1.0 are published as pre-releases.
-          prerelease=""
-          case "$GITHUB_REF_NAME" in v0.*) prerelease="--prerelease" ;; esac
-          gh release create "$GITHUB_REF_NAME" "OpenAoK-switch-$GITHUB_REF_NAME.zip" \
-            --repo "$GITHUB_REPOSITORY" --title "OpenAoK $GITHUB_REF_NAME" $prerelease \
-            --notes "OpenAoK.nro for the Nintendo Switch, which holds none of the game. Unpack the zip onto the SD card's root, then make the game's data beside it from your own CD with this release's source code: copy the CD into original_game_1999/ and run python3 switch/package.py --out followed by the card's folder. The README's \"On the Nintendo Switch\" has the steps."
+          .github/publish.sh "OpenAoK-switch-$GITHUB_REF_NAME.zip"
