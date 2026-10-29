@@ -399,9 +399,9 @@ TileSpan Under(Vector2D p, Fixed32 r) {
             Physics::TileOf(p.x + r - kHair), Physics::TileOf(p.y + r - kHair)};
 }
 
-__int128 Cross(Vector2D o, Vector2D a, Vector2D b) {
-    return static_cast<__int128>((a.x - o.x).value) * (b.y - o.y).value -
-           static_cast<__int128>((a.y - o.y).value) * (b.x - o.x).value;
+__int128_t Cross(Vector2D o, Vector2D a, Vector2D b) {
+    return static_cast<__int128_t>((a.x - o.x).value) * (b.y - o.y).value -
+           static_cast<__int128_t>((a.y - o.y).value) * (b.x - o.x).value;
 }
 
 // Whether the segment from a to b touches the closed box, exactly: the box
@@ -415,7 +415,7 @@ bool Touches(Vector2D a, Vector2D b, const Standing& q) {
     const Vector2D corners[4] = {{q.x0, q.y0}, {q.x1, q.y0}, {q.x1, q.y1}, {q.x0, q.y1}};
     int above = 0, below = 0;
     for (const Vector2D& c : corners) {
-        const __int128 side = Cross(a, b, c);
+        const __int128_t side = Cross(a, b, c);
         if (side > 0) ++above;
         if (side < 0) ++below;
     }
@@ -472,8 +472,8 @@ bool AcrossTiles(Vector2D a, Vector2D b, Visit visit) {
     // How far along each axis to the next tile's edge the line runs into.
     Fixed32 to_x = sx > 0 ? Fixed32(cx) + half - a.x : a.x - (Fixed32(cx) - half);
     Fixed32 to_y = sy > 0 ? Fixed32(cy) + half - a.y : a.y - (Fixed32(cy) - half);
-    const __int128 adx = Core::FixedMath::Abs(dx).value;
-    const __int128 ady = Core::FixedMath::Abs(dy).value;
+    const __int128_t adx = Core::FixedMath::Abs(dx).value;
+    const __int128_t ady = Core::FixedMath::Abs(dy).value;
     const int steps = std::abs(ex - cx) + std::abs(ey - cy) + 2;
     for (int i = 0; i <= steps; ++i) {
         if (!visit(cx, cy)) return false;
@@ -484,8 +484,8 @@ bool AcrossTiles(Vector2D a, Vector2D b, Visit visit) {
         } else if (sy == 0) {
             along = 1;
         } else {
-            const __int128 lhs = static_cast<__int128>(to_x.value) * ady;
-            const __int128 rhs = static_cast<__int128>(to_y.value) * adx;
+            const __int128_t lhs = static_cast<__int128_t>(to_x.value) * ady;
+            const __int128_t rhs = static_cast<__int128_t>(to_y.value) * adx;
             along = lhs < rhs ? 1 : lhs > rhs ? 2 : 3;
         }
         if (along == 3) {
