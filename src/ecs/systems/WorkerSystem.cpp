@@ -530,7 +530,17 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                     if (combat == nullptr) {
                         worker.state = Core::UnitState::Idle;
                     } else if (combat->target != worker.target_resource) {
+                        // Set on it already and dropped: no way to it, as to
+                        // a deer in a clearing walled in by trees. It stands,
+                        // as an order the original cannot carry out leaves it.
+                        if (worker.hunted == worker.target_resource) {
+                            worker.hunted = entt::null;
+                            worker.target_resource = entt::null;
+                            worker.state = Core::UnitState::Idle;
+                            break;
+                        }
                         Combat::Engage(registry, entity, worker.target_resource, true);
+                        worker.hunted = worker.target_resource;
                     }
                     break;
                 }

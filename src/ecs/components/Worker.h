@@ -55,6 +55,9 @@ struct Worker {
     Core::Fixed32 repair_progress{};
     
     entt::entity target_resource = entt::null;
+    // The animal it has set combat on to kill for its food: when combat drops
+    // it -- there is no way to it -- the hunt is given up.
+    entt::entity hunted = entt::null;
     // The standing tree being felled, before its wood is cut (ecs/Felling),
     // and the milliseconds of felling left: entt::null when none.
     entt::entity felling = entt::null;

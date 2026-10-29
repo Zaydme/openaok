@@ -41,6 +41,7 @@ SEQUENCE="$(echo "$OUTPUT" | grep '^sequence=')"
 COLLAPSE="$(echo "$OUTPUT" | grep '^collapse=')"
 SHIPANGLES="$(echo "$OUTPUT" | grep '^shipangles=')"
 TURNING="$(echo "$OUTPUT" | grep '^turning=')"
+POCKET="$(echo "$OUTPUT" | grep '^pocket=')"
 NOTICES="$(echo "$OUTPUT" | grep '^notices=')"
 FOUNDATIONS="$(echo "$OUTPUT" | grep '^foundations=')"
 FOG="$(echo "$OUTPUT" | grep '^fog=')"
@@ -185,6 +186,15 @@ if [ "$TURNING" = "turning=ok" ]; then
 else
     echo "TURNING FAILED" >&2
     echo "  $TURNING" >&2
+    STATUS=1
+fi
+
+# Villagers sent at an animal no walk reaches give it up.
+if [ "$POCKET" = "pocket=ok" ]; then
+    echo "pocket OK"
+else
+    echo "POCKET FAILED" >&2
+    echo "  $POCKET" >&2
     STATUS=1
 fi
 

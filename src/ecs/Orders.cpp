@@ -155,6 +155,7 @@ bool GatherFrom(entt::registry& registry, entt::entity unit, entt::entity resour
     registry.remove<Components::Path>(unit);
     worker->state = Core::UnitState::Moving;
     worker->target_resource = resource;
+    worker->hunted = entt::null;
     if (const auto* at = registry.try_get<Components::Transform>(resource)) worker->resource_at = at->position;
     // The job starts when the order is given: a villager sent at a tree
     // walks out as a lumberjack.
