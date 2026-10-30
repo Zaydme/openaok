@@ -23,6 +23,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <iostream>
 #include <stdarg.h>
