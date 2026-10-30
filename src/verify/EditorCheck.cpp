@@ -17,6 +17,7 @@
 #include "ecs/Buildings.h"
 #include "ecs/ScenarioWorld.h"
 #include "ecs/Triggers.h"
+#include "ecs/components/Garrison.h"
 #include "ecs/components/Identity.h"
 #include "ecs/components/Owner.h"
 #include "ecs/components/Sprite.h"
@@ -781,6 +782,72 @@ void MapCopying(Verdict& v) {
     v.Expect(s.refs.size() == after, "the editor's world was not built again with the copy's things");
 }
 
+// Garrisons on DEMO.SCN: a villager placed on player 1's Town Center goes
+// inside it -- in the file, held by the Town Center's id, and in the world,
+// out of sight in it -- and the Garrison list names it; Garrison Delete takes
+// it out of the file; a ram, which no Town Center takes, is not put inside.
+void Garrisoning(Verdict& v) {
+    Editor::State s;
+    std::string error;
+    if (!Scenario::Load(kDemo, -1, s.doc, &error)) {
+        v.Fail("DEMO.SCN unread for garrisons: " + error);
+        return;
+    }
+    Editor::Layout(s);
+    Editor::BuildWorld(s, false);
+    auto& reg = s.sim->GetRegistry();
+    auto& cfg = Core::ConfigManager::Get();
+    const int town_center = cfg.GetUnitIdByName("RTWC");
+    entt::entity holder = entt::null;
+    for (const auto& [key, ref] : s.refs) {
+        const auto e = static_cast<entt::entity>(key);
+        if (ref.player == 1 && reg.valid(e) && reg.get<ECS::Components::Identity>(e).unit_id == town_center) holder = e;
+    }
+    if (holder == entt::null) {
+        v.Fail("DEMO.SCN has no Town Center of player 1 for garrisons");
+        return;
+    }
+    const auto at = reg.get<ECS::Components::Transform>(holder).position;
+    s.unit_player = 1;
+    s.category = Editor::kUnitsList;
+    Editor::FillUnitList(s);
+    auto choose = [&](const char* name) {
+        const int id = cfg.GetUnitIdByName(name);
+        for (size_t i = 0; i < s.unit_ids.size(); ++i) {
+            if (s.unit_ids[i] == id) s.unit_choice = static_cast<int>(i) + 1;
+        }
+        return id;
+    };
+    const uint32_t next = s.doc.next_unit_id;
+    choose("VMBAS");
+    Editor::Place(s, at.x.ToFloat(), at.y.ToFloat());
+    const Scenario::Unit* inside = s.doc.FindUnit(static_cast<int32_t>(next));
+    const int32_t holder_id = s.refs.at(static_cast<uint32_t>(holder)).id;
+    v.Expect(inside != nullptr && inside->garrisoned_in == holder_id,
+             "a villager placed on a Town Center was not put inside it in the file");
+    bool hidden = false;
+    for (const auto& [key, ref] : s.refs) {
+        if (ref.id == static_cast<int32_t>(next)) hidden = reg.all_of<ECS::Components::Garrisoned>(static_cast<entt::entity>(key));
+    }
+    v.Expect(hidden, "a villager put inside a Town Center stands in the editor's world");
+    s.tool = Editor::kSelect;
+    s.selected = holder;
+    const auto listed = Editor::Inside(s, holder);
+    v.Expect(listed.size() == 1 && listed[0] == static_cast<int32_t>(next), "the Garrison list did not name the villager inside");
+    Editor::DeleteInside(s, static_cast<int32_t>(next));
+    v.Expect(s.doc.FindUnit(static_cast<int32_t>(next)) == nullptr && s.selected != entt::null &&
+                 Editor::Inside(s, s.selected).empty(),
+             "Garrison Delete did not take the villager out of the scenario");
+    const size_t before = s.doc.players[1].units.size();
+    const auto again = s.sim->GetRegistry().get<ECS::Components::Transform>(s.selected).position;
+    v.Expect(choose("BTRAM") >= 0 && s.unit_ids[static_cast<size_t>(s.unit_choice - 1)] == cfg.GetUnitIdByName("BTRAM"),
+             "no ram in the editor's unit list");
+    Editor::Place(s, again.x.ToFloat(), again.y.ToFloat());
+    bool rammed = false;
+    for (const auto& u : s.doc.players[1].units) rammed = rammed || u.garrisoned_in == holder_id;
+    v.Expect(!rammed && s.doc.players[1].units.size() <= before + 1, "a ram was put inside a Town Center");
+}
+
 } // namespace
 
 bool CheckEditor() {
@@ -816,6 +883,7 @@ bool CheckEditor() {
     NewFile(v);
     Editing(v);
     MapCopying(v);
+    Garrisoning(v);
     if (v.ok()) {
         std::printf("[editor] %d scenarios written back byte-identical inflated; %zu bytes packed by the "
                     "editor, %zu by the writer\n",

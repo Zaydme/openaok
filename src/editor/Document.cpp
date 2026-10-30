@@ -21,6 +21,7 @@
 #include "ecs/Triggers.h"
 #include "ecs/components/Building.h"
 #include "ecs/components/Garrison.h"
+#include "ecs/Garrisons.h"
 #include "ecs/components/Identity.h"
 #include "ecs/components/Mortal.h"
 #include "ecs/components/Owner.h"
@@ -402,11 +403,43 @@ bool PlaceAt(const State& s, float wx, float wy, Fixed32& x, Fixed32& y, C::Vect
     return true;
 }
 
+// Placed on something of its player's that would take it in a game -- a
+// building or a ship with room, of a kind it garrisons -- a unit goes inside
+// it. False when there is nothing there to take it.
+bool PlaceInside(State& s, int unit_id, float wx, float wy) {
+    const entt::entity holder = ThingAt(s, wx, wy);
+    const auto it = holder == entt::null ? s.refs.end() : s.refs.find(static_cast<uint32_t>(holder));
+    if (it == s.refs.end() || it->second.player != s.unit_player) return false;
+    const Scenario::Unit* shelter = FindUnit(s.doc, it->second);
+    const R::UnitRules* rules = shelter != nullptr ? R::Unit(shelter->unit_id) : nullptr;
+    if (rules == nullptr || rules->garrison <= 0) return false;
+    Scenario::Unit unit;
+    unit.unit_id = unit_id;
+    unit.state = 2;
+    unit.x = shelter->x;
+    unit.y = shelter->y;
+    unit.id = static_cast<int32_t>(s.doc.next_unit_id);
+    unit.garrisoned_in = shelter->id;
+    auto& reg = s.sim->GetRegistry();
+    const entt::entity e = PlaceInWorld(s, unit, s.unit_player);
+    if (e == entt::null) return false;
+    if (!ECS::Garrisons::Accepts(reg, holder, e)) {
+        RemoveFromWorld(s, e);
+        return true;
+    }
+    ECS::Garrisons::PutInside(reg, e, holder);
+    ++s.doc.next_unit_id;
+    s.doc.players[s.unit_player].units.push_back(unit);
+    s.dirty = true;
+    return true;
+}
+
 void Place(State& s, float wx, float wy) {
     if (!s.sim || s.unit_choice <= 0 || s.unit_choice > static_cast<int>(s.unit_ids.size())) return;
     const int unit_id = s.unit_ids[static_cast<size_t>(s.unit_choice - 1)];
     const R::UnitRules* rules = R::Unit(unit_id);
     if (rules == nullptr) return;
+    if (FootprintOf(unit_id) == 0 && PlaceInside(s, unit_id, wx, wy)) return;
     const int footprint = FootprintOf(unit_id);
     Scenario::Unit unit;
     SnapAt(s, wx, wy, footprint, unit.x, unit.y);
@@ -491,6 +524,36 @@ void Delete(State& s, entt::entity e) {
     RemoveFromWorld(s, e);
     if (s.selected == e) s.selected = entt::null;
     s.dirty = true;
+}
+
+std::vector<int32_t> Inside(const State& s, entt::entity holder) {
+    std::vector<int32_t> out;
+    const auto it = s.refs.find(static_cast<uint32_t>(holder));
+    if (it == s.refs.end()) return out;
+    for (int p = 0; p < Core::kMaxPlayers; ++p) {
+        for (const Scenario::Unit& unit : s.doc.players[p].units) {
+            if (unit.garrisoned_in == it->second.id) out.push_back(unit.id);
+        }
+    }
+    return out;
+}
+
+void DeleteInside(State& s, int32_t id) {
+    for (int p = 0; p < Core::kMaxPlayers; ++p) {
+        auto& units = s.doc.players[p].units;
+        for (size_t i = 0; i < units.size(); ++i) {
+            if (units[i].id != id || units[i].garrisoned_in < 0) continue;
+            units.erase(units.begin() + static_cast<long>(i));
+            // Out of its holder too: the world is built again without it.
+            const entt::entity holder = s.selected;
+            const auto ref = s.refs.find(static_cast<uint32_t>(holder));
+            const Ref kept = ref != s.refs.end() ? ref->second : Ref{};
+            BuildWorld(s, true);
+            s.selected = ref != s.refs.end() ? EntityOf(s, kept.player, kept.id) : entt::null;
+            s.dirty = true;
+            return;
+        }
+    }
 }
 
 void Rotate(State& s, entt::entity e) {

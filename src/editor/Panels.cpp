@@ -262,6 +262,23 @@ void UnitsPanel(State& s, Ui& ui, const At& at) {
         }
         Label(ui, at(425, 4 + 25 * i, 150, 22), Get(kTools[i]));
     }
+    // What the thing selected holds: the Garrison list, and Garrison Delete
+    // taking the chosen one out of the scenario.
+    Label(ui, at(160, 2, 230, 22), Get(10109));
+    std::vector<std::string> inside;
+    const std::vector<int32_t> ids = s.tool == kSelect && s.selected != entt::null ? Inside(s, s.selected)
+                                                                                    : std::vector<int32_t>{};
+    for (int32_t id : ids) {
+        const Scenario::Unit* unit = s.doc.FindUnit(id);
+        inside.push_back(unit != nullptr ? Core::Rules::UnitLabel(unit->unit_id) : std::string{});
+    }
+    if (s.garrison_choice >= static_cast<int>(inside.size())) s.garrison_choice = -1;
+    List(ui, at(160, 22, 230, 90), inside, s.garrison_choice, s.garrison_scroll);
+    if (Button(ui, at(160, 117, 20, 20), "", s.garrison_choice >= 0)) {
+        DeleteInside(s, ids[static_cast<size_t>(s.garrison_choice)]);
+        s.garrison_choice = -1;
+    }
+    Label(ui, at(180, 117, 210, 22), Get(10110));
     // The list down the left and its four buttons.
     const Frame& f = s.frame;
     Help(ui, f.unit_list, 30559);

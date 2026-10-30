@@ -164,6 +164,7 @@ struct State {
     int unit_rotation = 0;     // the next placed thing's facing (an eighth)
     entt::entity moving = entt::null;
     entt::entity selected = entt::null;
+    int garrison_choice = -1, garrison_scroll = 0;   // the Garrison list's line
 
     // Players, Diplomacy, Options: whose settings show.
     int player = 1;
@@ -248,6 +249,10 @@ bool PlaceAt(const State& s, float wx, float wy, Core::Fixed32& x, Core::Fixed32
 // The file's thing nearest a world point, within reach; null for none.
 entt::entity ThingAt(State& s, float wx, float wy);
 void Delete(State& s, entt::entity e);
+// The file's units inside one of the file's things, by id; and one of them
+// taken out of the file.
+std::vector<int32_t> Inside(const State& s, entt::entity holder);
+void DeleteInside(State& s, int32_t id);
 void Rotate(State& s, entt::entity e);
 void MoveTo(State& s, entt::entity e, float wx, float wy);
 // The Cliffs brush, on tiles of the grid: button down, pointer dragged (a
