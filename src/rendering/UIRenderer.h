@@ -90,7 +90,8 @@ public:
         SwitchPage,   // move between the economic and military build menus
         Delete,       // delete the selected building or unit
         Stance,       // change how the selected units fight
-        Formation,    // choose the formation the selected group marches in
+        Formation,    // lock the selected soldiers into a formation (`choice`, a Core::Formation)
+        Disband,      // break up the formation the selected units are in
         Stop,         // stop what the selected units are doing
         Ungarrison,   // turn everyone out of the selected building
         TownBell,     // ring the Town Center's bell, or call everyone back
@@ -156,7 +157,7 @@ public:
                         SetStance, Stop, Ungarrison, TownBell, Patrol, Guard, Follow,
                         Garrison, Repair, Sell, Buy, LockGate, Pack, Treason, Convert,
                         Heal, Unload, GatherPoint, RemoveGatherPoint, CancelOrder,
-                        BackToWork };
+                        BackToWork, Form, Disband };
 
     // The formation the player last chose; a group move marches in it.
     static Core::Formation CurrentFormation();

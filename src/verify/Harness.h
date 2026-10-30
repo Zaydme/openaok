@@ -130,6 +130,11 @@ bool CheckAnimals();
 // Standing orders: patrol, follow and guard. Prints "duties=".
 bool CheckDuties();
 
+// Locked formations: a group kept in its formation wherever one of it is
+// sent, its button lit and Disband Formation offered, another formation for
+// some of it, Disband, and a member lost. Prints "formations=".
+bool CheckFormations();
+
 // Monks: conversion and its timing, faith, buildings, healing, and facing
 // whom they convert. Prints "monks=".
 bool CheckMonks();

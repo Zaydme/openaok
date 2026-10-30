@@ -5,6 +5,8 @@
 #include "core/FixedMath.h"
 #include "ecs/Combat.h"
 #include "ecs/components/Building.h"
+#include "ecs/components/Formation.h"
+#include "ecs/components/Transform.h"
 
 namespace ECS::Formations {
 
@@ -152,6 +154,56 @@ std::vector<std::pair<entt::entity, Components::Vector2D>> Layout(
             destination.y + across.y * s.side - forward.y * s.back};
         out.emplace_back(order[static_cast<size_t>(i)], at);
     }
+    return out;
+}
+
+void Lock(entt::registry& registry, const std::vector<entt::entity>& units, Core::Formation formation) {
+    for (entt::entity unit : units) Leave(registry, unit);
+    auto* groups = registry.ctx().find<Groups>();
+    if (groups == nullptr) groups = &registry.ctx().emplace<Groups>();
+    const uint32_t group = groups->next++;
+    for (entt::entity unit : units) {
+        if (registry.valid(unit)) registry.emplace_or_replace<Components::InFormation>(unit, group, formation);
+    }
+}
+
+void Disband(entt::registry& registry, const std::vector<entt::entity>& units) {
+    std::vector<uint32_t> groups;
+    for (entt::entity unit : units) {
+        if (const auto* in = registry.try_get<Components::InFormation>(unit)) groups.push_back(in->group);
+    }
+    std::vector<entt::entity> out;
+    auto members = registry.view<const Components::InFormation>();
+    for (auto e : members) {
+        if (std::find(groups.begin(), groups.end(), members.get<const Components::InFormation>(e).group) != groups.end()) {
+            out.push_back(e);
+        }
+    }
+    for (entt::entity e : out) registry.remove<Components::InFormation>(e);
+}
+
+void Leave(entt::registry& registry, entt::entity unit) {
+    const auto* in = registry.try_get<Components::InFormation>(unit);
+    if (in == nullptr) return;
+    const uint32_t group = in->group;
+    registry.remove<Components::InFormation>(unit);
+    std::vector<entt::entity> left;
+    auto members = registry.view<const Components::InFormation>();
+    for (auto e : members) {
+        if (members.get<const Components::InFormation>(e).group == group) left.push_back(e);
+    }
+    if (left.size() == 1) registry.remove<Components::InFormation>(left.front());
+}
+
+std::vector<entt::entity> Members(const entt::registry& registry, entt::entity unit) {
+    const auto* in = registry.try_get<Components::InFormation>(unit);
+    if (in == nullptr) return {unit};
+    std::vector<entt::entity> out;
+    auto members = registry.view<const Components::InFormation, const Components::Transform>();
+    for (auto e : members) {
+        if (members.get<const Components::InFormation>(e).group == in->group) out.push_back(e);
+    }
+    std::sort(out.begin(), out.end());
     return out;
 }
 

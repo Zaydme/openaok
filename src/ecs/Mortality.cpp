@@ -1,4 +1,5 @@
 #include "ecs/Mortality.h"
+#include "ecs/Formations.h"
 
 #include "ecs/Events.h"
 
@@ -141,8 +142,10 @@ void Kill(entt::registry& registry, Physics::Grid& grid, entt::entity victim) {
         Buildings::Destroy(registry, grid, victim);
         return;
     }
-    // Its worth leaves the economy score as it starts to die (ecs/Score).
+    // Its worth leaves the economy score as it starts to die (ecs/Score),
+    // and it leaves its formation.
     Score::Removed(registry, victim);
+    Formations::Leave(registry, victim);
 
     if (auto* health = registry.try_get<Components::Health>(victim)) health->current_hp = 0;
     // A transport that sinks takes those aboard down with it: a ship has no

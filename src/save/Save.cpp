@@ -10,6 +10,7 @@
 #include "core/Random.h"
 #include "ecs/Chat.h"
 #include "ecs/Combat.h"
+#include "ecs/Formations.h"
 #include "ecs/Diplomacy.h"
 #include "ecs/Digest.h"
 #include "ecs/Events.h"
@@ -25,6 +26,7 @@
 #include "ecs/components/Animation.h"
 #include "ecs/components/Building.h"
 #include "ecs/components/Combat.h"
+#include "ecs/components/Formation.h"
 #include "ecs/components/Doppelganger.h"
 #include "ecs/components/Duty.h"
 #include "ecs/components/Garrison.h"
@@ -66,7 +68,7 @@ namespace C = ECS::Components;
 
 constexpr char kMagic[8] = {'A', 'O', 'K', 'C', 'S', 'A', 'V', 'E'};
 // The save format's version; a save of any other version is refused.
-constexpr uint32_t kVersion = 6;
+constexpr uint32_t kVersion = 7;
 
 // Plain data goes out as it lies in memory.
 template <typename T>
@@ -203,6 +205,7 @@ void EachComponent(F&& f) {
     f.template operator()<C::Grazer>("Grazer");
     f.template operator()<C::Health>("Health");
     f.template operator()<C::Identity>("Identity");
+    f.template operator()<C::InFormation>("InFormation");
     f.template operator()<C::Landing>("Landing");
     f.template operator()<C::MinimapMarker>("MinimapMarker");
     f.template operator()<C::Monk>("Monk");
@@ -244,6 +247,7 @@ uint64_t Fingerprint() {
     mix(sizeof(AI::Brain));
     mix(sizeof(Core::Random));
     mix(sizeof(ECS::Combat::HuntRandom));
+    mix(sizeof(ECS::Formations::Groups));
     mix(sizeof(ECS::Market::Prices));
     mix(sizeof(ECS::Diplomacy::Table));
     mix(sizeof(ECS::Flares::Flare));
@@ -571,6 +575,8 @@ bool Write(const ECS::Simulation& sim, std::vector<uint8_t>& out) {
     }
     PutPod(w, *random);
     PutPod(w, *hunt);
+    const auto* groups = ctx.find<ECS::Formations::Groups>();
+    PutPod(w, groups != nullptr ? *groups : ECS::Formations::Groups{});
     PutPlayers(w, *players);
     PutPod(w, victory->outcome);
     Net::Wire::Write(w, victory->setup);
@@ -671,6 +677,9 @@ bool Read(ECS::Simulation& sim, const std::vector<uint8_t>& in, std::string* err
     ECS::Combat::HuntRandom hunt;
     GetPod(r, hunt);
     registry.ctx().insert_or_assign(hunt);
+    ECS::Formations::Groups groups;
+    GetPod(r, groups);
+    registry.ctx().insert_or_assign(groups);
     ECS::Players::Table players = ctx.get<ECS::Players::Table>();
     GetPlayers(r, players);
     registry.ctx().insert_or_assign(std::move(players));

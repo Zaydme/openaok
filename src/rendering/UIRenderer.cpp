@@ -17,6 +17,7 @@
 #include "ecs/Diplomacy.h"
 #include "ecs/Garrisons.h"
 #include "ecs/Market.h"
+#include "ecs/components/Formation.h"
 #include "ecs/components/Garrison.h"
 #include "ecs/components/Building.h"
 #include "ecs/components/Doppelganger.h"
@@ -121,6 +122,9 @@ constexpr int kIconFormationsLit[4] = {65, 66, 68, 67};
 constexpr Core::Formation kFormationOrder[4] = {Core::Formation::Line, Core::Formation::Box,
                                                 Core::Formation::Staggered,
                                                 Core::Formation::Flank};
+// Disband Formation, and its help.
+constexpr int kIconDisband = 39;
+constexpr int kDisbandHelp = 41006;
 
 // Where each sits. A villager: the two build menus, repair, delete and
 // garrison along the top, stop at the end of the second row. A fighting unit:
@@ -137,6 +141,7 @@ constexpr int kSlotGarrison = 5;
 constexpr int kSlotFirstStance = 6;
 constexpr int kSlotStop = 10;
 constexpr int kSlotFirstFormation = 11;
+constexpr int kSlotDisband = 15;
 // A build menu puts its way back in the bottom right corner: the buildings
 // take their own slots from the dat, and none of them uses that one.
 constexpr int kSlotCancel = 15;
@@ -265,6 +270,8 @@ constexpr int kPageRoot = 0;   // not an InterfaceKind: the unit's own commands
 struct Hud {
     int page = kPageRoot;
     entt::entity following = entt::null;
+    // The locked formation the selection is in, Line when none: a group sent
+    // together marches in it.
     Core::Formation formation = Core::Formation::Line;
     // Advanced commands start shown.
     bool advanced = true;
@@ -1495,20 +1502,25 @@ int UIRenderer::BuildCommands(ECS::Simulation& sim, int win_w, int win_h,
                     BindHotkey(cmd, HK::kMilitary, kStanceKey[s]);
                 }
             }
+            // The formations, for two or more soldiers: the one they are
+            // locked in lit. One in a formation can disband it.
+            const auto* locked = registry.try_get<ECS::Components::InFormation>(selected);
+            HudState().formation = locked != nullptr ? locked->formation : Core::Formation::Line;
             if (selected_units > 1) {
                 static const int kFormationHelp[4] = {41021, 41020, 41022, 41023};
                 static const int kFormationKey[4] = {HK::kLine, HK::kBox, HK::kStaggered,
                                                      HK::kFlank};
                 for (int f = 0; f < 4; ++f) {
-                    const bool lit = HudState().formation == kFormationOrder[f];
+                    const bool lit = locked != nullptr && locked->formation == kFormationOrder[f];
                     if (Command* cmd = order(kSlotFirstFormation + f, CommandKind::Formation,
                                              lit ? kIconFormationsLit[f] : kIconFormations[f],
                                              kFormationHelp[f])) {
-                        cmd->choice = f;
+                        cmd->choice = static_cast<int>(kFormationOrder[f]);
                         BindHotkey(cmd, HK::kMilitary, kFormationKey[f]);
                     }
                 }
             }
+            if (locked != nullptr) order(kSlotDisband, CommandKind::Disband, kIconDisband, kDisbandHelp);
         } else {
             BindHotkey(order(kSlotStop, CommandKind::Stop, kIconStop, 4905),
                        HK::kUnitCommands, HK::kStop);
@@ -1708,8 +1720,9 @@ UIRenderer::Action UIRenderer::ActivateCommand(const Command& command) {
     case CommandKind::Stance:
         return Action::SetStance;
     case CommandKind::Formation:
-        HudState().formation = kFormationOrder[command.choice & 3];
-        return Action::None;
+        return Action::Form;
+    case CommandKind::Disband:
+        return Action::Disband;
     case CommandKind::Stop:
         return Action::Stop;
     case CommandKind::Ungarrison:

@@ -17,7 +17,25 @@
 //
 // Builders and gatherers are never laid out like this; each finds its own
 // spot.
+//
+// A formation chosen for a group locks it: the group keeps it, wherever any
+// of them is sent, until it is disbanded or another formation is chosen.
 namespace ECS::Formations {
+
+// The world's count of locked formations, for each new one's number.
+struct Groups {
+    uint32_t next = 1;
+};
+
+// Locks `units` into a formation of their own, out of any they were in.
+void Lock(entt::registry& registry, const std::vector<entt::entity>& units, Core::Formation formation);
+// Breaks up the formations `units` are in.
+void Disband(entt::registry& registry, const std::vector<entt::entity>& units);
+// A unit out of its formation; the formation is broken up once one is left.
+void Leave(entt::registry& registry, entt::entity unit);
+// The members of `unit`'s formation that stand in the world, in entity
+// order; `unit` alone when it is in none.
+std::vector<entt::entity> Members(const entt::registry& registry, entt::entity unit);
 
 // Each unit's place, for a group sent to (x, y). Units the layout cannot place
 // -- a building, something that does not move -- are left out.

@@ -1010,7 +1010,8 @@ void InputManager::RunCommand(ECS::Simulation& sim, const Rendering::UIRenderer:
         Rendering::Messages::Post(Core::Strings::Get(refusal));
         if (refusal != Rendering::UIRenderer::kNeedHouses) return;
     }
-    switch (Rendering::UIRenderer::ActivateCommand(cmd)) {
+    const Rendering::UIRenderer::Action action = Rendering::UIRenderer::ActivateCommand(cmd);
+    switch (action) {
     case Rendering::UIRenderer::Action::PlaceBuilding:
         placing_building = true;
         building_to_place = cmd.unit_id;
@@ -1107,6 +1108,24 @@ void InputManager::RunCommand(ECS::Simulation& sim, const Rendering::UIRenderer:
                 CommandQueue::Get().PushCommand(
                     StopCommand{e, Core::LocalPlayer()});
             }
+        }
+        break;
+    }
+    case Rendering::UIRenderer::Action::Form:
+    case Rendering::UIRenderer::Action::Disband: {
+        // The selected units of the player's, together.
+        std::vector<entt::entity> units;
+        auto picked = registry.view<ECS::Components::Selectable, ECS::Components::Owner>();
+        for (auto e : picked) {
+            if (!picked.get<ECS::Components::Selectable>(e).is_selected) continue;
+            if (picked.get<ECS::Components::Owner>(e).player_id != Core::LocalPlayer()) continue;
+            units.push_back(e);
+        }
+        if (action == Rendering::UIRenderer::Action::Form) {
+            CommandQueue::Get().PushCommand(FormCommand{units, static_cast<Core::Formation>(cmd.choice & 3),
+                                                        Core::LocalPlayer()});
+        } else {
+            CommandQueue::Get().PushCommand(DisbandCommand{units, Core::LocalPlayer()});
         }
         break;
     }

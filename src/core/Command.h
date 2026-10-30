@@ -342,6 +342,20 @@ struct DropOffCommand {
     PlayerId player;
 };
 
+// A formation chosen for a group of soldiers: they form up in it where they
+// stand and keep it, wherever any of them is sent (ecs/Formations).
+struct FormCommand {
+    std::vector<entt::entity> units;
+    Formation formation;
+    PlayerId player;
+};
+
+// The formations these units are in, broken up.
+struct DisbandCommand {
+    std::vector<entt::entity> units;
+    PlayerId player;
+};
+
 using Command = std::variant<MoveCommand, GatherCommand, AttackCommand,
                              BuildCommand, DeleteCommand, TrainCommand,
                              CancelTrainCommand, ResearchCommand, RallyCommand,
@@ -355,6 +369,6 @@ using Command = std::variant<MoveCommand, GatherCommand, AttackCommand,
                              PackCommand, CheatCommand,
                              ComputerResourceCommand, SelectionCommand,
                              WaypointCommand, TreasonCommand, DropOffCommand,
-                             BackToWorkCommand>;
+                             BackToWorkCommand, FormCommand, DisbandCommand>;
 
 } // namespace Core

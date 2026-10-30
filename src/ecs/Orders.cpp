@@ -1,5 +1,7 @@
 #include "ecs/Orders.h"
 
+#include <algorithm>
+
 #include <variant>
 
 #include "ecs/Buildings.h"
@@ -11,6 +13,7 @@
 #include "ecs/Duties.h"
 #include "ecs/Flares.h"
 #include "ecs/Formations.h"
+#include "ecs/components/Formation.h"
 #include "ecs/Garrisons.h"
 #include "ecs/Market.h"
 #include "ecs/Monks.h"
@@ -170,8 +173,17 @@ bool GatherFrom(entt::registry& registry, entt::entity unit, entt::entity resour
     return true;
 }
 
+void MarchInFormation(entt::registry& registry, Physics::Grid& grid,
+                      const Core::FormationMoveCommand& cmd);
+
+// A unit in a locked formation takes the formation with it.
 void Move(entt::registry& registry, Physics::Grid& grid, const Core::MoveCommand& cmd) {
     if (!Commands(registry, cmd.entity, cmd.player)) return;
+    if (const auto* in = registry.try_get<Components::InFormation>(cmd.entity)) {
+        MarchInFormation(registry, grid, {Formations::Members(registry, cmd.entity), cmd.target_x, cmd.target_y,
+                                          in->formation, cmd.player});
+        return;
+    }
     WalkTo(registry, grid, cmd.entity, {cmd.target_x, cmd.target_y});
 }
 
@@ -196,20 +208,37 @@ std::vector<std::pair<entt::entity, Components::Vector2D>> VillagerPlaces(
 
 // A group marches together: each to its place in the formation, none faster
 // than the slowest of them. Villagers take no part in the formation (see
-// VillagerPlaces).
+// VillagerPlaces). A locked formation any of them is in goes whole, and in
+// its own formation when it is the only one.
 void MarchInFormation(entt::registry& registry, Physics::Grid& grid,
                       const Core::FormationMoveCommand& cmd) {
+    std::vector<entt::entity> sent;
+    std::vector<uint32_t> groups;
+    Core::Formation formation = cmd.formation;
+    for (auto unit : cmd.units) {
+        const auto* in = registry.try_get<Components::InFormation>(unit);
+        if (in == nullptr) {
+            sent.push_back(unit);
+            continue;
+        }
+        if (std::find(groups.begin(), groups.end(), in->group) != groups.end()) continue;
+        groups.push_back(in->group);
+        formation = in->formation;
+        for (entt::entity member : Formations::Members(registry, unit)) sent.push_back(member);
+    }
+    if (groups.size() > 1) formation = cmd.formation;
+    std::sort(sent.begin(), sent.end());
+    sent.erase(std::unique(sent.begin(), sent.end()), sent.end());
     std::vector<entt::entity> ours;
     std::vector<entt::entity> villagers;
-    for (auto unit : cmd.units) {
+    for (auto unit : sent) {
         if (!Commands(registry, unit, cmd.player)) continue;
         (IsVillager(registry, unit) ? villagers : ours).push_back(unit);
     }
     for (const auto& place : VillagerPlaces(registry, villagers, {cmd.target_x, cmd.target_y})) {
         WalkTo(registry, grid, place.first, place.second);
     }
-    const auto places = Formations::Layout(registry, ours, {cmd.target_x, cmd.target_y},
-                                           cmd.formation);
+    const auto places = Formations::Layout(registry, ours, {cmd.target_x, cmd.target_y}, formation);
     Core::Fixed32 slowest{};
     for (const auto& place : places) {
         const auto* rules = Combat::FightingRules(registry, place.first);
@@ -222,6 +251,39 @@ void MarchInFormation(entt::registry& registry, Physics::Grid& grid,
             path->speed_cap = slowest;
         }
     }
+}
+
+// A formation chosen: the soldiers among `units` that can march are locked
+// into it, and form up in it where they stand.
+void Form(entt::registry& registry, Physics::Grid& grid, const Core::FormCommand& cmd) {
+    std::vector<entt::entity> ours;
+    for (auto unit : cmd.units) {
+        if (!Commands(registry, unit, cmd.player) || IsVillager(registry, unit)) continue;
+        if (!registry.all_of<Components::Combat>(unit) || registry.all_of<Components::Building>(unit)) continue;
+        const auto* rules = Combat::FightingRules(registry, unit);
+        if (rules == nullptr || rules->speed.value <= 0) continue;
+        ours.push_back(unit);
+    }
+    std::sort(ours.begin(), ours.end());
+    ours.erase(std::unique(ours.begin(), ours.end()), ours.end());
+    if (ours.size() < 2) return;
+    Formations::Lock(registry, ours, cmd.formation);
+    Core::Fixed32 cx{}, cy{};
+    for (entt::entity unit : ours) {
+        const auto& at = registry.get<Components::Transform>(unit).position;
+        cx = cx + at.x;
+        cy = cy + at.y;
+    }
+    const Core::Fixed32 n(static_cast<int>(ours.size()));
+    MarchInFormation(registry, grid, {ours, cx / n, cy / n, cmd.formation, cmd.player});
+}
+
+void Disband(entt::registry& registry, const Core::DisbandCommand& cmd) {
+    std::vector<entt::entity> ours;
+    for (auto unit : cmd.units) {
+        if (Owns(registry, unit, cmd.player)) ours.push_back(unit);
+    }
+    Formations::Disband(registry, ours);
 }
 
 // Whether a unit is walking somewhere and doing nothing else: what a
@@ -639,6 +701,10 @@ void Execute(entt::registry& registry, Physics::Grid& grid, const Core::Command&
             Rally(registry, cmd);
         } else if constexpr (std::is_same_v<T, Core::FormationMoveCommand>) {
             MarchInFormation(registry, grid, cmd);
+        } else if constexpr (std::is_same_v<T, Core::FormCommand>) {
+            Form(registry, grid, cmd);
+        } else if constexpr (std::is_same_v<T, Core::DisbandCommand>) {
+            Disband(registry, cmd);
         } else if constexpr (std::is_same_v<T, Core::WaypointCommand>) {
             AddWaypoint(registry, grid, cmd);
         } else if constexpr (std::is_same_v<T, Core::StanceCommand>) {

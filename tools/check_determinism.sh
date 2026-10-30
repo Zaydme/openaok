@@ -49,6 +49,7 @@ HUNT="$(echo "$OUTPUT" | grep '^hunt=')"
 ANSWER="$(echo "$OUTPUT" | grep '^answer=')"
 WOLVES="$(echo "$OUTPUT" | grep '^wolves=')"
 LOBBY="$(echo "$OUTPUT" | grep '^lobby=')"
+FORMATIONS="$(echo "$OUTPUT" | grep '^formations=')"
 HERDING="$(echo "$OUTPUT" | grep '^herding=')"
 CROWD="$(echo "$OUTPUT" | grep '^crowd=')"
 SPREAD="$(echo "$OUTPUT" | grep '^spread=')"
@@ -262,6 +263,15 @@ if [ "$LOBBY" = "lobby=ok" ]; then
 else
     echo "LOBBY FAILED" >&2
     echo "  $LOBBY" >&2
+    STATUS=1
+fi
+
+# Locked formations kept, lit, changed and disbanded.
+if [ "$FORMATIONS" = "formations=ok" ]; then
+    echo "formations OK"
+else
+    echo "FORMATIONS FAILED" >&2
+    echo "  $FORMATIONS" >&2
     STATUS=1
 fi
 

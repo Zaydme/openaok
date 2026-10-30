@@ -52,6 +52,7 @@ that the script reads.
 | `trade`, `tribute`, `market` | Trade routes and their pay; tribute and its fee; market prices |
 | `diplomacy`, `chat`, `cheats` | Stances, teams and shared sight; chat and flares; the cheat codes |
 | `repair`, `packing`, `converted` | Repairing; siege engines packing, their icons from the units' sheet, placed as units from a scenario; converted units keeping their maker's rules |
+| `formations` | Locked formations: kept wherever one of the group is sent, lit on the panel, Disband Formation, another formation for some, a member lost |
 | `walls`, `waypoints` | Walls, gates going up as their site units, and locking; queued waypoints |
 | `scenario`, `editor` | Every scenario on the CD read; triggers; saving and loading; the scenario editor's edits |
 

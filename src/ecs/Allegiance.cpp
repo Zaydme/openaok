@@ -1,4 +1,5 @@
 #include "ecs/Allegiance.h"
+#include "ecs/Formations.h"
 
 #include <utility>
 #include <vector>
@@ -59,6 +60,8 @@ void Change(entt::registry& registry, const Physics::Grid& grid, entt::entity en
     }
     Players::Contribute(registry, was, identity->unit_id, modes, -1);
     owner->player_id = player;
+    // It leaves its old side's formation.
+    Formations::Leave(registry, entity);
     Players::Contribute(registry, player, identity->unit_id, modes, +1);
     // It goes on playing by the table of the side that made it: its maker's
     // technology, not its new owner's (Components::RulesOf). Back with its
