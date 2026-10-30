@@ -82,7 +82,9 @@ constexpr SDL_Color kPortraitShadowInner = {111, 86, 53, 255};
 
 // The command icons, in sheet 50721.
 constexpr int kIconCancel = 0;
-constexpr int kIconGarrison = 2;        // an arrow into a doorway
+// The Garrison button is the cursor sheet's (51000): a door, an arrow in.
+constexpr int kIconGarrison = 14;
+constexpr int kIconUngarrison = 2;      // an arrow out of a doorway
 constexpr int kIconStop = 3;            // a raised hand
 constexpr int kIconPatrol = 6;
 constexpr int kIconGuard = 7;
@@ -93,8 +95,8 @@ constexpr int kIconRepair = 33;
 constexpr int kIconTownBell = 49;
 constexpr int kIconTreason = 58;        // Treason, a Regicide game's Castle
 constexpr int kIconDelete = 59;         // the skull
-constexpr int kIconBackToWork = 61;     // the bell, with an arrow back out
-constexpr int kIconUngarrison = 64;     // a man leaving a doorway
+constexpr int kIconTownBellRung = 61;   // the bell, with an arrow back out
+constexpr int kIconBackToWork = 64;     // a man leaving a doorway
 // The Market's commodity buttons, selling and buying alike: the goods
 // themselves, food 19, wood 18, stone 21.
 constexpr int kIconCommodity[3] = {19, 18, 21};   // by dat resource: food, wood, stone
@@ -138,11 +140,17 @@ constexpr int kSlotFirstFormation = 11;
 // A build menu puts its way back in the bottom right corner: the buildings
 // take their own slots from the dat, and none of them uses that one.
 constexpr int kSlotCancel = 15;
-// A building's delete button sits at the end of the grid, clear of whatever it
-// produces, with its garrison's buttons beside it.
-constexpr int kSlotDelete = 15;
-constexpr int kSlotUngarrison = 14;
-constexpr int kSlotTownBell = 13;
+// A building's garrison: Back to Work and Ungarrison at the end of the
+// second row, the Town Center's bell in the last slot. A building has no
+// delete button; the Delete key deletes it.
+constexpr int kSlotBackToWork = 9;
+constexpr int kSlotUngarrison = 10;
+constexpr int kSlotTownBell = 15;
+// The buildings whose villagers can be sent back to work: the Town Center,
+// the Castle, and the towers by their class.
+constexpr int kTownCenter = 109;
+constexpr int kCastle = 82;
+constexpr int kTowerClass = 52;
 // The Market's commodity buttons: "Sell:" in the second row's first slot and
 // wood, food and stone after it, "Buy:" and the same along the third. The top
 // row is the dat's: the Trade Cart and the Market's four technologies.
@@ -1298,6 +1306,7 @@ int UIRenderer::BuildCommands(ECS::Simulation& sim, int win_w, int win_h,
         Command& cmd = slots[button - 1];
         if (cmd.icon_frame >= 0) return nullptr;   // first claim wins
         cmd.rect = CommandSlotRect(button - 1, win_w);
+        cmd.slot = button;
         return &cmd;
     };
     // A command from the command icon sheet.
@@ -1312,11 +1321,23 @@ int UIRenderer::BuildCommands(ECS::Simulation& sim, int win_w, int win_h,
         cmd->enabled = true;
         return cmd;
     };
+    // The Garrison button, whose picture is the cursor sheet's.
+    auto garrison = [&]() -> Command* {
+        Command* cmd = order(kSlotGarrison, CommandKind::Garrison, kIconGarrison, 41068);
+        if (cmd) cmd->icon_slp = kCursorSlp;
+        return cmd;
+    };
 
-    // Choosing a building's gather point: only the ways out of choosing.
-    if (Core::InputManager::Get().ChoosingGatherPoint() &&
-        registry.all_of<ECS::Components::Building>(selected)) {
-        order(kSlotRemoveGatherPoint, CommandKind::RemoveGatherPoint, kIconRemoveGatherPoint, 4949);
+    // Placing a building: only the way out. Choosing a building's gather
+    // point: removing it, or the way out.
+    int placing = -1;
+    const bool placing_building = Core::InputManager::Get().PlacingBuilding(placing);
+    if (placing_building || (Core::InputManager::Get().ChoosingGatherPoint() &&
+                             registry.all_of<ECS::Components::Building>(selected))) {
+        if (!placing_building) {
+            order(kSlotRemoveGatherPoint, CommandKind::RemoveGatherPoint, kIconRemoveGatherPoint,
+                  4949);
+        }
         order(kSlotCancel, CommandKind::CancelOrder, kIconCancel, 4911);
         int written = 0;
         for (int i = 0; i < kCommandSlots && written < max_out; ++i) {
@@ -1409,7 +1430,7 @@ int UIRenderer::BuildCommands(ECS::Simulation& sim, int win_w, int win_h,
                        HK::kUnitCommands, HK::kRepair);
             BindHotkey(order(kSlotUnitDelete, CommandKind::Delete, kIconDelete, 4941),
                        HK::kUnitCommands, HK::kDelete);
-            BindHotkey(order(kSlotGarrison, CommandKind::Garrison, kIconGarrison, 41068),
+            BindHotkey(garrison(),
                        HK::kUnitCommands, HK::kGarrison);
             BindHotkey(order(kSlotStop, CommandKind::Stop, kIconStop, 4905),
                        HK::kUnitCommands, HK::kStop);
@@ -1437,7 +1458,7 @@ int UIRenderer::BuildCommands(ECS::Simulation& sim, int win_w, int win_h,
         }
         order(kSlotStop, CommandKind::Stop, kIconStop, 4905);
         order(kSlotUnitDelete, CommandKind::Delete, kIconDelete, 4941);
-        order(kSlotGarrison, CommandKind::Garrison, kIconGarrison, 41068);
+        garrison();
     } else if (const auto* combat = registry.try_get<ECS::Components::Combat>(selected);
                combat != nullptr && !registry.all_of<ECS::Components::Building>(selected)) {
         // A trebuchet set up packs again, its Pack where another unit's
@@ -1495,7 +1516,7 @@ int UIRenderer::BuildCommands(ECS::Simulation& sim, int win_w, int win_h,
         BindHotkey(order(kSlotUnitDelete, CommandKind::Delete, kIconDelete, 4941),
                    HK::kUnitCommands, HK::kDelete);
         if (GarrisonButton(registry, selected)) {
-            BindHotkey(order(kSlotGarrison, CommandKind::Garrison, kIconGarrison, 41068),
+            BindHotkey(garrison(),
                        HK::kUnitCommands, HK::kGarrison);
         }
     } else if (!registry.all_of<ECS::Components::Building>(selected) &&
@@ -1538,7 +1559,7 @@ int UIRenderer::BuildCommands(ECS::Simulation& sim, int win_w, int win_h,
         BindHotkey(order(kSlotUnitDelete, CommandKind::Delete, kIconDelete, 4941),
                    HK::kUnitCommands, HK::kDelete);
         if (GarrisonButton(registry, selected)) {
-            BindHotkey(order(kSlotGarrison, CommandKind::Garrison, kIconGarrison, 41068),
+            BindHotkey(garrison(),
                        HK::kUnitCommands, HK::kGarrison);
         }
     } else if (registry.all_of<ECS::Components::Identity>(selected)) {
@@ -1583,19 +1604,25 @@ int UIRenderer::BuildCommands(ECS::Simulation& sim, int win_w, int win_h,
                 research(next_age, false);
             }
         }
-        // Its garrison: turning it out, and -- a Town Center -- the bell.
+        // Its garrison: turning everyone out; the villagers back to work from
+        // a Town Center, a Castle or a tower; and a Town Center's bell.
         if (finished && ECS::Garrisons::Count(registry, selected) > 0) {
             order(kSlotUngarrison, CommandKind::Ungarrison, kIconUngarrison, 41014);
+        }
+        const auto* kind = ECS::Players::UnitOf(registry, LocalViewer(), building_id);
+        if (finished && ECS::Garrisons::Villagers(registry, selected) > 0 &&
+            (building_id == kTownCenter || building_id == kCastle ||
+             (kind != nullptr && kind->cls == kTowerClass))) {
+            BindHotkey(order(kSlotBackToWork, CommandKind::BackToWork, kIconBackToWork, 41015),
+                       Core::Hotkeys::kTownCenter, Core::Hotkeys::kBackToWork);
         }
         if (finished && ECS::Garrisons::HasBell(registry, selected)) {
             const auto* bell = registry.try_get<ECS::Components::Garrison>(selected);
             const bool rung = bell != nullptr && bell->bell_rung;
             if (Command* cmd = order(kSlotTownBell, CommandKind::TownBell,
-                                     rung ? kIconBackToWork : kIconTownBell,
-                                     rung ? 41015 : 41111)) {
+                                     rung ? kIconTownBellRung : kIconTownBell, 41111)) {
                 cmd->choice = rung ? 1 : 0;
-                BindHotkey(cmd, Core::Hotkeys::kTownCenter,
-                           rung ? Core::Hotkeys::kBackToWork : Core::Hotkeys::kRingBell);
+                BindHotkey(cmd, Core::Hotkeys::kTownCenter, Core::Hotkeys::kRingBell);
             }
         }
         // A Castle of the player's in a Regicide game: Treason, at the button
@@ -1646,11 +1673,6 @@ int UIRenderer::BuildCommands(ECS::Simulation& sim, int win_w, int win_h,
                                      gate->locked ? 41105 : 41104)) {
                 cmd->choice = gate->locked ? 0 : 1;
             }
-        }
-        // Tearing it down.
-        if (registry.all_of<ECS::Components::Building>(selected)) {
-            BindHotkey(order(kSlotDelete, CommandKind::Delete, kIconDelete, 4941),
-                       Core::Hotkeys::kUnitCommands, Core::Hotkeys::kDelete);
         }
     }
 
@@ -1726,6 +1748,8 @@ UIRenderer::Action UIRenderer::ActivateCommand(const Command& command) {
         return Action::RemoveGatherPoint;
     case CommandKind::CancelOrder:
         return Action::CancelOrder;
+    case CommandKind::BackToWork:
+        return Action::BackToWork;
     case CommandKind::Caption:
         return Action::None;
     }

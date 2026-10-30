@@ -110,6 +110,8 @@ void Put(Writer& out, const C& c) {
         out.Entity(c.building);
     } else if constexpr (std::is_same_v<T, Core::TownBellCommand>) {
         out.Entity(c.town_center);
+    } else if constexpr (std::is_same_v<T, Core::BackToWorkCommand>) {
+        out.Entity(c.building);
     } else if constexpr (std::is_same_v<T, Core::PatrolCommand>) {
         Units(out, c.units); out.Fixed(c.target_x); out.Fixed(c.target_y);
     } else if constexpr (std::is_same_v<T, Core::GuardCommand>) {
@@ -200,6 +202,8 @@ T Take(Reader& in) {
         c.building = in.Entity();
     } else if constexpr (std::is_same_v<T, Core::TownBellCommand>) {
         c.town_center = in.Entity();
+    } else if constexpr (std::is_same_v<T, Core::BackToWorkCommand>) {
+        c.building = in.Entity();
     } else if constexpr (std::is_same_v<T, Core::PatrolCommand>) {
         c.units = Units(in); c.target_x = in.Fixed(); c.target_y = in.Fixed();
     } else if constexpr (std::is_same_v<T, Core::GuardCommand>) {

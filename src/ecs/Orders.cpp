@@ -651,6 +651,8 @@ void Execute(entt::registry& registry, Physics::Grid& grid, const Core::Command&
             Ungarrison(registry, grid, cmd);
         } else if constexpr (std::is_same_v<T, Core::TownBellCommand>) {
             TownBell(registry, grid, cmd);
+        } else if constexpr (std::is_same_v<T, Core::BackToWorkCommand>) {
+            if (Owns(registry, cmd.building, cmd.player)) Garrisons::BackToWork(registry, grid, cmd.building);
         } else if constexpr (std::is_same_v<T, Core::HealCommand>) {
             if (Commands(registry, cmd.unit, cmd.player)) {
                 DropCurrentJob(registry, cmd.unit);

@@ -48,6 +48,13 @@ void Eject(entt::registry& registry, const Physics::Grid& grid, entt::entity bui
 // Whether `holder` is a transport: a unit, not a building, with room aboard.
 bool IsTransport(const entt::registry& registry, entt::entity holder);
 
+// The villagers inside `building`.
+int Villagers(const entt::registry& registry, entt::entity building);
+
+// Turns the villagers out of `building`, each back to the job it left; the
+// rest stay in.
+void BackToWork(entt::registry& registry, const Physics::Grid& grid, entt::entity building);
+
 // Sends a loaded transport to the shore nearest `at`, where everyone aboard
 // steps onto the land beside it -- on any shore, not only its own player's.
 void Unload(entt::registry& registry, const Physics::Grid& grid, entt::entity transport,

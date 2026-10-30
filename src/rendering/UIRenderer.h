@@ -109,11 +109,14 @@ public:
         Unload,       // the selected transport unloads where the player points next
         GatherPoint,  // the selected building's gather point, chosen next
         RemoveGatherPoint,   // the selected building's gather point taken away
-        CancelOrder,  // the order waiting for its target given up
+        CancelOrder,  // the order waiting for its target, or the building being placed, given up
+        BackToWork,   // the villagers inside the selected building sent back to work
         Caption,      // words in a slot, not a button: the Market's "Sell:"
     };
     struct Command {
         CommandKind kind = CommandKind::Produce;
+        // Its place in the grid, 1 to 15 along the rows.
+        int slot = -1;
         int unit_id = -1;
         // For a Produce button: whether it places a building, from a
         // villager's build menu, rather than training a unit.
@@ -152,7 +155,8 @@ public:
     enum class Action { None, PlaceBuilding, DeleteBuilding, TrainUnit, Research,
                         SetStance, Stop, Ungarrison, TownBell, Patrol, Guard, Follow,
                         Garrison, Repair, Sell, Buy, LockGate, Pack, Treason, Convert,
-                        Heal, Unload, GatherPoint, RemoveGatherPoint, CancelOrder };
+                        Heal, Unload, GatherPoint, RemoveGatherPoint, CancelOrder,
+                        BackToWork };
 
     // The formation the player last chose; a group move marches in it.
     static Core::Formation CurrentFormation();

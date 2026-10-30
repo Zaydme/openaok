@@ -580,6 +580,14 @@ bool InputManager::HandleHotkey(const SDL_KeyboardEvent& key, ECS::Simulation& s
         RunCommand(sim, cmd, (mod & KMOD_SHIFT) ? 5 : 1);
         return true;
     }
+    // Delete deletes a building too, which has no button for it.
+    if (Hotkeys::Is(key, Hotkeys::kUnitCommands, Hotkeys::kDelete) &&
+        Rendering::UIRenderer::SelectedBuilding(sim) != entt::null) {
+        Rendering::UIRenderer::Command remove;
+        remove.kind = Rendering::UIRenderer::CommandKind::Delete;
+        RunCommand(sim, remove, 1);
+        return true;
+    }
     const int item = Hotkeys::ItemOf(key, Hotkeys::kGameCommands);
     return item >= 0 && GameCommand(item, sim, renderer);
 }
@@ -1137,8 +1145,17 @@ void InputManager::RunCommand(ECS::Simulation& sim, const Rendering::UIRenderer:
         pending_order = PendingOrder::GatherPoint;
         break;
     case Rendering::UIRenderer::Action::CancelOrder:
+        placing_building = false;
+        wall_drag = false;
         pending_order = PendingOrder::None;
         break;
+    case Rendering::UIRenderer::Action::BackToWork: {
+        const entt::entity building = Rendering::UIRenderer::SelectedBuilding(sim);
+        if (building != entt::null) {
+            CommandQueue::Get().PushCommand(BackToWorkCommand{building, Core::LocalPlayer()});
+        }
+        break;
+    }
     case Rendering::UIRenderer::Action::RemoveGatherPoint: {
         // A gather point set on the building itself is none.
         pending_order = PendingOrder::None;

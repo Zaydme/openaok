@@ -408,6 +408,41 @@ void Eject(entt::registry& registry, const Physics::Grid& grid, entt::entity bui
     }
 }
 
+int Villagers(const entt::registry& registry, entt::entity building) {
+    const auto* garrison = registry.try_get<Components::Garrison>(building);
+    if (garrison == nullptr) return 0;
+    int count = 0;
+    for (entt::entity unit : garrison->inside) {
+        const R::UnitRules* rules = registry.valid(unit) ? RulesOf(registry, unit) : nullptr;
+        count += rules != nullptr && rules->cls == kVillagerClass ? 1 : 0;
+    }
+    return count;
+}
+
+void BackToWork(entt::registry& registry, const Physics::Grid& grid, entt::entity building) {
+    auto* garrison = registry.try_get<Components::Garrison>(building);
+    if (garrison == nullptr || IsShip(registry, building)) return;
+    // Copied: going back to work can send a unit straight back in.
+    const std::vector<entt::entity> inside = garrison->inside;
+    garrison->inside.clear();
+    for (entt::entity unit : inside) {
+        if (!registry.valid(unit)) continue;
+        const R::UnitRules* rules = RulesOf(registry, unit);
+        const Components::Garrisoned stay = registry.get<Components::Garrisoned>(unit);
+        if (rules == nullptr || rules->cls != kVillagerClass) {
+            garrison->inside.push_back(unit);
+            continue;
+        }
+        registry.remove<Components::Garrisoned>(unit);
+        if (!StepOut(registry, grid, unit, building)) {
+            garrison->inside.push_back(unit);
+            registry.emplace<Components::Garrisoned>(unit, stay);
+            continue;
+        }
+        Orders::GoBackToWork(registry, grid, unit, stay.resume_resource, stay.resume_building);
+    }
+}
+
 bool IsTransport(const entt::registry& registry, entt::entity holder) {
     if (!registry.valid(holder) || !IsShip(registry, holder)) return false;
     const R::UnitRules* rules = RulesOf(registry, holder);

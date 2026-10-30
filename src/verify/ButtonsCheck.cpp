@@ -9,6 +9,8 @@
 #include "ecs/Orders.h"
 #include "ecs/ScenarioWorld.h"
 #include "ecs/Simulation.h"
+#include "ecs/components/Identity.h"
+#include "ecs/components/Owner.h"
 #include "ecs/components/RallyPoint.h"
 #include "ecs/components/Relic.h"
 #include "ecs/components/Selectable.h"
@@ -39,6 +41,9 @@ struct Found {
     bool offered = false;
     bool keyed = false;
     int position = -1;   // its place among the buttons offered, in slot order
+    int slot = -1;
+    uint32_t sheet = 0;
+    int frame = -1;
 };
 
 Found Button(ECS::Simulation& sim, Kind kind, SDL_Keycode key) {
@@ -53,6 +58,9 @@ Found Button(ECS::Simulation& sim, Kind kind, SDL_Keycode key) {
         if (cmds[i].kind != kind) continue;
         out.offered = true;
         out.position = i;
+        out.slot = cmds[i].slot;
+        out.sheet = cmds[i].icon_slp;
+        out.frame = cmds[i].icon_frame;
         out.keyed = cmds[i].hotkey_group >= 0 &&
                     Core::Hotkeys::Is(press, cmds[i].hotkey_group, cmds[i].hotkey_item);
     }
@@ -65,7 +73,9 @@ Found Button(ECS::Simulation& sim, Kind kind, SDL_Keycode key) {
 // Heal (E), first and second; a Monk with a relic has neither; a loaded
 // transport's Unload (L), an empty one has none; a Barracks' Set Gather Point
 // (I); a trebuchet's Unpack (U) and Pack (P). A gather point set on the
-// building itself is taken away.
+// building itself is taken away. A Town Center with a villager inside: Back
+// to Work in the ninth slot, Ungarrison in the tenth, the bell in the last
+// and no delete button; a villager's Garrison is the cursor sheet's door.
 bool CheckButtons() {
     const char* verdict = nullptr;
     ECS::Simulation sim;
@@ -107,6 +117,26 @@ bool CheckButtons() {
         const Found unpack = Button(sim, Kind::Pack, SDLK_u);
         Select(reg, treb);
         const Found pack = Button(sim, Kind::Pack, SDLK_p);
+        entt::entity town = entt::null;
+        auto centres = reg.view<ECS::Components::Identity, ECS::Components::Owner>();
+        for (auto e : centres) {
+            if (centres.get<ECS::Components::Identity>(e).unit_id == cfg.GetUnitIdByName("RTWC") &&
+                centres.get<ECS::Components::Owner>(e).player_id == kUs) {
+                town = e;
+            }
+        }
+        const entt::entity worker = place("VMBAS", 3, 6);
+        Select(reg, worker);
+        const Found shelter = Button(sim, Kind::Garrison, SDLK_g);
+        Found back, out, bell, remove;
+        if (town != entt::null) {
+            ECS::Garrisons::PutInside(reg, worker, town);
+            Select(reg, town);
+            back = Button(sim, Kind::BackToWork, SDLK_UNKNOWN);
+            out = Button(sim, Kind::Ungarrison, SDLK_UNKNOWN);
+            bell = Button(sim, Kind::TownBell, SDLK_UNKNOWN);
+            remove = Button(sim, Kind::Delete, SDLK_DELETE);
+        }
         if (!convert.offered || !convert.keyed || convert.position != 0) {
             verdict = "a Monk has no Convert button first on C";
         } else if (!heal.offered || !heal.keyed || heal.position != 1) {
@@ -123,6 +153,18 @@ bool CheckButtons() {
             verdict = "a packed trebuchet's Unpack is not on U";
         } else if (!pack.offered || !pack.keyed) {
             verdict = "a trebuchet's Pack is not on P";
+        } else if (!shelter.offered || !shelter.keyed || shelter.sheet != 51000 || shelter.frame != 14) {
+            verdict = "a villager's Garrison is not the cursor sheet's door on G";
+        } else if (town == entt::null) {
+            verdict = "no Town Center of ours";
+        } else if (!back.offered || back.slot != 9 || back.frame != 64) {
+            verdict = "a Town Center with a villager inside has no Back to Work in the ninth slot";
+        } else if (!out.offered || out.slot != 10 || out.frame != 2) {
+            verdict = "a Town Center's Ungarrison is not in the tenth slot";
+        } else if (!bell.offered || bell.slot != 15) {
+            verdict = "a Town Center's bell is not in the last slot";
+        } else if (remove.offered) {
+            verdict = "a building offers a delete button";
         }
     }
     if (verdict == nullptr) {

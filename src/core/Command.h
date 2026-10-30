@@ -134,6 +134,12 @@ struct TownBellCommand {
     PlayerId player;
 };
 
+// Turn the villagers out of a building, each back to the job it left.
+struct BackToWorkCommand {
+    entt::entity building;
+    PlayerId player;
+};
+
 // Standing orders for a group: patrol between where each stands and a point,
 // guard a unit, or follow one.
 struct PatrolCommand {
@@ -348,6 +354,7 @@ using Command = std::variant<MoveCommand, GatherCommand, AttackCommand,
                              FlareCommand, WallCommand, GateCommand, RepairCommand,
                              PackCommand, CheatCommand,
                              ComputerResourceCommand, SelectionCommand,
-                             WaypointCommand, TreasonCommand, DropOffCommand>;
+                             WaypointCommand, TreasonCommand, DropOffCommand,
+                             BackToWorkCommand>;
 
 } // namespace Core
