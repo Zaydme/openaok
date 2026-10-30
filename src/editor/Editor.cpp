@@ -112,6 +112,13 @@ void DrawWorld(State& s, SDL_Renderer* r) {
     Rendering::EntityRenderer::DrawStanding(v, r);
 }
 
+// The file's tile under a point of the world.
+std::pair<int, int> FileTileAt(const State& s, float wx, float wy) {
+    float fx = 0, fy = 0;
+    FileOf(s, wx, wy, fx, fy);
+    return {static_cast<int>(std::floor(fx)), static_cast<int>(std::floor(fy))};
+}
+
 // The brush's tiles outlined under the cursor (Terrain tab), or the tile the
 // next thing goes on (Units tab).
 void DrawBrush(State& s, SDL_Renderer* r) {
@@ -133,6 +140,40 @@ void DrawBrush(State& s, SDL_Renderer* r) {
     };
     const float x0 = tx - half, y0 = ty - half, x1 = tx + half, y1 = ty + half;
     const SDL_FPoint q[5] = {at(x0, y0), at(x1, y0), at(x1, y1), at(x0, y1), at(x0, y0)};
+    SDL_RenderSetClipRect(r, &s.frame.view);
+    SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+    SDL_RenderDrawLinesF(r, q, 5);
+    SDL_RenderSetClipRect(r, nullptr);
+}
+
+// Map Copy: the area chosen outlined (Copy Mode), or where the copy would go
+// under the pointer (Paint Mode).
+void DrawCopy(State& s, SDL_Renderer* r) {
+    if (s.dialog != State::Dialog::None || s.tab != kTerrainTab || s.brush != kBrushCopy) return;
+    int x0 = 0, y0 = 0, x1 = -1, y1 = -1;
+    if (s.copy_paint) {
+        float wx = 0, wy = 0;
+        if (!WorldAt(s, s.ui.mx, s.ui.my, wx, wy) || s.copied.w <= 0) return;
+        const auto [fx, fy] = FileTileAt(s, wx, wy);
+        x0 = fx - s.copied.w / 2;
+        y0 = fy - s.copied.h / 2;
+        x1 = x0 + s.copied.w - 1;
+        y1 = y0 + s.copied.h - 1;
+    } else if (s.has_area) {
+        x0 = std::min(s.area_x0, s.area_x1);
+        x1 = std::max(s.area_x0, s.area_x1);
+        y0 = std::min(s.area_y0, s.area_y1);
+        y1 = std::max(s.area_y0, s.area_y1);
+    } else {
+        return;
+    }
+    // The file's corners, as points of the world.
+    auto at = [&](int fx, int fy) {
+        const auto w = WorldOf(s, Core::Fixed32(fx), Core::Fixed32(fy));
+        const auto p = Core::IsometricMath::WorldToScreen(w.x, w.y);
+        return SDL_FPoint{p.x - s.view.camera_x, p.y - s.view.camera_y};
+    };
+    const SDL_FPoint q[5] = {at(x0, y0), at(x1 + 1, y0), at(x1 + 1, y1 + 1), at(x0, y1 + 1), at(x0, y0)};
     SDL_RenderSetClipRect(r, &s.frame.view);
     SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
     SDL_RenderDrawLinesF(r, q, 5);
@@ -422,6 +463,19 @@ void ClickView(State& s, int x, int y) {
     float wx = 0, wy = 0;
     if (!WorldAt(s, x, y, wx, wy)) return;
     if (s.tab == kTriggersTab && PickInView(s, wx, wy)) return;
+    if (s.tab == kTerrainTab && s.brush == kBrushCopy) {
+        const auto [fx, fy] = FileTileAt(s, wx, wy);
+        if (s.copy_paint) {
+            LayCopy(s, fx, fy);
+        } else {
+            // The area to copy, from this corner to where the button comes up.
+            s.choosing_area = true;
+            s.has_area = true;
+            s.area_x0 = s.area_x1 = fx;
+            s.area_y0 = s.area_y1 = fy;
+        }
+        return;
+    }
     if (s.tab == kTerrainTab && s.brush == kBrushCliffs) {
         CliffDown(s, static_cast<int>(std::floor(wx + 0.5f)), static_cast<int>(std::floor(wy + 0.5f)), false);
         return;
@@ -622,6 +676,14 @@ void HandleEvent(const SDL_Event& event) {
             float wx = 0, wy = 0;
             if (WorldAt(s, s.ui.mx, s.ui.my, wx, wy)) MoveTo(s, s.moving, wx, wy);
         }
+        if (s.choosing_area) {
+            float wx = 0, wy = 0;
+            if (WorldAt(s, s.ui.mx, s.ui.my, wx, wy)) {
+                const auto [fx, fy] = FileTileAt(s, wx, wy);
+                s.area_x1 = std::clamp(fx, 0, std::max(0, s.doc.width - 1));
+                s.area_y1 = std::clamp(fy, 0, std::max(0, s.doc.height - 1));
+            }
+        }
         return;
     }
     if (event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEBUTTONUP) {
@@ -632,6 +694,7 @@ void HandleEvent(const SDL_Event& event) {
     if (event.type == SDL_MOUSEBUTTONUP && event.button.button == SDL_BUTTON_LEFT) {
         s.painting = false;
         s.moving = entt::null;
+        s.choosing_area = false;
         if (s.laying_cliffs) CliffUp(s);
         return;
     }
@@ -736,6 +799,7 @@ void Draw(SDL_Renderer* r, Rendering::Renderer& renderer) {
         DrawWorld(s, r);
         DrawBrush(s, r);
         DrawPlacing(s, r);
+        DrawCopy(s, r);
     }
     DrawChrome(s, r);
     if (s.sim && s.frame.minimap_shown) {

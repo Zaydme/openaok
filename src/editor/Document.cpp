@@ -518,6 +518,114 @@ void Rotate(State& s, entt::entity e) {
     s.dirty = true;
 }
 
+void CopyArea(State& s) {
+    if (!s.has_area) return;
+    const int x0 = std::min(s.area_x0, s.area_x1), x1 = std::max(s.area_x0, s.area_x1);
+    const int y0 = std::min(s.area_y0, s.area_y1), y1 = std::max(s.area_y0, s.area_y1);
+    State::Copied c;
+    c.w = x1 - x0 + 1;
+    c.h = y1 - y0 + 1;
+    for (int y = y0; y <= y1; ++y) {
+        for (int x = x0; x <= x1; ++x) {
+            const bool in = InMap(s.doc, x, y);
+            c.terrain.push_back(in ? s.doc.terrain[Index(s.doc, x, y)] : 0);
+            c.elevation.push_back(in ? s.doc.elevation[Index(s.doc, x, y)] : 0);
+        }
+    }
+    const Fixed32 fx0(x0), fy0(y0), fx1(x1 + 1), fy1(y1 + 1);
+    for (int p = 0; p < Core::kMaxPlayers; ++p) {
+        for (const Scenario::Unit& unit : s.doc.players[p].units) {
+            if (unit.garrisoned_in >= 0) continue;
+            if (unit.x < fx0 || unit.x >= fx1 || unit.y < fy0 || unit.y >= fy1) continue;
+            Scenario::Unit moved = unit;
+            moved.x = unit.x - fx0;
+            moved.y = unit.y - fy0;
+            c.units.emplace_back(p, moved);
+        }
+    }
+    s.copied = std::move(c);
+}
+
+void TurnCopy(State& s, int how) {
+    State::Copied& c = s.copied;
+    if (c.w <= 0 || c.h <= 0) return;
+    const bool turn = how == 0 || how == 1;
+    const int w = turn ? c.h : c.w, h = turn ? c.w : c.h;
+    std::vector<uint8_t> terrain(c.terrain.size()), elevation(c.elevation.size());
+    for (int y = 0; y < c.h; ++y) {
+        for (int x = 0; x < c.w; ++x) {
+            int nx = x, ny = y;
+            switch (how) {
+            case 0: nx = y; ny = c.w - 1 - x; break;
+            case 1: nx = c.h - 1 - y; ny = x; break;
+            case 2: nx = c.w - 1 - x; break;
+            default: ny = c.h - 1 - y; break;
+            }
+            terrain[static_cast<size_t>(ny * w + nx)] = c.terrain[static_cast<size_t>(y * c.w + x)];
+            elevation[static_cast<size_t>(ny * w + nx)] = c.elevation[static_cast<size_t>(y * c.w + x)];
+        }
+    }
+    const Fixed32 cw(c.w), ch(c.h);
+    for (auto& [player, unit] : c.units) {
+        const Fixed32 x = unit.x, y = unit.y;
+        switch (how) {
+        case 0: unit.x = y; unit.y = cw - x; break;
+        case 1: unit.x = ch - y; unit.y = x; break;
+        case 2: unit.x = cw - x; break;
+        default: unit.y = ch - y; break;
+        }
+        for (uint32_t& w0 : unit.written) w0 = 0;
+        // A unit faces round with the ground, by eighths of a turn; a still
+        // object keeps its shape and a building its place.
+        const auto art = Core::ConfigManager::Get().GetObjectArt(unit.unit_id);
+        if ((art.Valid() && !art.Animated()) || FootprintOf(unit.unit_id) != 0) continue;
+        int k = static_cast<int>(std::lround(unit.rotation.ToFloat() / 0.785398163f));
+        switch (how) {
+        case 0: k -= 2; break;
+        case 1: k += 2; break;
+        case 2: k = 4 - k; break;
+        default: k = -k; break;
+        }
+        k = ((k % 8) + 8) % 8;
+        unit.rotation = Fixed32(static_cast<float>(k) * 0.785398163f);
+    }
+    c.w = w;
+    c.h = h;
+    c.terrain = std::move(terrain);
+    c.elevation = std::move(elevation);
+}
+
+void LayCopy(State& s, int file_x, int file_y) {
+    const State::Copied& c = s.copied;
+    if (c.w <= 0 || c.h <= 0) return;
+    const int x0 = file_x - c.w / 2, y0 = file_y - c.h / 2;
+    for (int y = 0; y < c.h; ++y) {
+        for (int x = 0; x < c.w; ++x) {
+            if (!InMap(s.doc, x0 + x, y0 + y)) continue;
+            s.doc.terrain[Index(s.doc, x0 + x, y0 + y)] = c.terrain[static_cast<size_t>(y * c.w + x)];
+            s.doc.elevation[Index(s.doc, x0 + x, y0 + y)] = c.elevation[static_cast<size_t>(y * c.w + x)];
+        }
+    }
+    const Fixed32 fx0(x0), fy0(y0);
+    for (const auto& [player, unit] : c.units) {
+        Scenario::Unit laid = unit;
+        laid.x = unit.x + fx0;
+        laid.y = unit.y + fy0;
+        if (laid.x < Fixed32(0) || laid.y < Fixed32(0) || laid.x >= Fixed32(s.doc.width) ||
+            laid.y >= Fixed32(s.doc.height)) {
+            continue;
+        }
+        for (uint32_t& w0 : laid.written) w0 = 0;
+        laid.id = static_cast<int32_t>(s.doc.next_unit_id++);
+        laid.garrisoned_in = -1;
+        // Gaia's things stay Gaia's when the copy is given to a player.
+        const int to = s.copy_change == 1 && player != 0 ? s.copy_player : player;
+        s.doc.players[to].units.push_back(laid);
+    }
+    BuildWorld(s, true);
+    s.dirty = true;
+}
+
 void MoveTo(State& s, entt::entity e, float wx, float wy) {
     if (!s.sim || e == entt::null) return;
     const auto it = s.refs.find(static_cast<uint32_t>(e));

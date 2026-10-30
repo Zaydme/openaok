@@ -137,6 +137,21 @@ struct State {
     bool erasing_cliffs = false;    // the right
     bool cliffs_cut = false;        // a piece came out: the world laid again on release
     Core::Random cliff_rng{0x5eed};  // a straight's second drawing, half the time
+    // The Map Copy brush: in Copy Mode an area of the file's tiles is
+    // dragged out to copy; in Paint Mode the copy is laid where clicked,
+    // turned and flipped as chosen, its units given to another player when
+    // asked.
+    bool copy_paint = false;
+    bool choosing_area = false;
+    bool has_area = false;
+    int area_x0 = 0, area_y0 = 0, area_x1 = 0, area_y1 = 0;
+    struct Copied {
+        int w = 0, h = 0;
+        std::vector<uint8_t> terrain, elevation;    // by tile, row by row
+        std::vector<std::pair<int, Scenario::Unit>> units;   // player, unit from the copy's corner
+    } copied;
+    int copy_change = 0;       // 0 No Change Player, 1 Yes Change Player
+    int copy_player = 1;
 
     // Units panel.
     int unit_player = 1;       // 0 Gaia
@@ -242,6 +257,12 @@ void MoveTo(State& s, entt::entity e, float wx, float wy);
 void CliffDown(State& s, int tile_x, int tile_y, bool erase);
 void CliffDrag(State& s, int tile_x, int tile_y);
 void CliffUp(State& s);
+// The Map Copy brush: the area dragged out copied; the copy turned (0 left,
+// 1 right) or flipped (2 left to right, 3 top to bottom); the copy laid with
+// its middle on a file tile.
+void CopyArea(State& s);
+void TurnCopy(State& s, int how);
+void LayCopy(State& s, int file_x, int file_y);
 // The Map panel's Generate Map: blank, or a random map script's.
 void Generate(State& s);
 // The unit list for the player and category chosen.

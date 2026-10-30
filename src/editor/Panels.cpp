@@ -126,9 +126,37 @@ void TerrainPanel(State& s, Ui& ui, const At& at) {
             if (Radio(ui, at(363, 20 + 20 * i, 25, 20), s.brush_size == i + 1)) s.brush_size = i + 1;
             Label(ui, at(389, 20 + 20 * i, 130, 20), Get(10672 + i));
         }
-    } else if (Drawing(ui) && s.brush == kBrushCopy) {
-        // The map copy brush: only its label shows.
-        Label(ui, at(158, 1, 400, 18), Get(10696));
+    } else if (s.brush == kBrushCopy) {
+        // Map Copy: Copy Mode drags out an area and copies it; Paint Mode
+        // lays the copy, turned, flipped and given to a player as chosen.
+        static const auto players = PlayerNames(true);
+        const bool paint = s.copy_paint;
+        Label(ui, at(158, 1, 400, 18), Get(paint ? 10696 : 10697));
+        Help(ui, at(158, 20, 400, 20), 30685);
+        if (Button(ui, at(158, 20, 400, 20), Get(paint ? 10691 : 10690), paint || s.has_area)) {
+            if (paint) {
+                s.copy_paint = false;
+            } else {
+                CopyArea(s);
+                s.copy_paint = s.copied.w > 0;
+            }
+        }
+        struct Turn { int x, y, label, help, how; };
+        static constexpr Turn kTurns[] = {{158, 40, 10692, 30687, 0}, {358, 40, 10693, 30686, 1},
+                                          {158, 60, 10694, 30688, 2}, {358, 60, 10695, 30689, 3}};
+        for (const Turn& t : kTurns) {
+            Help(ui, at(t.x, t.y, 200, 20), t.help);
+            if (Button(ui, at(t.x, t.y, 200, 20), Get(t.label), paint)) TurnCopy(s, t.how);
+        }
+        Help(ui, at(158, 80, 400, 20), 30690);
+        if (Button(ui, at(158, 80, 400, 20), Get(s.copy_change == 1 ? 10698 : 10700), paint)) {
+            s.copy_change = 1 - s.copy_change;
+        }
+        if (s.copy_change == 1) {
+            Label(ui, at(370, 108, 200, 18), Get(10699));
+            Help(ui, at(370, 126, 150, 20), 30691);
+            Drop(ui, at(370, 126, 150, 20), players, s.copy_player, paint);
+        }
     }
 }
 

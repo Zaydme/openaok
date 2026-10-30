@@ -708,6 +708,79 @@ void Editing(Verdict& v) {
     Core::ConfigManager::Get().SetPlayerColours(none);
 }
 
+// Map Copy on DEMO.SCN: an area with things in it copied, its terrain,
+// elevation and things; the copy turned right, a corner tile going to the
+// other side; the copy laid elsewhere with its things given to player 3, but
+// Gaia's kept Gaia's, each with a new id, and the world built again to show
+// them.
+void MapCopying(Verdict& v) {
+    using Core::Fixed32;
+    Editor::State s;
+    std::string error;
+    if (!Scenario::Load(kDemo, -1, s.doc, &error)) {
+        v.Fail("DEMO.SCN unread for Map Copy: " + error);
+        return;
+    }
+    Editor::Layout(s);
+    Editor::BuildWorld(s, false);
+    // An area round player 1's first unit, and the ground there made uneven
+    // so that a turn shows.
+    const Scenario::Unit* first = s.doc.players[1].units.empty() ? nullptr : &s.doc.players[1].units.front();
+    if (first == nullptr) {
+        v.Fail("DEMO.SCN has no unit of player 1 to copy");
+        return;
+    }
+    const int cx = first->x.ToInt(), cy = first->y.ToInt();
+    s.has_area = true;
+    s.area_x0 = std::max(0, cx - 3);
+    s.area_y0 = std::max(0, cy - 2);
+    s.area_x1 = std::min(s.doc.width - 1, cx + 3);
+    s.area_y1 = std::min(s.doc.height - 1, cy + 2);
+    const int corner = s.area_y0 * s.doc.width + s.area_x0;
+    s.doc.terrain[static_cast<size_t>(corner)] = 22;
+    Editor::CopyArea(s);
+    const auto& c = s.copied;
+    const int w = s.area_x1 - s.area_x0 + 1, h = s.area_y1 - s.area_y0 + 1;
+    int things = 0, gaia = 0;
+    for (int p = 0; p < Core::kMaxPlayers; ++p) {
+        for (const auto& u : s.doc.players[p].units) {
+            if (u.garrisoned_in >= 0 || u.x < Fixed32(s.area_x0) || u.x >= Fixed32(s.area_x1 + 1) ||
+                u.y < Fixed32(s.area_y0) || u.y >= Fixed32(s.area_y1 + 1)) {
+                continue;
+            }
+            ++things;
+            gaia += p == 0 ? 1 : 0;
+        }
+    }
+    v.Expect(c.w == w && c.h == h && static_cast<int>(c.terrain.size()) == w * h && c.terrain[0] == 22 &&
+                 static_cast<int>(c.units.size()) == things && things > 0,
+             "Map Copy did not copy the area's ground and things");
+    Editor::TurnCopy(s, 1);
+    v.Expect(c.w == h && c.h == w && c.terrain[static_cast<size_t>(h - 1)] == 22,
+             "Map Copy's Rotate Right did not turn the copy");
+    size_t before = 0;
+    for (const auto& p : s.doc.players) before += p.units.size();
+    const uint32_t next_id = s.doc.next_unit_id;
+    s.copy_change = 1;
+    s.copy_player = 3;
+    const int to_x = s.doc.width / 2, to_y = s.doc.height / 2;
+    Editor::LayCopy(s, to_x, to_y);
+    size_t after = 0, theirs = 0;
+    for (int p = 0; p < Core::kMaxPlayers; ++p) {
+        after += s.doc.players[p].units.size();
+        for (const auto& u : s.doc.players[p].units) {
+            if (static_cast<uint32_t>(u.id) >= next_id) theirs += p == 3 ? 1 : 0;
+        }
+    }
+    const int x0 = to_x - c.w / 2, y0 = to_y - c.h / 2;
+    v.Expect(s.doc.terrain[static_cast<size_t>(y0 * s.doc.width + x0 + h - 1)] == 22,
+             "Map Copy did not lay the copy's ground");
+    v.Expect(after == before + static_cast<size_t>(things) && theirs == static_cast<size_t>(things - gaia) &&
+                 s.doc.next_unit_id == next_id + static_cast<uint32_t>(things),
+             "Map Copy did not lay the copy's things as player 3's with new ids, Gaia's kept");
+    v.Expect(s.refs.size() == after, "the editor's world was not built again with the copy's things");
+}
+
 } // namespace
 
 bool CheckEditor() {
@@ -742,6 +815,7 @@ bool CheckEditor() {
     if (!demo.empty()) Edits(v, demo);
     NewFile(v);
     Editing(v);
+    MapCopying(v);
     if (v.ok()) {
         std::printf("[editor] %d scenarios written back byte-identical inflated; %zu bytes packed by the "
                     "editor, %zu by the writer\n",
