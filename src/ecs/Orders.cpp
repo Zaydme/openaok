@@ -74,6 +74,8 @@ bool Commands(const entt::registry& registry, entt::entity unit, Core::PlayerId 
 // Whatever the unit was doing stops: a new order replaces the old one.
 void DropCurrentJob(entt::registry& registry, entt::entity unit) {
     registry.remove<Components::Boarding>(unit);
+    // A job broken off for a fight is given up for whatever comes now.
+    registry.remove<Components::Interrupted>(unit);
     // Any order but another waypoint forgets the route laid.
     registry.remove<Components::Waypoints>(unit);
     // A transport given another order keeps its load aboard.
@@ -697,6 +699,16 @@ void FollowRally(entt::registry& registry, const Physics::Grid& grid, entt::enti
     // it.
     if (Trade::Start(registry, grid, unit, target)) return;
     WalkTo(registry, grid, unit, at);
+}
+
+void Interrupt(entt::registry& registry, entt::entity unit) {
+    const auto* worker = registry.try_get<Components::Worker>(unit);
+    const bool working = worker != nullptr && worker->state != Core::UnitState::Idle;
+    const Components::Interrupted kept{working ? worker->target_resource : entt::null,
+                                       working ? worker->target_building : entt::null};
+    DropCurrentJob(registry, unit);
+    registry.remove<Components::Path>(unit);
+    if (working) registry.emplace<Components::Interrupted>(unit, kept);
 }
 
 void GoBackToWork(entt::registry& registry, const Physics::Grid& grid, entt::entity unit,

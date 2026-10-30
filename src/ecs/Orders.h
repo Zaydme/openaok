@@ -30,6 +30,11 @@ void FollowRally(entt::registry& registry, const Physics::Grid& grid, entt::enti
 void GoBackToWork(entt::registry& registry, const Physics::Grid& grid, entt::entity unit,
                   entt::entity resource, entt::entity site);
 
+// A villager breaking off its job for a fight: the job is kept
+// (Components::Interrupted) for GoBackToWork, and it stands, free to fight or
+// to run. Any order after drops the kept job.
+void Interrupt(entt::registry& registry, entt::entity unit);
+
 // Once a tick, before anything moves: a unit with waypoints that has come to
 // the end of its walk sets off for the next.
 void WalkOnToWaypoints(entt::registry& registry, const Physics::Grid& grid);

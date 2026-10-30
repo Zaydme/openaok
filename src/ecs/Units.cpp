@@ -6,6 +6,7 @@
 #include "core/ConfigManager.h"
 #include "core/FixedMath.h"
 #include "core/Rules.h"
+#include "ecs/Combat.h"
 #include "ecs/Players.h"
 #include "ecs/Score.h"
 #include "ecs/components/Animation.h"
@@ -87,6 +88,7 @@ entt::entity Spawn(entt::registry& registry, int unit_id, Core::PlayerId player,
     // punch, and as hunters throw spears.
     if (rules->attack_count > 0 && rules->reload.value > 0) {
         registry.emplace<Components::Combat>(unit);
+        Combat::FirstLook(registry, unit);
     }
     // Anything whose tasks convert or heal is a monk, with its faith.
     for (int t = 0; t < rules->task_count; ++t) {

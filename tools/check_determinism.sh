@@ -45,6 +45,8 @@ POCKET="$(echo "$OUTPUT" | grep '^pocket=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
+HUNT="$(echo "$OUTPUT" | grep '^hunt=')"
+ANSWER="$(echo "$OUTPUT" | grep '^answer=')"
 HERDING="$(echo "$OUTPUT" | grep '^herding=')"
 CROWD="$(echo "$OUTPUT" | grep '^crowd=')"
 SPREAD="$(echo "$OUTPUT" | grep '^spread=')"
@@ -211,6 +213,9 @@ if [ "$BUTTONS" = "buttons=ok" ]; then
 else
     echo "BUTTONS FAILED" >&2
     echo "  $BUTTONS" >&2
+    STATUS=1
+fi
+
 # A wolf goes for villagers and soldiers, never a building, a ram, a Monk or
 # a Trade Cart; a soldier goes for a wolf only when the computer plays it.
 if [ "$SEARCH" = "search=ok" ]; then
@@ -218,6 +223,25 @@ if [ "$SEARCH" = "search=ok" ]; then
 else
     echo "SEARCH FAILED" >&2
     echo "  $SEARCH" >&2
+    STATUS=1
+fi
+
+# A wolf waits for people to come near, nearer at the easier difficulties.
+if [ "$HUNT" = "hunt=ok" ]; then
+    echo "hunt OK"
+else
+    echo "HUNT FAILED" >&2
+    echo "  $HUNT" >&2
+    STATUS=1
+fi
+
+# A villager struck at work fights off a wolf and runs from a soldier, then
+# goes back to work; the idle beside it help.
+if [ "$ANSWER" = "answer=ok" ]; then
+    echo "answer OK"
+else
+    echo "ANSWER FAILED" >&2
+    echo "  $ANSWER" >&2
     STATUS=1
 fi
 

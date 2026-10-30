@@ -82,4 +82,12 @@ struct Worker {
     int build_attempts = 0;
 };
 
+// The job a villager broke off to fight off or run from an attacker, gone
+// back to once that is over: the resource it was working, or the site it was
+// building.
+struct Interrupted {
+    entt::entity resource = entt::null;
+    entt::entity site = entt::null;
+};
+
 } // namespace ECS::Components

@@ -140,6 +140,13 @@ uint64_t Sought(const entt::registry& registry, entt::entity self) {
     }
 }
 
+bool Hunts(const entt::registry& registry, entt::entity self) {
+    const auto* identity = registry.try_get<Components::Identity>(self);
+    if (identity == nullptr || identity->unit_id == kBoar) return false;
+    const Core::Rules::UnitRules* rules = Players::RulesFor(registry, self, identity->unit_id);
+    return rules != nullptr && rules->cls == kPredator;
+}
+
 bool Holds(uint64_t classes, int cls) {
     return cls >= 0 && cls <= kHighestClass && ((classes >> cls) & 1) != 0;
 }

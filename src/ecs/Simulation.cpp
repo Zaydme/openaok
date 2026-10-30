@@ -158,6 +158,8 @@ void Simulation::Init(const Core::GameSetup& game) {
     // map seed so drawing from one never shifts the other.
     registry.ctx().emplace<Core::Random>(
         static_cast<uint64_t>(setup.seed) ^ 0x9E3779B97F4A7C15ull);
+    registry.ctx().insert_or_assign(
+        Combat::HuntRandom{Core::Random(static_cast<uint64_t>(setup.seed) ^ 0xC2B2AE3D27D4EB4Full)});
 
     // Every seat's table, then the technologies each starts with -- its civ's
     // tech tree and bonuses, and the starting age -- before anything is placed,

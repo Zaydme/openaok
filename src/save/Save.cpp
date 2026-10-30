@@ -9,6 +9,7 @@
 #include "core/GameSetup.h"
 #include "core/Random.h"
 #include "ecs/Chat.h"
+#include "ecs/Combat.h"
 #include "ecs/Diplomacy.h"
 #include "ecs/Digest.h"
 #include "ecs/Events.h"
@@ -242,6 +243,7 @@ uint64_t Fingerprint() {
     mix(sizeof(ECS::Victory::Outcome));
     mix(sizeof(AI::Brain));
     mix(sizeof(Core::Random));
+    mix(sizeof(ECS::Combat::HuntRandom));
     mix(sizeof(ECS::Market::Prices));
     mix(sizeof(ECS::Diplomacy::Table));
     mix(sizeof(ECS::Flares::Flare));
@@ -562,11 +564,13 @@ bool Write(const ECS::Simulation& sim, std::vector<uint8_t>& out) {
     const auto* fog = ctx.find<ECS::Fog::Memory>();
     const auto* score = ctx.find<ECS::Score::Table>();
     const auto* timeline = ctx.find<ECS::Timeline::Table>();
+    const auto* hunt = ctx.find<ECS::Combat::HuntRandom>();
     if (!random || !players || !victory || !vision || !brains || !prices || !diplomacy ||
-        !chat || !flares || !fog || !score || !timeline) {
+        !chat || !flares || !fog || !score || !timeline || !hunt) {
         return false;
     }
     PutPod(w, *random);
+    PutPod(w, *hunt);
     PutPlayers(w, *players);
     PutPod(w, victory->outcome);
     Net::Wire::Write(w, victory->setup);
@@ -664,6 +668,9 @@ bool Read(ECS::Simulation& sim, const std::vector<uint8_t>& in, std::string* err
     Core::Random random{1};
     GetPod(r, random);
     registry.ctx().emplace<Core::Random>(random);
+    ECS::Combat::HuntRandom hunt;
+    GetPod(r, hunt);
+    registry.ctx().insert_or_assign(hunt);
     ECS::Players::Table players = ctx.get<ECS::Players::Table>();
     GetPlayers(r, players);
     registry.ctx().insert_or_assign(std::move(players));

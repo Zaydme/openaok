@@ -16,4 +16,7 @@ uint64_t Sought(const entt::registry& registry, entt::entity self);
 // Whether `classes`, from Sought, holds dat class `cls`.
 bool Holds(uint64_t classes, int cls);
 
+// Whether `self` hunts as a wild predator does -- a wolf, not the boar.
+bool Hunts(const entt::registry& registry, entt::entity self);
+
 } // namespace ECS::Search

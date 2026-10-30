@@ -205,6 +205,13 @@ bool CheckButtons();
 // building, a ram, a Monk or a Trade Cart; a soldier a wolf only when the
 // computer plays it. Prints "search=".
 bool CheckSearch();
+// How near a wolf lets people come before it goes for them, by difficulty.
+// Prints "hunt=".
+bool CheckHunt();
+// What a villager at work does when struck: fights off a wolf, runs from a
+// soldier, goes back to work after; help from the idle beside it. Prints
+// "answer=".
+bool CheckAnswer();
 bool CheckPocket();
 
 // A landing on Islands: a transport takes on a war party under the dat's

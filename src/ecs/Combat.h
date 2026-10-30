@@ -1,6 +1,8 @@
 #pragma once
 #include <entt/entt.hpp>
 
+#include "core/Random.h"
+
 #include "core/FixedPoint.h"
 #include "core/Rules.h"
 #include "ecs/BuildingGeometry.h"
@@ -73,6 +75,17 @@ Buildings::Bounds BoxOf(const entt::registry& registry, entt::entity entity);
 // How far apart two things are, edge to edge: the straight distance between
 // their boxes (BoxOf), zero where they touch or overlap.
 Core::Fixed32 Gap(const entt::registry& registry, entt::entity from, entt::entity to);
+
+// The wild predators' own random numbers, for how long each waits between
+// looks round: apart from the world's, so their looking does not shift every
+// other roll in the world.
+struct HuntRandom {
+    Core::Random rng{1};
+};
+
+// A wild predator's first look round for prey, as long after it appears as
+// it waits between looks.
+void FirstLook(entt::registry& registry, entt::entity predator);
 
 // Turns `self` to face `target`; a building keeps its art as it is.
 void Face(entt::registry& registry, entt::entity self, entt::entity target);

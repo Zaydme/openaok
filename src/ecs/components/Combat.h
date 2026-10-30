@@ -44,6 +44,8 @@ struct Combat {
     // Where a defensive unit returns to once a fight is over.
     Vector2D post{};
     bool has_post = false;
+    // Whoever struck it last: help is called once for each new attacker.
+    entt::entity struck_by = entt::null;
 };
 
 } // namespace ECS::Components

@@ -6,12 +6,15 @@
 #include <vector>
 
 #include "core/FixedMath.h"
+#include "core/GameSetup.h"
+#include "core/Random.h"
 #include "ecs/Animals.h"
 #include "ecs/BuildingGeometry.h"
 #include "ecs/Diplomacy.h"
 #include "ecs/Events.h"
 #include "ecs/Missiles.h"
 #include "ecs/Navigation.h"
+#include "ecs/Orders.h"
 #include "ecs/Mortality.h"
 #include "ecs/Players.h"
 #include "ecs/Score.h"
@@ -60,6 +63,19 @@ constexpr int32_t kScanMs = 500;
 // A defensive unit pursues no further from where it was than this many times
 // its search radius before turning back.
 constexpr int kDefensiveLeash = 2;
+
+// A wild predator looks round itself every three quarters to five quarters of
+// this, and that of the shorter one after giving a chase up.
+constexpr int32_t kHuntMs = 6000;
+constexpr int32_t kHuntAgainMs = 1000;
+// The lobby's difficulties at which a predator lets a villager come nearer
+// before it goes for it (0 is the hardest).
+constexpr int kEasy = 3;
+constexpr int kEasiest = 4;
+// The dat class of villagers, a predator's first choice; and of predators.
+constexpr int kVillagerClass = 4;
+constexpr int kPreyClass = 9;
+constexpr int kPredatorClass = 10;
 
 Core::PlayerId OwnerOf(const entt::registry& registry, entt::entity e) {
     const auto* owner = registry.try_get<Components::Owner>(e);
@@ -197,6 +213,194 @@ entt::entity FindTarget(const entt::registry& registry, const Physics::Grid& gri
     return best;
 }
 
+// A predator's wait before it next looks round: `period` give or take a
+// quarter, from the world's own numbers.
+int32_t HuntWait(entt::registry& registry, int32_t period) {
+    auto* dice = registry.ctx().find<HuntRandom>();
+    if (dice == nullptr) dice = &registry.ctx().emplace<HuntRandom>();
+    auto& rng = dice->rng;
+    return period * 3 / 4 + static_cast<int32_t>(rng.NextInt(static_cast<uint64_t>(period / 2)));
+}
+
+// What a wild predator goes for when it looks round. It sees as far as its
+// line of sight, and goes first for the nearest villager there: at Moderate
+// or harder wherever it sees one, at Easy once it is within half its sight,
+// at Easiest within a third. A villager seen further off is waited for, not
+// passed over for something nearer. With no villager in sight it goes for
+// the nearest of anything else it hunts once that is within a third of its
+// sight.
+entt::entity FindPrey(const entt::registry& registry, entt::entity self, const R::UnitRules& own,
+                      const Nearby::Buckets& candidates) {
+    const uint64_t sought = Search::Sought(registry, self);
+    const auto& here = registry.get<Components::Transform>(self).position;
+    const Core::Fixed32 sight = own.los;
+    entt::entity villager = entt::null, other = entt::null;
+    Core::Fixed32 villager_at{}, other_at{};
+    Nearby::ForEachNear(candidates, here, sight, [&](entt::entity e) {
+        if (e == self || !Alive(registry, e) || !Hostile(registry, self, e)) return;
+        const R::UnitRules* rules = DefendingRules(registry, e);
+        if (rules == nullptr || !Search::Holds(sought, rules->cls)) return;
+        const auto& there = registry.get<Components::Transform>(e).position;
+        const Core::Fixed32 apart = Core::FixedMath::Distance(there.x - here.x, there.y - here.y);
+        if (apart > sight) return;
+        entt::entity& best = rules->cls == kVillagerClass ? villager : other;
+        Core::Fixed32& best_at = rules->cls == kVillagerClass ? villager_at : other_at;
+        if (best == entt::null || apart < best_at || (apart == best_at && e < best)) {
+            best = e;
+            best_at = apart;
+        }
+    });
+    const auto* setup = registry.ctx().find<Core::GameSetup>();
+    const int difficulty = setup != nullptr ? setup->difficulty : 0;
+    if (villager != entt::null) {
+        if (difficulty == kEasy) return Gap(registry, self, villager) <= sight / Core::Fixed32(2) ? villager : entt::null;
+        if (difficulty == kEasiest) return Gap(registry, self, villager) <= sight / Core::Fixed32(3) ? villager : entt::null;
+        return villager;
+    }
+    if (other != entt::null && Gap(registry, self, other) <= sight / Core::Fixed32(3)) return other;
+    return entt::null;
+}
+
+bool IsVillager(const entt::registry& registry, entt::entity e) {
+    const auto* worker = registry.try_get<Components::Worker>(e);
+    return worker != nullptr && worker->gatherer < 0;
+}
+
+// Those who never come to help: relic carts, trade and fishing boats,
+// buildings, walls and gates, Monks, trade carts and transports.
+bool NeverHelps(int cls) {
+    switch (cls) {
+    case 1: case 2: case 3: case 18: case 19: case 20: case 21: case 27: case 39:
+        return true;
+    default:
+        return false;
+    }
+}
+
+// How near the struck one those who come to its help stand, edge to edge, in
+// tiles.
+const Core::Fixed32 kHelpReach = Core::Fixed32(3);
+// A relic, and the relic cart: nothing a villager takes on.
+constexpr int kArtifactClass = 1;
+constexpr int kRelicClass = 42;
+// How far a villager runs from another player's attacker: this many times
+// what it walks in a second.
+constexpr int kRunSeconds = 2;
+// Places tried about where it would run to when that ground is closed, and
+// how far about it, in tiles.
+constexpr int kRunTries = 5;
+constexpr int kRunScatter = 3;
+
+// Help for `victim`, struck by `attacker`: every idle unit of its side or of
+// an ally of its, within three tiles of it, that would take the attacker on
+// and can get at it, goes for it. Villagers come only against Gaia's.
+void CallForHelp(entt::registry& registry, const Physics::Grid& grid, entt::entity victim,
+                 entt::entity attacker) {
+    const R::UnitRules* struck_by = DefendingRules(registry, attacker);
+    if (struck_by == nullptr) return;
+    const bool gaia = OwnerOf(registry, attacker) == Core::PLAYER_GAIA;
+    const auto& here = registry.get<Components::Transform>(victim).position;
+    const Core::Fixed32 near = kHelpReach + kFarthestExtents;
+    std::vector<entt::entity> helpers;
+    auto fighters = registry.view<Combat, Components::Transform, Components::Owner>();
+    for (auto e : fighters) {
+        if (e == victim || e == attacker || !Alive(registry, e) || IsBuilding(registry, e)) continue;
+        const auto& at = fighters.get<Components::Transform>(e).position;
+        if (Core::FixedMath::Abs(at.x - here.x) > near || Core::FixedMath::Abs(at.y - here.y) > near) continue;
+        if (!Friendly(registry, victim, e) || !Friendly(registry, e, victim)) continue;
+        const auto& combat = fighters.get<Combat>(e);
+        if (combat.state != CombatState::Idle || combat.stance == Components::Stance::NoAttack) continue;
+        if (const auto* path = registry.try_get<Components::Path>(e); path != nullptr && path->has_goal) continue;
+        if (const auto* worker = registry.try_get<Components::Worker>(e);
+            worker != nullptr && worker->state != Core::UnitState::Idle) {
+            continue;
+        }
+        const R::UnitRules* rules = DefendingRules(registry, e);
+        if (rules == nullptr || NeverHelps(rules->cls)) continue;
+        // Whether it would take the attacker on: a villager anything of
+        // Gaia's but a relic; anything else, of Gaia's, only a predator or
+        // prey, and of a player's what it looks for.
+        if (IsVillager(registry, e)) {
+            if (!gaia || struck_by->cls == kArtifactClass || struck_by->cls == kRelicClass) continue;
+        } else if (gaia ? struck_by->cls != kPredatorClass && struck_by->cls != kPreyClass
+                        : !Search::Holds(Search::Sought(registry, e), struck_by->cls)) {
+            continue;
+        }
+        if (Gap(registry, e, victim) > kHelpReach) continue;
+        const R::UnitRules* own = FightingRules(registry, e);
+        if (own == nullptr || !CanReach(registry, grid, e, attacker, *own)) continue;
+        helpers.push_back(e);
+    }
+    for (entt::entity e : helpers) Engage(registry, e, attacker, false);
+}
+
+// A villager runs from another player's attacker: twice what it walks in a
+// second, straight away from it -- any way, standing on it -- or about there
+// when that ground is closed.
+void RunFrom(entt::registry& registry, const Physics::Grid& grid, entt::entity villager,
+             entt::entity attacker) {
+    const R::UnitRules* rules = FightingRules(registry, villager);
+    if (rules == nullptr || rules->speed.value <= 0) return;
+    auto& rng = registry.ctx().get<Core::Random>();
+    const auto& at = registry.get<Components::Transform>(villager).position;
+    const auto& from = registry.get<Components::Transform>(attacker).position;
+    Core::Fixed32 dx = at.x - from.x, dy = at.y - from.y;
+    Core::Fixed32 apart = Core::FixedMath::Distance(dx, dy);
+    if (apart < Core::Fixed32(1) / Core::Fixed32(100)) {
+        dx = Core::Fixed32(static_cast<int>(rng.NextInt(201)) - 100) / Core::Fixed32(100);
+        dy = Core::Fixed32(static_cast<int>(rng.NextInt(201)) - 100) / Core::Fixed32(100);
+        apart = Core::FixedMath::Max(Core::FixedMath::Distance(dx, dy), Core::Fixed32(1) / Core::Fixed32(100));
+    }
+    const Core::Fixed32 run = rules->speed * Core::Fixed32(kRunSeconds);
+    const Core::Fixed32 last_x(grid.GetWidth() - 1), last_y(grid.GetHeight() - 1);
+    auto clamp = [&](Components::Vector2D p) {
+        p.x = Core::FixedMath::Max(Core::Fixed32(0), Core::FixedMath::Min(last_x, p.x));
+        p.y = Core::FixedMath::Max(Core::Fixed32(0), Core::FixedMath::Min(last_y, p.y));
+        return p;
+    };
+    Components::Vector2D to = clamp({at.x + dx * run / apart, at.y + dy * run / apart});
+    for (int i = 0; i < kRunTries && !Navigation::CanStand(registry, grid, villager, to); ++i) {
+        const int span = 2 * kRunScatter + 1;
+        to = clamp({to.x + Core::Fixed32(static_cast<int>(rng.NextInt(span)) - kRunScatter),
+                    to.y + Core::Fixed32(static_cast<int>(rng.NextInt(span)) - kRunScatter)});
+    }
+    registry.emplace_or_replace<Components::Path>(
+        villager, Navigation::Route(registry, grid, villager, at, Navigation::Toward(registry, grid, villager, to)));
+}
+
+// A villager struck: it fights off Gaia's attacker -- a wolf -- and runs from
+// anyone else's, breaking off its job and going back to it after. It keeps at
+// what it is doing walking where it was sent, repairing, fighting already, or
+// hunting an animal that fights back -- a boar -- and is struck by it.
+void AnswerAsVillager(entt::registry& registry, const Physics::Grid& grid, entt::entity villager,
+                      entt::entity attacker) {
+    auto* worker = registry.try_get<Components::Worker>(villager);
+    auto* combat = registry.try_get<Combat>(villager);
+    if (worker == nullptr || combat == nullptr) return;
+    if (worker->state == Core::UnitState::Repairing) return;
+    const bool fighting = combat->state != CombatState::Idle && Alive(registry, combat->target);
+    const bool hunting = fighting && worker->hunted == combat->target;
+    if (fighting && !hunting) return;
+    const bool gaia = OwnerOf(registry, attacker) == Core::PLAYER_GAIA;
+    if (hunting && gaia) {
+        const R::UnitRules* quarry = DefendingRules(registry, combat->target);
+        if (quarry != nullptr && quarry->cls == kPredatorClass) return;
+    }
+    const auto* path = registry.try_get<Components::Path>(villager);
+    const bool walking = path != nullptr && path->has_goal;
+    const bool sent = walking && (worker->state == Core::UnitState::Moving ||
+                                  registry.all_of<Components::Boarding>(villager));
+    if (gaia) {
+        if (sent) return;
+        Orders::Interrupt(registry, villager);
+        Engage(registry, villager, attacker, false);
+        return;
+    }
+    if (walking) return;
+    Orders::Interrupt(registry, villager);
+    RunFrom(registry, grid, villager, attacker);
+}
+
 void Disengage(entt::registry& registry, const Physics::Grid& grid, entt::entity self,
                Combat& combat) {
     combat.target = entt::null;
@@ -325,6 +529,11 @@ bool SpentInBlow(const R::UnitRules& rules) {
 }
 
 } // namespace
+
+void FirstLook(entt::registry& registry, entt::entity predator) {
+    auto* combat = registry.try_get<Combat>(predator);
+    if (combat != nullptr && Search::Hunts(registry, predator)) combat->scan_ms = HuntWait(registry, kHuntMs);
+}
 
 void Face(entt::registry& registry, entt::entity self, entt::entity target) {
     auto* sprite = registry.try_get<Components::Sprite>(self);
@@ -474,13 +683,21 @@ void Hurt(entt::registry& registry, Physics::Grid& grid, entt::entity target,
                                 .at = at != nullptr ? at->position : Components::Vector2D{}});
     }
 
-    // Answering an attack: anything armed and not told otherwise turns on
-    // whoever hurt it -- a boar on its hunter, a villager on a wolf, a
-    // soldier on a neutral's. One busy at a job keeps at it. Never on its own
-    // side, nor on one its owner regards as an ally.
+    // Answering an attack, never from its own side nor one its owner regards
+    // as an ally. A new attacker first brings help from those idle nearby. A
+    // villager fights off Gaia's and runs from anyone else's (AnswerAsVillager);
+    // anything else armed and not told otherwise turns on whoever hurt it -- a
+    // boar on its hunter, a soldier on a neutral's -- unless busy at a job.
     if (health.current_hp > 0 && Alive(registry, attacker) &&
         !Friendly(registry, target, attacker)) {
-        if (auto* combat = registry.try_get<Combat>(target)) {
+        if (auto* combat = registry.try_get<Combat>(target);
+            combat != nullptr && combat->struck_by != attacker && combat->target != attacker) {
+            combat->struck_by = attacker;
+            CallForHelp(registry, grid, target, attacker);
+        }
+        if (IsVillager(registry, target)) {
+            AnswerAsVillager(registry, grid, target, attacker);
+        } else if (auto* combat = registry.try_get<Combat>(target)) {
             const auto* worker = registry.try_get<Components::Worker>(target);
             // Running for cover is busy too: it keeps running.
             const bool busy = (worker != nullptr && worker->state != Core::UnitState::Idle) ||
@@ -531,6 +748,8 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
 
         if (combat.state != CombatState::Idle && !Alive(registry, combat.target)) {
             Disengage(registry, grid, self, combat);
+            // A predator whose prey has died looks round again at once.
+            if (Search::Hunts(registry, self)) combat.scan_ms = 0;
         }
         // Another player's, whom its owner has since made an ally, is left
         // alone, ordered or not: allies cannot be attacked. (Its own are
@@ -553,6 +772,12 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
             if (!SeeksFights(*rules, building)) break;
             combat.scan_ms -= dt_ms;
             if (combat.scan_ms > 0) break;
+            if (Search::Hunts(registry, self)) {
+                combat.scan_ms = HuntWait(registry, kHuntMs);
+                const entt::entity prey = FindPrey(registry, self, *rules, candidates);
+                if (prey != entt::null) Engage(registry, self, prey, false);
+                break;
+            }
             combat.scan_ms = kScanMs + static_cast<int32_t>(entt::to_integral(self) % 8) * 16;
             // Stand ground looks only as far as it can reach.
             const Core::Fixed32 look =
@@ -567,6 +792,12 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
             if (InReach(*rules, gap, Core::Fixed32(0))) {
                 combat.state = CombatState::Attacking;
                 registry.remove<Components::Path>(self);
+                break;
+            }
+            // A predator gives up what has got further from it than it sees.
+            if (!combat.ordered && gap > rules->los && Search::Hunts(registry, self)) {
+                Disengage(registry, grid, self, combat);
+                combat.scan_ms = HuntWait(registry, kHuntAgainMs);
                 break;
             }
             const bool immobile = building || rules->speed.value <= 0;
@@ -652,6 +883,22 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
     }
     for (entt::entity ship : spent) {
         if (Alive(registry, ship)) Mortality::Kill(registry, grid, ship);
+    }
+
+    // Villagers whose fight, or run, is over go back to the job they broke
+    // off.
+    std::vector<entt::entity> resuming;
+    auto paused = registry.view<const Components::Interrupted, const Components::Worker>();
+    for (auto e : paused) {
+        const auto* combat = registry.try_get<Combat>(e);
+        if (combat != nullptr && combat->state != CombatState::Idle) continue;
+        if (const auto* path = registry.try_get<Components::Path>(e); path != nullptr && path->has_goal) continue;
+        resuming.push_back(e);
+    }
+    for (entt::entity e : resuming) {
+        const Components::Interrupted kept = registry.get<Components::Interrupted>(e);
+        registry.remove<Components::Interrupted>(e);
+        Orders::GoBackToWork(registry, grid, e, kept.resource, kept.site);
     }
 }
 
