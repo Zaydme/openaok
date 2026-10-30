@@ -26,6 +26,10 @@ Barracks, 7 the Archery Range, 8 the Stable, 9 the Siege Workshop, 10 the
 Monastery, 11 the Market, 12 the military commands, 13 the Castle. Control
 groups (Ctrl and a digit makes one, the digit selects it) are not in the table.
 
+A copy of the game protected by SafeDisc keeps the executable's code
+encrypted on the disc, so none of this can be read from it: the table is then
+written empty, and the game plays without default hotkeys.
+
 Usage:  python3 tools/data/extract_hotkeys.py
 """
 
@@ -81,6 +85,21 @@ def calls(blob, target, start, end):
     return found
 
 
+def sections(blob):
+    """The names of the executable's sections."""
+    pe = struct.unpack_from('<I', blob, 0x3c)[0]
+    count = struct.unpack_from('<H', blob, pe + 6)[0]
+    first = pe + 24 + struct.unpack_from('<H', blob, pe + 20)[0]
+    return [blob[first + 40 * i:first + 40 * i + 8].rstrip(b'\0').decode('latin-1')
+            for i in range(count)]
+
+
+def write(defaults):
+    with open(OUT, 'w') as fh:
+        json.dump({'defaults': defaults}, fh, indent=1)
+        fh.write('\n')
+
+
 def main():
     blob = open(EXE, 'rb').read()
     strings = json.load(open(STRINGS))
@@ -109,12 +128,20 @@ def main():
             'letter_string': letter,
             'letter': strings.get(str(letter), '') if letter >= 0 else '',
         })
+    if not defaults and not names:
+        # Nothing of the set-up code where it should be: its code cannot be
+        # read, or it is another build of the game.
+        protected = any(name.startswith('stxt') for name in sections(blob))
+        why = ('its code is encrypted by SafeDisc' if protected
+               else 'it is not the build of the game these tools know')
+        write([])
+        print('warning: the default hotkeys cannot be read from EMPIRES2.EXE (%s); '
+              'the game will play without them' % why)
+        return
     if len(defaults) != 120 or len(names) != 121:
         sys.exit('expected 120 defaults and 121 names, found %d and %d'
                  % (len(defaults), len(names)))
-    with open(OUT, 'w') as fh:
-        json.dump({'defaults': defaults}, fh, indent=1)
-        fh.write('\n')
+    write(defaults)
     print('wrote %s: %d default hotkeys' % (OUT, len(defaults)))
 
 

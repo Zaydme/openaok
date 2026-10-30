@@ -90,6 +90,9 @@ bool Load(const std::string& path) {
         b.name_string = d.value("string", -1);
         table.push_back(b);
     }
+    // An empty table: the game's own copy keeps its code encrypted
+    // (tools/data/extract_hotkeys.py).
+    if (table.empty()) std::cerr << "[Hotkeys] No default hotkeys: none could be read from EMPIRES2.EXE" << std::endl;
     return !table.empty();
 }
 

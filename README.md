@@ -126,6 +126,10 @@ on your machine and is ignored by git. Please don't share it, or the builds you
 make from it: a desktop build contains your game data. The Android APK and the
 Switch's `OpenAoK.nro` hold none of it; the data folders made for them do.
 
+The default hotkeys are read from the CD's `GAME/EMPIRES2.EXE`. On a CD
+protected by SafeDisc that file's code is encrypted, so they can't be: the
+build says so and goes on, and the game plays without hotkeys.
+
 ## Building for desktop (macOS, Linux)
 
 Install the tools:
