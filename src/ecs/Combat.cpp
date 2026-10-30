@@ -843,22 +843,18 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
                 combat.strike_ms -= dt_ms;
                 if (combat.strike_ms > 0) break;
                 combat.strike_ms = -1;
+                // A blow begun lands: a target that has stepped off since the
+                // swing began takes it all the same, as an arrow loosed hits.
                 if (Shoots(*rules)) {
                     volleys.emplace_back(self, combat.target);
-                } else if (InReach(*rules, Gap(registry, self, combat.target),
-                                   kDisengageSlack)) {
-                    if (const R::UnitRules* defender =
-                            DefendingRules(registry, combat.target)) {
-                        blows.push_back({combat.target,
-                                         Blow(Damage(rules->attacks, rules->attack_count,
-                                                     *defender),
-                                              LevelOf(registry, grid, self),
-                                              LevelOf(registry, grid, combat.target),
-                                              false),
-                                         self});
-                        MeleeBlast(registry, grid, self, combat.target, *rules, blows);
-                        if (SpentInBlow(*rules)) spent.push_back(self);
-                    }
+                } else if (const R::UnitRules* defender = DefendingRules(registry, combat.target)) {
+                    blows.push_back({combat.target,
+                                     Blow(Damage(rules->attacks, rules->attack_count, *defender),
+                                          LevelOf(registry, grid, self),
+                                          LevelOf(registry, grid, combat.target), false),
+                                     self});
+                    MeleeBlast(registry, grid, self, combat.target, *rules, blows);
+                    if (SpentInBlow(*rules)) spent.push_back(self);
                 }
                 break;
             }

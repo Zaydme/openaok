@@ -213,6 +213,9 @@ bool CheckHunt();
 // "answer=".
 bool CheckAnswer();
 bool CheckPocket();
+// A computer player's scout set on two wolves in its town: every swing it
+// begins at one wounds it. Prints "wolves=".
+bool CheckWolves();
 
 // A landing on Islands: a transport takes on a war party under the dat's
 // garrison rules, sails it to the other island and puts it ashore, and the

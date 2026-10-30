@@ -47,6 +47,7 @@ BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
 HUNT="$(echo "$OUTPUT" | grep '^hunt=')"
 ANSWER="$(echo "$OUTPUT" | grep '^answer=')"
+WOLVES="$(echo "$OUTPUT" | grep '^wolves=')"
 HERDING="$(echo "$OUTPUT" | grep '^herding=')"
 CROWD="$(echo "$OUTPUT" | grep '^crowd=')"
 SPREAD="$(echo "$OUTPUT" | grep '^spread=')"
@@ -242,6 +243,15 @@ if [ "$ANSWER" = "answer=ok" ]; then
 else
     echo "ANSWER FAILED" >&2
     echo "  $ANSWER" >&2
+    STATUS=1
+fi
+
+# A scout set on two wolves wounds the one it swings at with every swing.
+if [ "$WOLVES" = "wolves=ok" ]; then
+    echo "wolves OK"
+else
+    echo "WOLVES FAILED" >&2
+    echo "  $WOLVES" >&2
     STATUS=1
 fi
 

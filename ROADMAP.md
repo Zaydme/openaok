@@ -66,8 +66,6 @@ computer players' finer play, and polish.
   as they are.
 - **Computer players are slow to advance.** On the standard test map the
   hardest reach the Feudal Age around minute 19 to 21.
-- **A scout between two wolves**, set on one, can swing at it without wounding
-  it.
 - **57 graphics are missing** from the 1999 data; the game draws without them.
 - **Builds are tested on macOS and Android.** Linux follows the same steps but
   is not yet tested; Windows is not supported yet.

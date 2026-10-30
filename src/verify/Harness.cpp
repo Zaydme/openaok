@@ -68,6 +68,7 @@ int Run(int ticks) {
     if (runs("hunt")) ok &= CheckHunt();
     if (runs("answer")) ok &= CheckAnswer();
     if (runs("pocket")) ok &= CheckPocket();
+    if (runs("wolves")) ok &= CheckWolves();
     if (runs("landing")) ok &= CheckLanding();
     if (runs("market")) ok &= CheckMarket();
     if (runs("trade")) ok &= CheckTrade();
