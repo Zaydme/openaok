@@ -30,6 +30,10 @@ struct Path {
     // closed across it -- a building put up, a gate shut. Bounded, so a way
     // that has gone for good is given up.
     int8_t replans = 0;
+
+    // Times it has moved on to another place round its goal, someone
+    // standing where it was going (ecs/systems/MovementSystem).
+    int8_t moved_on = 0;
 };
 
 } // namespace ECS::Components

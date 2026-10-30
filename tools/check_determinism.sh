@@ -18,7 +18,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TICKS=3000
-GOLDEN="entities=1970 ticks=3000 hash=469215ad506be71e"
+GOLDEN="entities=1970 ticks=3000 hash=0bc425674bcce4d4"
 
 # Build first; stop on failure.
 if ! "$ROOT/build.sh" >/dev/null 2>&1; then
