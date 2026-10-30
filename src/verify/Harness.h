@@ -194,6 +194,9 @@ bool CheckFishing();
 bool CheckNavy();
 bool CheckShipAngles();
 bool CheckTurning();
+// A computer player never plays in a person's colour: it takes the lowest
+// colour nobody chose. Prints "colours=".
+bool CheckColours();
 bool CheckPocket();
 
 // A landing on Islands: a transport takes on a war party under the dat's

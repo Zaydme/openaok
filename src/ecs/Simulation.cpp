@@ -145,6 +145,9 @@ void SpawnStartingUnits(entt::registry& registry, Physics::Grid& grid,
 
 void Simulation::Init(const Core::GameSetup& game) {
     setup = game;
+    // A random map game's computer players take the colours nobody chose; a
+    // scenario's seats keep the file's.
+    if (setup.scenario.empty()) Core::SettleColours(setup);
     // The lobby, for whoever needs its choices later -- the interface prints
     // the players' names from it. Never part of the world's digest.
     registry.ctx().insert_or_assign(setup);

@@ -131,6 +131,31 @@ inline int StartingStock(StartingResources level, int dat_resource) {
     }
 }
 
+// The player colours, 0-7.
+constexpr int kColours = kMaxPlayers - 1;
+
+// The colours of a game's seats as it begins. Each person keeps the one
+// chosen (-1 is the seat's own). Each computer player, in seat order, takes
+// the lowest that no person chose and no computer player before it took, so
+// a computer never plays in a person's colour.
+inline void SettleColours(GameSetup& setup) {
+    bool taken[kColours] = {};
+    for (int seat = 1; seat < kMaxPlayers; ++seat) {
+        PlayerSetup& p = setup.players[seat];
+        if (!p.active || p.computer) continue;
+        if (p.colour < 0 || p.colour >= kColours) p.colour = seat - 1;
+        taken[p.colour] = true;
+    }
+    for (int seat = 1; seat < kMaxPlayers; ++seat) {
+        PlayerSetup& p = setup.players[seat];
+        if (!p.active || !p.computer) continue;
+        int colour = 0;
+        while (colour < kColours - 1 && taken[colour]) ++colour;
+        p.colour = colour;
+        taken[colour] = true;
+    }
+}
+
 // Two players on the default map: the engine's standing test game.
 inline GameSetup DefaultSetup() {
     GameSetup setup;

@@ -1123,6 +1123,8 @@ GameEnd RunGame(HAL::Window& window, Rendering::Renderer& renderer, Core::GameSe
     auto sim = std::make_unique<ECS::Simulation>();
     if (play.playback != nullptr) setup = play.playback->setup;
     sim->Init(setup);
+    // The lobby as the game began, the computer players' colours settled.
+    setup = sim->Setup();
     if (!play.load_path.empty() || !session.restore.empty()) {
         // A saved game: the world it was, the lobby it was started from --
         // for a restored network game, the save the host handed everyone.

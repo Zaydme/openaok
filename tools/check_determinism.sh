@@ -42,6 +42,7 @@ COLLAPSE="$(echo "$OUTPUT" | grep '^collapse=')"
 SHIPANGLES="$(echo "$OUTPUT" | grep '^shipangles=')"
 TURNING="$(echo "$OUTPUT" | grep '^turning=')"
 POCKET="$(echo "$OUTPUT" | grep '^pocket=')"
+COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 HERDING="$(echo "$OUTPUT" | grep '^herding=')"
 CROWD="$(echo "$OUTPUT" | grep '^crowd=')"
 SPREAD="$(echo "$OUTPUT" | grep '^spread=')"
@@ -189,6 +190,15 @@ if [ "$TURNING" = "turning=ok" ]; then
 else
     echo "TURNING FAILED" >&2
     echo "  $TURNING" >&2
+    STATUS=1
+fi
+
+# A computer player never plays in a person's colour.
+if [ "$COLOURS" = "colours=ok" ]; then
+    echo "colours OK"
+else
+    echo "COLOURS FAILED" >&2
+    echo "  $COLOURS" >&2
     STATUS=1
 fi
 
