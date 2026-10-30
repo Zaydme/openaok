@@ -1,4 +1,5 @@
 #include "hal/TextInput.h"
+#include "hal/Window.h"
 
 #include <SDL2/SDL.h>
 
@@ -77,6 +78,24 @@ void Want(Kind kind) {
         } else {
             SDL_StopTextInput();
         }
+    }
+#endif
+}
+
+void At(const SDL_Rect& field) {
+    static SDL_Rect last{0, 0, 0, 0};
+    const Window* window = MainWindow();
+    if (window == nullptr) return;
+    SDL_Rect at = window->ToWindow(field);
+    if (at.x == last.x && at.y == last.y && at.w == last.w && at.h == last.h) return;
+    last = at;
+    SDL_SetTextInputRect(&at);
+#ifdef __ANDROID__
+    // The keyboard takes the place only as it comes up: up already, it is
+    // brought up again for the new field.
+    if (SDL_IsTextInputActive() == SDL_TRUE) {
+        SDL_StopTextInput();
+        SDL_StartTextInput();
     }
 #endif
 }

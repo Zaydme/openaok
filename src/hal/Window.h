@@ -68,6 +68,8 @@ public:
 
     // Maps a window position (an SDL event's, or the mouse's) into the frame.
     void ToGame(int wx, int wy, int& gx, int& gy) const;
+    // And a rectangle of the frame into the window.
+    SDL_Rect ToWindow(const SDL_Rect& in_game) const;
     // Rewrites a mouse event's coordinates into the frame's pixels, so input
     // never sees the window's own.
     void TranslateEvent(SDL_Event& event) const;

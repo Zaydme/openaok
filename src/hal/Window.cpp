@@ -203,6 +203,20 @@ void Window::ToGame(int wx, int wy, int& gx, int& gy) const {
     gy = static_cast<int>(std::floor((wy - area.y) * static_cast<double>(game_h) / area.h));
 }
 
+SDL_Rect Window::ToWindow(const SDL_Rect& in_game) const {
+    int win_w = 0;
+    int win_h = 0;
+    SDL_GetWindowSize(window, &win_w, &win_h);
+    SDL_Rect area;
+    Fit(win_w, win_h, area);
+    if (game_w <= 0 || game_h <= 0) return in_game;
+    const double sx = static_cast<double>(area.w) / game_w;
+    const double sy = static_cast<double>(area.h) / game_h;
+    return SDL_Rect{area.x + static_cast<int>(std::lround(in_game.x * sx)),
+                    area.y + static_cast<int>(std::lround(in_game.y * sy)),
+                    static_cast<int>(std::lround(in_game.w * sx)), static_cast<int>(std::lround(in_game.h * sy))};
+}
+
 void Window::TranslateEvent(SDL_Event& event) const {
     // A finger on a touch screen, or a controller's button: made into the
     // mouse and keys, which come as events of their own (hal/Touch, hal/Pad).

@@ -2,6 +2,7 @@
 
 #include "core/Profile.h"
 #include "hal/GraphicCache.h"
+#include "hal/TextInput.h"
 #include "rendering/Text.h"
 
 #include <algorithm>
@@ -568,6 +569,7 @@ bool ClickListBox(ListBox& l, int x, int y) {
 }
 
 void DrawTextField(SDL_Renderer* r, const Theme& theme, const TextField& f) {
+    if (f.focused) HAL::TextInput::At(f.rect);
     DrawShaded(r, theme, f.rect);
     DrawBevel(r, theme, f.rect, true);
     const int y = f.rect.y + (f.rect.h - Text::Height(f.font)) / 2;

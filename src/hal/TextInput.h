@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include <SDL2/SDL.h>
+
 namespace HAL::TextInput {
 
 // Typed text. SDL sends characters only while text input is on, and the
@@ -19,6 +21,11 @@ enum class Kind : uint8_t {
     Line,    // a line being typed now: chat, a saved game's name
 };
 void Want(Kind kind);
+
+// Where the field being typed into is, in the frame's pixels: a phone's
+// keyboard keeps it in view above itself, and a desktop's input method puts
+// its window beside it.
+void At(const SDL_Rect& field);
 
 // Brings up the system's keyboard for the screen's fields: false when the
 // screen has none, or the machine has no such keyboard.
