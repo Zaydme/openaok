@@ -25,7 +25,9 @@
 #include "ecs/components/Transform.h"
 #include "ecs/components/Identity.h"
 #include "ecs/components/MinimapMarker.h"
+#include "ecs/components/Monk.h"
 #include "ecs/components/Owner.h"
+#include "ecs/components/Relic.h"
 #include "ecs/components/Resource.h"
 #include "ecs/components/Selectable.h"
 #include "ecs/components/Worker.h"
@@ -101,6 +103,12 @@ constexpr int kIconPack = 12;           // a wheel: put it on wheels
 constexpr int kIconUnpack = 13;         // the engine's frame, set up
 constexpr int kIconLockGate = 47;       // the gate, open
 constexpr int kIconUnlockGate = 48;     // the gate, its portcullis down
+// A Monk's, a transport's and a building's gather point.
+constexpr int kIconConvert = 14;        // a Monk at prayer
+constexpr int kIconHeal = 15;           // a hand in light
+constexpr int kIconUnload = 17;         // a boat, an arrow down to the shore
+constexpr int kIconGatherPoint = 45;    // a banner, an arrow down
+constexpr int kIconRemoveGatherPoint = 46;   // a banner, an arrow up
 // The four stances, aggressive to no attack, and the same four lit green for
 // the one in force.
 constexpr int kIconStances[4] = {9, 10, 11, 50};
@@ -154,6 +162,19 @@ constexpr int kBuyHelp[3] = {41077, 41076, 41078};
 constexpr int kSlotLockGate = 1;
 constexpr int kSlotUnpack = 1;
 constexpr int kSlotPack = 2;
+// A Monk's Convert first and Heal after it (first when it cannot convert); a
+// transport's Unload first; a building's Set Gather Point at the end of the
+// top row. While a gather point is being chosen the grid holds only Remove
+// Gather Point, first, and Cancel.
+constexpr int kSlotConvert = 1;
+constexpr int kSlotUnload = 1;
+constexpr int kSlotGatherPoint = 5;
+constexpr int kSlotRemoveGatherPoint = 1;
+// The player attribute (dat resource) that lets a player's Monks convert.
+constexpr int kCanConvert = 67;
+// The dat task actions of a unit that converts and one that heals.
+constexpr int kConvertTask = 104;
+constexpr int kHealTask = 105;
 
 // The mouse cursors, in sheet 51000.
 constexpr uint32_t kCursorSlp = 51000;
@@ -167,8 +188,9 @@ enum CursorFrame : int {
     kCursorHorn = 10,
     kCursorTracks = 11,      // follow
     kCursorDoor = 14,
+    kCursorStairsDown = 15,  // unload
     kCursorStairsUp = 16,
-    kCursorFlag = 18,        // patrol
+    kCursorFlag = 18,        // patrol, a gather point
 };
 
 // The top bar's food symbol, drawn over the art's own.
@@ -1291,6 +1313,18 @@ int UIRenderer::BuildCommands(ECS::Simulation& sim, int win_w, int win_h,
         return cmd;
     };
 
+    // Choosing a building's gather point: only the ways out of choosing.
+    if (Core::InputManager::Get().ChoosingGatherPoint() &&
+        registry.all_of<ECS::Components::Building>(selected)) {
+        order(kSlotRemoveGatherPoint, CommandKind::RemoveGatherPoint, kIconRemoveGatherPoint, 4949);
+        order(kSlotCancel, CommandKind::CancelOrder, kIconCancel, 4911);
+        int written = 0;
+        for (int i = 0; i < kCommandSlots && written < max_out; ++i) {
+            if (slots[i].icon_frame >= 0) out[written++] = slots[i];
+        }
+        return written;
+    }
+
     // The hotkey group the unit buttons answer to: the build list for a
     // builder, the building's own for what it trains.
     int hotkey_group = -1;
@@ -1397,7 +1431,10 @@ int UIRenderer::BuildCommands(ECS::Simulation& sim, int win_w, int win_h,
     } else if (ECS::Packing::Packs(registry, selected) &&
                !registry.all_of<ECS::Components::Combat>(selected)) {
         // A packed trebuchet: unpack, stop, delete, garrison.
-        if (Command* cmd = order(kSlotUnpack, CommandKind::Pack, kIconUnpack, 41056)) cmd->choice = 0;
+        if (Command* cmd = order(kSlotUnpack, CommandKind::Pack, kIconUnpack, 41056)) {
+            cmd->choice = 0;
+            BindHotkey(cmd, Core::Hotkeys::kUnitCommands, Core::Hotkeys::kUnpack);
+        }
         order(kSlotStop, CommandKind::Stop, kIconStop, 4905);
         order(kSlotUnitDelete, CommandKind::Delete, kIconDelete, 4941);
         order(kSlotGarrison, CommandKind::Garrison, kIconGarrison, 41068);
@@ -1407,7 +1444,10 @@ int UIRenderer::BuildCommands(ECS::Simulation& sim, int win_w, int win_h,
         // standing orders go.
         const bool trebuchet = ECS::Packing::Packs(registry, selected);
         if (trebuchet) {
-            if (Command* cmd = order(kSlotPack, CommandKind::Pack, kIconPack, 41055)) cmd->choice = 1;
+            if (Command* cmd = order(kSlotPack, CommandKind::Pack, kIconPack, 41055)) {
+                cmd->choice = 1;
+                BindHotkey(cmd, Core::Hotkeys::kUnitCommands, Core::Hotkeys::kPack);
+            }
         }
         // A fighting unit's own commands. Its standing orders, its stances and
         // the formations are advanced commands; delete and garrison are always
@@ -1461,8 +1501,38 @@ int UIRenderer::BuildCommands(ECS::Simulation& sim, int win_w, int win_h,
     } else if (!registry.all_of<ECS::Components::Building>(selected) &&
                registry.all_of<ECS::Components::Identity, ECS::Components::Transform>(selected)) {
         // A unit that does not fight -- the King, a trade cart: stop, delete,
-        // and the Garrison button by its class.
+        // and the Garrison button by its class. A Monk, unless it carries a
+        // relic, converts (when its player may) and heals; a loaded transport
+        // unloads.
         namespace HK = Core::Hotkeys;
+        if (registry.all_of<ECS::Components::Monk>(selected) &&
+            !registry.all_of<ECS::Components::RelicBearer>(selected)) {
+            const int unit_id = registry.get<ECS::Components::Identity>(selected).unit_id;
+            const auto* rules = ECS::Players::UnitOf(registry, LocalViewer(), unit_id);
+            auto performs = [&](int action) {
+                for (int t = 0; rules != nullptr && t < rules->task_count; ++t) {
+                    if (rules->tasks[t].action == action) return true;
+                }
+                return false;
+            };
+            const auto* me = ECS::Players::Find(registry, LocalViewer());
+            const bool may_convert = me != nullptr &&
+                ECS::Players::Resource(*me, kCanConvert) > Core::Fixed32(0);
+            int slot = kSlotConvert;
+            if (performs(kConvertTask) && may_convert) {
+                BindHotkey(order(slot++, CommandKind::Convert, kIconConvert, 4925),
+                           HK::kUnitCommands, HK::kConvert);
+            }
+            if (performs(kHealTask)) {
+                BindHotkey(order(slot, CommandKind::Heal, kIconHeal, 4924),
+                           HK::kUnitCommands, HK::kHeal);
+            }
+        }
+        if (ECS::Garrisons::IsTransport(registry, selected) &&
+            ECS::Garrisons::Count(registry, selected) > 0) {
+            BindHotkey(order(kSlotUnload, CommandKind::Unload, kIconUnload, 4907),
+                       HK::kUnitCommands, HK::kUnload);
+        }
         BindHotkey(order(kSlotStop, CommandKind::Stop, kIconStop, 4905),
                    HK::kUnitCommands, HK::kStop);
         BindHotkey(order(kSlotUnitDelete, CommandKind::Delete, kIconDelete, 4941),
@@ -1486,10 +1556,17 @@ int UIRenderer::BuildCommands(ECS::Simulation& sim, int win_w, int win_h,
             (queue == nullptr || queue->count < ECS::Components::ProductionQueue::kCapacity);
         hotkey_group = HotkeyGroupOfBuilding(building_id);
         if (finished) {
+            bool trains = false;
             for (int unit_id = 0; unit_id < static_cast<int>(unit_rules.size()); ++unit_id) {
                 const auto* rules = ECS::Players::UnitOf(registry, LocalViewer(), unit_id);
                 if (!rules || !rules->enabled || rules->train_loc != building_id) continue;
                 place(unit_id, false, can_queue);
+                trains = true;
+            }
+            // Where what it trains gathers.
+            if (trains) {
+                BindHotkey(order(kSlotGatherPoint, CommandKind::GatherPoint, kIconGatherPoint, 4944),
+                           Core::Hotkeys::kUnitCommands, Core::Hotkeys::kGatherPoint);
             }
             for (int tech_id : ECS::Techs::ResearchableAt(registry, LocalViewer(), building_id)) {
                 research(tech_id, can_queue);
@@ -1637,6 +1714,18 @@ UIRenderer::Action UIRenderer::ActivateCommand(const Command& command) {
         return Action::Treason;
     case CommandKind::Pack:
         return Action::Pack;
+    case CommandKind::Convert:
+        return Action::Convert;
+    case CommandKind::Heal:
+        return Action::Heal;
+    case CommandKind::Unload:
+        return Action::Unload;
+    case CommandKind::GatherPoint:
+        return Action::GatherPoint;
+    case CommandKind::RemoveGatherPoint:
+        return Action::RemoveGatherPoint;
+    case CommandKind::CancelOrder:
+        return Action::CancelOrder;
     case CommandKind::Caption:
         return Action::None;
     }
@@ -2317,6 +2406,8 @@ void UIRenderer::DrawCursor(ECS::Simulation& sim, Renderer& renderer, SDL_Render
     case Core::InputManager::Intent::Board: frame = kCursorStairsUp; break;
     case Core::InputManager::Intent::Place: frame = kCursorHammer; break;
     case Core::InputManager::Intent::Patrol: frame = kCursorFlag; break;
+    case Core::InputManager::Intent::GatherPoint: frame = kCursorFlag; break;
+    case Core::InputManager::Intent::Unload: frame = kCursorStairsDown; break;
     case Core::InputManager::Intent::Follow: frame = kCursorTracks; break;
     case Core::InputManager::Intent::Guard: frame = kCursorShield; break;
     case Core::InputManager::Intent::Signal: frame = kCursorHorn; break;

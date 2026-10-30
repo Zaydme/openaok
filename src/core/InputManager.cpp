@@ -144,6 +144,47 @@ void InputManager::GivePendingOrder(ECS::Simulation& sim, float x, float y) {
         return;
     }
 
+    // What the click is on: a building by its footprint, else the unit
+    // nearest it, within reach of it.
+    auto thing_at = [&]() {
+        auto buildings = registry.view<ECS::Components::Transform, ECS::Components::Building,
+                                       ECS::Components::Identity>();
+        for (auto b : buildings) {
+            if (!ECS::Vision::Shows(registry, Core::LocalPlayer(), b)) continue;
+            const auto& at = buildings.get<ECS::Components::Transform>(b).position;
+            const auto ground = ECS::Buildings::FootprintBounds(
+                at, buildings.get<ECS::Components::Identity>(b).unit_id);
+            if (ground.DistanceFrom({Fixed32(x), Fixed32(y)}) == Fixed32(0)) return b;
+        }
+        constexpr float kReach = 0.75f;
+        entt::entity found = entt::null;
+        float nearest = kReach * kReach;
+        auto bodies = registry.view<ECS::Components::Transform, ECS::Components::Selectable>();
+        for (auto e : bodies) {
+            if (registry.all_of<ECS::Components::Building>(e)) continue;
+            if (!ECS::Vision::Shows(registry, Core::LocalPlayer(), e)) continue;
+            const auto& p = bodies.get<ECS::Components::Transform>(e).position;
+            const float dx = p.x.ToFloat() - x, dy = p.y.ToFloat() - y;
+            if (dx * dx + dy * dy <= nearest) {
+                nearest = dx * dx + dy * dy;
+                found = e;
+            }
+        }
+        return found;
+    };
+
+    // A building's gather point: where the click is, and what it is on.
+    if (order == PendingOrder::GatherPoint) {
+        const entt::entity building = Rendering::UIRenderer::SelectedBuilding(sim);
+        if (building == entt::null) return;
+        const entt::entity on = thing_at();
+        const entt::entity work =
+            registry.valid(on) && registry.all_of<ECS::Components::Resource>(on) ? on : entt::null;
+        CommandQueue::Get().PushCommand(
+            RallyCommand{building, Fixed32(x), Fixed32(y), work, Core::LocalPlayer()});
+        return;
+    }
+
     // The player's selected units: everyone for a garrison or a repair, only
     // fighting units for the standing orders.
     const bool fighters_only = order == PendingOrder::Patrol || order == PendingOrder::Guard ||
@@ -164,6 +205,36 @@ void InputManager::GivePendingOrder(ECS::Simulation& sim, float x, float y) {
         CommandQueue::Get().PushCommand(
             PatrolCommand{units, Fixed32(x), Fixed32(y), Core::LocalPlayer()});
         Answered(registry, units.front(), Audio::Voices::Order::Move, entt::null);
+        return;
+    }
+    // Each loaded transport puts its load ashore nearest the click.
+    if (order == PendingOrder::Unload) {
+        entt::entity first = entt::null;
+        for (auto e : units) {
+            if (!ECS::Garrisons::IsTransport(registry, e)) continue;
+            CommandQueue::Get().PushCommand(
+                UnloadCommand{e, Fixed32(x), Fixed32(y), Core::LocalPlayer()});
+            if (first == entt::null) first = e;
+        }
+        if (first != entt::null) Answered(registry, first, Audio::Voices::Order::Move, entt::null);
+        return;
+    }
+    // The Monks convert what the click is on, or heal it.
+    if (order == PendingOrder::Convert || order == PendingOrder::Heal) {
+        const entt::entity target = thing_at();
+        if (target == entt::null) return;
+        entt::entity first = entt::null;
+        for (auto e : units) {
+            if (!registry.all_of<ECS::Components::Monk>(e) || e == target) continue;
+            if (order == PendingOrder::Convert) {
+                if (!ECS::Monks::CanConvert(registry, e, target)) continue;
+                CommandQueue::Get().PushCommand(AttackCommand{e, target, Core::LocalPlayer()});
+            } else {
+                CommandQueue::Get().PushCommand(HealCommand{e, target, Core::LocalPlayer()});
+            }
+            if (first == entt::null) first = e;
+        }
+        if (first != entt::null) Answered(registry, first, Audio::Voices::Order::Move, target);
         return;
     }
 
@@ -591,6 +662,22 @@ void InputManager::UpdateIntent(ECS::Simulation& sim, Rendering::Renderer& rende
         intent = Intent::Signal;
         Rendering::UIRenderer::SetWorldHint(3097);
         return;
+    case PendingOrder::Unload:
+        intent = Intent::Unload;
+        Rendering::UIRenderer::SetWorldHint(3053);
+        return;
+    case PendingOrder::GatherPoint:
+        intent = Intent::GatherPoint;
+        Rendering::UIRenderer::SetWorldHint(3084);
+        return;
+    // Converting and healing show what the pointer is over, as a right-click
+    // would find it.
+    case PendingOrder::Convert:
+        Rendering::UIRenderer::SetWorldHint(3044);
+        break;
+    case PendingOrder::Heal:
+        Rendering::UIRenderer::SetWorldHint(3043);
+        break;
     case PendingOrder::None: break;
     }
     if (placing_building) {
@@ -1037,6 +1124,32 @@ void InputManager::RunCommand(ECS::Simulation& sim, const Rendering::UIRenderer:
     case Rendering::UIRenderer::Action::Patrol:
         pending_order = PendingOrder::Patrol;
         break;
+    case Rendering::UIRenderer::Action::Convert:
+        pending_order = PendingOrder::Convert;
+        break;
+    case Rendering::UIRenderer::Action::Heal:
+        pending_order = PendingOrder::Heal;
+        break;
+    case Rendering::UIRenderer::Action::Unload:
+        pending_order = PendingOrder::Unload;
+        break;
+    case Rendering::UIRenderer::Action::GatherPoint:
+        pending_order = PendingOrder::GatherPoint;
+        break;
+    case Rendering::UIRenderer::Action::CancelOrder:
+        pending_order = PendingOrder::None;
+        break;
+    case Rendering::UIRenderer::Action::RemoveGatherPoint: {
+        // A gather point set on the building itself is none.
+        pending_order = PendingOrder::None;
+        const entt::entity building = Rendering::UIRenderer::SelectedBuilding(sim);
+        if (building != entt::null) {
+            const auto& at = registry.get<ECS::Components::Transform>(building).position;
+            CommandQueue::Get().PushCommand(
+                RallyCommand{building, at.x, at.y, building, Core::LocalPlayer()});
+        }
+        break;
+    }
     case Rendering::UIRenderer::Action::Guard:
         pending_order = PendingOrder::Guard;
         break;

@@ -104,6 +104,12 @@ public:
         LockGate,     // lock the selected gate (choice 1) or unlock it (0)
         Pack,         // pack the selected trebuchets (choice 1) or unpack them (0)
         Treason,      // Treason at the selected Castle, in a Regicide game
+        Convert,      // the selected Monks convert a unit or building, chosen next
+        Heal,         // the selected Monks heal a unit, chosen next
+        Unload,       // the selected transport unloads where the player points next
+        GatherPoint,  // the selected building's gather point, chosen next
+        RemoveGatherPoint,   // the selected building's gather point taken away
+        CancelOrder,  // the order waiting for its target given up
         Caption,      // words in a slot, not a button: the Market's "Sell:"
     };
     struct Command {
@@ -145,7 +151,8 @@ public:
     // interface's own business and never reach here.
     enum class Action { None, PlaceBuilding, DeleteBuilding, TrainUnit, Research,
                         SetStance, Stop, Ungarrison, TownBell, Patrol, Guard, Follow,
-                        Garrison, Repair, Sell, Buy, LockGate, Pack, Treason };
+                        Garrison, Repair, Sell, Buy, LockGate, Pack, Treason, Convert,
+                        Heal, Unload, GatherPoint, RemoveGatherPoint, CancelOrder };
 
     // The formation the player last chose; a group move marches in it.
     static Core::Formation CurrentFormation();

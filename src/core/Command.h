@@ -81,7 +81,8 @@ struct ResearchCommand {
 };
 
 // Set where a building sends the units it trains. `target` is what was under
-// the cursor, if anything -- a resource for villagers to work.
+// the cursor, if anything -- a resource for villagers to work; the building
+// itself takes its gather point away.
 struct RallyCommand {
     entt::entity building;
     Fixed32 x;

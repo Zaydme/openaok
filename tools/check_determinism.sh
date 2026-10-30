@@ -43,6 +43,7 @@ SHIPANGLES="$(echo "$OUTPUT" | grep '^shipangles=')"
 TURNING="$(echo "$OUTPUT" | grep '^turning=')"
 POCKET="$(echo "$OUTPUT" | grep '^pocket=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
+BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 HERDING="$(echo "$OUTPUT" | grep '^herding=')"
 CROWD="$(echo "$OUTPUT" | grep '^crowd=')"
 SPREAD="$(echo "$OUTPUT" | grep '^spread=')"
@@ -199,6 +200,16 @@ if [ "$COLOURS" = "colours=ok" ]; then
 else
     echo "COLOURS FAILED" >&2
     echo "  $COLOURS" >&2
+    STATUS=1
+fi
+
+# The command buttons and their hotkeys: Convert, Heal, Unload, Set Gather
+# Point, Pack and Unpack.
+if [ "$BUTTONS" = "buttons=ok" ]; then
+    echo "buttons OK"
+else
+    echo "BUTTONS FAILED" >&2
+    echo "  $BUTTONS" >&2
     STATUS=1
 fi
 

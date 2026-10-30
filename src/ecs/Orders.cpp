@@ -305,6 +305,11 @@ void Stop(entt::registry& registry, const Core::StopCommand& cmd) {
 void Rally(entt::registry& registry, const Core::RallyCommand& cmd) {
     if (!Owns(registry, cmd.building, cmd.player)) return;
     if (!registry.all_of<Components::Building>(cmd.building)) return;
+    // Set on the building itself, it is taken away.
+    if (cmd.target == cmd.building) {
+        registry.remove<Components::RallyPoint>(cmd.building);
+        return;
+    }
     registry.emplace_or_replace<Components::RallyPoint>(
         cmd.building, Components::Vector2D{cmd.x, cmd.y},
         registry.valid(cmd.target) ? cmd.target : entt::null);

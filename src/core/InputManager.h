@@ -61,8 +61,13 @@ public:
         Place,      // a building being placed; the Repair button's target
         Patrol, Follow, Guard,
         Signal,     // a signal to the allies
+        Unload,     // where a transport puts its load ashore
+        GatherPoint,   // a building's gather point
     };
     Intent CursorIntent() const { return intent; }
+    // Whether the player is choosing a building's gather point: the panel
+    // then offers only to remove it, or to give up.
+    bool ChoosingGatherPoint() const { return pending_order == PendingOrder::GatherPoint; }
 
     // The mouse, in the game's own pixels.
     int MouseX() const { return current_mouse_x; }
@@ -107,7 +112,8 @@ private:
 
     // A standing order waiting for its target: the next click in the world
     // names the point to patrol to, or the unit to guard or follow.
-    enum class PendingOrder : uint8_t { None, Patrol, Guard, Follow, Garrison, Repair, Flare };
+    enum class PendingOrder : uint8_t { None, Patrol, Guard, Follow, Garrison, Repair, Flare,
+                                        Convert, Heal, Unload, GatherPoint };
     PendingOrder pending_order = PendingOrder::None;
     // Gives the pending order at world point (x, y) to the player's selected
     // units, and clears it.

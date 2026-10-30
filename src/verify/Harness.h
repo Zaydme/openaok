@@ -197,6 +197,10 @@ bool CheckTurning();
 // A computer player never plays in a person's colour: it takes the lowest
 // colour nobody chose. Prints "colours=".
 bool CheckColours();
+// The command buttons with the original's hotkeys: a Monk's Convert and
+// Heal, a loaded transport's Unload, a building's Set Gather Point, a
+// trebuchet's Pack and Unpack. Prints "buttons=".
+bool CheckButtons();
 bool CheckPocket();
 
 // A landing on Islands: a transport takes on a war party under the dat's
