@@ -21,7 +21,8 @@ and campaigns, the computer players' finer play, and polish.
   every difficulty, up to seven at a table.
 - **Interface**: the menus, the battlefield interface, the tech tree, the
   Achievements screens, the start-up movies, campaigns with their narration and
-  pictures, the scenario editor; the multiplayer menu and lobby, with games
+  pictures, Custom Campaign; the scenario editor with Map Copy, garrisons and
+  the personalities, and the Campaign Editor; the multiplayer menu and lobby, with games
   found on the local network or joined by address, chat and ready checks;
   locked formations and Disband Formation.
 - **Linux**: built and checked on Debian 13 (GCC 14).
@@ -31,21 +32,17 @@ and campaigns, the computer players' finer play, and polish.
 
 ## Next
 
-1. **Campaigns and the editor**
-   - Custom campaigns' own maps.
-   - Editor: Map Copy, garrisons on the Units tab, the AI script list, the
-     Campaign Editor.
-2. **Computer players**
+1. **Computer players**
    - Walls and gates laid by the scripts (`build-wall`, `build-gate`).
    - Exploration and defence groups as the scripts' strategic numbers ask.
    - Relics, and the difficulty parameters (dodging missiles, reaction
      distances), which are read but not used.
    - Their economy on water maps: more wood in the Feudal Age, more warships
      and transports.
-3. **Performance**: eight players on a giant map, late game, at a steady
+2. **Performance**: eight players on a giant map, late game, at a steady
    60 Hz, measured by a stress scenario in the self-check.
-4. **Windows**: a build, and its packaging.
-5. **The Conquerors**: the 2000 expansion, played from the player's own copy
+3. **Windows**: a build, and its packaging.
+4. **The Conquerors**: the 2000 expansion, played from the player's own copy
    when its files are in `original_game_1999/`, with the 1999 game unchanged.
    - Its data: the dat, the expansion's archives and strings, its scenarios
      and campaigns, its random map and AI scripts.

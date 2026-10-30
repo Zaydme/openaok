@@ -107,6 +107,43 @@ bool LoadCampaign(const std::string& path, Campaign& out, std::string* error) {
     return Parse(bytes, out, error);
 }
 
+std::vector<uint8_t> CampaignBytes(const std::string& name, const std::vector<CampaignScenario>& scenarios) {
+    std::vector<uint8_t> out;
+    auto u32 = [&](uint32_t v) {
+        for (int b = 0; b < 4; ++b) out.push_back(static_cast<uint8_t>(v >> (8 * b)));
+    };
+    auto field = [&](const std::string& text, size_t width) {
+        const size_t n = std::min(text.size(), width - 1);
+        out.insert(out.end(), text.begin(), text.begin() + static_cast<long>(n));
+        out.insert(out.end(), width - n, 0);
+    };
+    const std::string version = "1.00";
+    out.insert(out.end(), version.begin(), version.end());
+    field(name, kNameBytes);
+    u32(static_cast<uint32_t>(scenarios.size()));
+    uint32_t at = static_cast<uint32_t>(4 + kNameBytes + 4 + scenarios.size() * kEntryBytes);
+    for (const CampaignScenario& s : scenarios) {
+        u32(static_cast<uint32_t>(s.bytes.size()));
+        u32(at);
+        field(s.name, kEntryNameBytes);
+        field(s.file, kEntryFileBytes);
+        at += static_cast<uint32_t>(s.bytes.size());
+    }
+    for (const CampaignScenario& s : scenarios) out.insert(out.end(), s.bytes.begin(), s.bytes.end());
+    return out;
+}
+
+bool WriteCampaign(const std::string& path, const std::string& name,
+                   const std::vector<CampaignScenario>& scenarios, std::string* error) {
+    const std::vector<uint8_t> bytes = CampaignBytes(name, scenarios);
+    std::ofstream out(path, std::ios::binary);
+    if (!out || !out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()))) {
+        if (error != nullptr) *error = "cannot write the file";
+        return false;
+    }
+    return true;
+}
+
 bool ReadCampaignScenario(const std::string& path, int entry, std::vector<uint8_t>& out,
                           std::string* error) {
     std::vector<uint8_t> bytes;

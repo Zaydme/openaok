@@ -34,6 +34,7 @@ enum class Id {
     Mission,       // a scenario's instructions before its game
     Aftermath,     // a scenario's victory or loss text after its game
     CustomCampaigns,  // Custom Campaign: a campaign of the player's and its scenario
+    CampaignEditor,   // the Map Editor's Campaign Editor
     SavedGames,
 };
 

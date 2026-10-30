@@ -21,6 +21,8 @@
 //                 difficulty, OK and Cancel
 //   CustomCampaigns  Single Player's Custom Campaign: the custom campaigns,
 //                 the chosen one's scenarios opened so far, the difficulty
+//   CampaignEditor  the Map Editor's Campaign Editor: scenarios put in a
+//                 campaign file, in order
 //   Mission       the scenario's instructions before its game (the "Mission
 //                 Dialog"): its name, its map picture, the Instructions,
 //                 History and Hints, OK
@@ -41,6 +43,7 @@ void PrepareBook();
 void PrepareMap(int number, bool from_main_menu);
 void PrepareSelect();
 void PrepareCustom();
+void PrepareCampaignEditor();
 // The custom campaigns: the campaign files that are none of the game's five.
 std::vector<std::string> CustomCampaigns();
 void PrepareMission(const Scenario::File& file);

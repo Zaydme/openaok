@@ -12,7 +12,10 @@
 #include "scenario/Campaign.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -520,6 +523,221 @@ void CustomEvent(const SDL_Event& e, Request& request) {
 }
 
 // ---------------------------------------------------------------------------
+// The Campaign Editor, from the Map Editor's menu: on the parchment of scr4,
+// at 800x600. The campaign's file name, typed or chosen from the campaigns
+// there are, and Save; the scenarios to choose from, Add and Remove; the
+// campaign's scenarios in the order they are played, Up and Down; OK and
+// Cancel. A campaign is saved under its name in Screens::CampaignsDir().
+
+constexpr SDL_Rect kEditorTitle = {25, 12, 750, 37};
+constexpr SDL_Rect kEditorFileLabel = {100, 100, 260, 20};
+constexpr SDL_Rect kEditorFile = {100, 120, 380, 24};
+constexpr SDL_Rect kEditorName = {100, 120, 360, 24};
+constexpr SDL_Rect kEditorSave = {500, 120, 200, 30};
+constexpr SDL_Rect kEditorScenariosLabel = {100, 160, 200, 20};
+constexpr SDL_Rect kEditorScenarios = {100, 180, 600, 130};
+constexpr SDL_Rect kEditorAdd = {360, 320, 160, 30};
+constexpr SDL_Rect kEditorRemove = {540, 320, 160, 30};
+constexpr SDL_Rect kEditorChosenLabel = {100, 340, 200, 20};
+constexpr SDL_Rect kEditorChosen = {100, 360, 500, 130};
+constexpr SDL_Rect kEditorUp = {610, 360, 90, 30};
+constexpr SDL_Rect kEditorDown = {610, 400, 90, 30};
+constexpr SDL_Rect kEditorOk = {212, 550, 175, 37};
+constexpr SDL_Rect kEditorCancel = {412, 550, 175, 37};
+constexpr size_t kCampaignNameLength = 255;
+
+struct CampaignEditor {
+    Theme theme;
+    Theme dialog;
+    DropDown file;
+    std::vector<std::string> file_paths;
+    TextField name;
+    ListBox scenarios;
+    std::vector<std::string> scenario_paths;
+    ListBox chosen;
+    std::vector<Scenario::CampaignScenario> entries;
+    Button save, add, remove, up, down, ok, cancel;
+    bool dirty = false;
+    // A message; a question asks Yes or No.
+    Notice notice;
+    Button no;
+    bool asking = false;
+};
+
+CampaignEditor& TheEditor() {
+    static CampaignEditor editor;
+    return editor;
+}
+
+void ShowEntries(CampaignEditor& c) {
+    c.chosen.items.clear();
+    for (const auto& e : c.entries) c.chosen.items.push_back(e.name);
+    if (c.chosen.selected >= static_cast<int>(c.entries.size())) c.chosen.selected = static_cast<int>(c.entries.size()) - 1;
+}
+
+void ListCampaigns(CampaignEditor& c) {
+    c.file_paths = CustomCampaigns();
+    std::vector<std::string> names;
+    for (const auto& path : c.file_paths) names.push_back(std::filesystem::path(path).stem().string());
+    c.file = DropDown{kEditorFile, names, -1};
+    c.file.font = Text::GameFont(11);
+}
+
+void LoadInto(CampaignEditor& c, const std::string& path) {
+    Scenario::Campaign campaign;
+    if (!Scenario::LoadCampaign(path, campaign)) return;
+    c.entries.clear();
+    for (size_t i = 0; i < campaign.scenarios.size(); ++i) {
+        Scenario::CampaignScenario e{campaign.scenarios[i].name, campaign.scenarios[i].file, {}};
+        if (Scenario::ReadCampaignScenario(path, static_cast<int>(i), e.bytes)) c.entries.push_back(std::move(e));
+    }
+    c.name.text = campaign.name;
+    c.chosen.selected = c.entries.empty() ? -1 : 0;
+    ShowEntries(c);
+    c.dirty = false;
+}
+
+// Saves the campaign; false, with the reason shown, when it cannot be.
+bool SaveCampaign(CampaignEditor& c) {
+    if (c.name.text.empty()) {
+        OpenNotice(c.notice, c.dialog, Get(11212), Get(4001));
+        return false;
+    }
+    if (c.entries.empty()) {
+        OpenNotice(c.notice, c.dialog, Get(11211), Get(4001));
+        return false;
+    }
+    if (!Scenario::WriteCampaign(CampaignsDir() + c.name.text + ".cpn", c.name.text, c.entries)) return false;
+    c.dirty = false;
+    ListCampaigns(c);
+    return true;
+}
+
+void DrawCampaignEditor(SDL_Renderer* r, const Pointer& p) {
+    CampaignEditor& c = TheEditor();
+    const Theme& theme = c.theme;
+    DrawBackground(r, theme);
+    DrawPanelText(r, Text::GameFont(1), kEditorTitle, Get(11201), Align::Centre, Down::Top, false, kBlackInk);
+    DrawPanelText(r, Text::GameFont(4), kEditorFileLabel, Get(11202), Align::Left, Down::Top, false, kBlackInk);
+    DrawPanelText(r, Text::GameFont(4), kEditorScenariosLabel, Get(11207), Align::Left, Down::Top, false, kBlackInk);
+    DrawListBox(r, theme, c.scenarios, p.x, p.y);
+    DrawPanelText(r, Text::GameFont(4), kEditorChosenLabel, Get(11208), Align::Left, Down::Top, false, kBlackInk);
+    DrawListBox(r, theme, c.chosen, p.x, p.y);
+    Button add = c.add, remove = c.remove, up = c.up, down = c.down;
+    add.enabled = c.scenarios.selected >= 0;
+    remove.enabled = c.chosen.selected >= 0;
+    up.enabled = c.chosen.selected > 0;
+    down.enabled = c.chosen.selected >= 0 && c.chosen.selected + 1 < static_cast<int>(c.entries.size());
+    const Button* buttons[] = {&c.save, &add, &remove, &up, &down, &c.ok, &c.cancel};
+    for (const Button* b : buttons) {
+        DrawButton(r, theme, *b, StateOf(*b, p.x, p.y, p.held));
+    }
+    // The name typed over the list of campaigns, its arrow beside it.
+    DropDown file = c.file;
+    file.items.insert(file.items.begin(), std::string{});
+    DrawDropDown(r, theme, c.file.open ? c.file : file, p.x, p.y, p.held, kMenuHeight);
+    if (!c.file.open) DrawTextField(r, theme, c.name);
+    DrawNotice(r, c.dialog, c.notice, p);
+    if (c.notice.open && c.asking) DrawButton(r, c.dialog, c.no, StateOf(c.no, p.x, p.y, p.held));
+    DrawCloseBox(r, theme, p.held && Hit(kCloseBox, p.x, p.y));
+}
+
+void CampaignEditorEvent(const SDL_Event& e, Request& request) {
+    CampaignEditor& c = TheEditor();
+    const bool down = e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT;
+    const bool up = e.type == SDL_MOUSEBUTTONUP && e.button.button == SDL_BUTTON_LEFT;
+    if (c.notice.open) {
+        if (up && Hit(c.notice.ok.rect, e.button.x, e.button.y)) {
+            Click();
+            c.notice.open = false;
+            // Saving the changes asked about, then out.
+            if (c.asking && SaveCampaign(c)) Open(Id::MainMenu);
+        } else if (up && c.asking && Hit(c.no.rect, e.button.x, e.button.y)) {
+            Click();
+            c.notice.open = false;
+            Open(Id::MainMenu);
+        }
+        return;
+    }
+    if (TypeIntoField(c.name, e)) {
+        c.dirty = true;
+        return;
+    }
+    if (down) {
+        if (c.file.open || Hit(SDL_Rect{kEditorName.x + kEditorName.w, kEditorFile.y,
+                                        kEditorFile.w - kEditorName.w, kEditorFile.h}, e.button.x, e.button.y)) {
+            const int before = c.file.selected;
+            ClickDropDown(c.file, e.button.x, e.button.y, kMenuHeight);
+            if (!c.file.open && c.file.selected >= 0 && c.file.selected != before) {
+                LoadInto(c, c.file_paths[static_cast<size_t>(c.file.selected)]);
+            }
+            return;
+        }
+        c.name.focused = Hit(kEditorName, e.button.x, e.button.y);
+        if (ClickListBox(c.scenarios, e.button.x, e.button.y)) return;
+        ClickListBox(c.chosen, e.button.x, e.button.y);
+    } else if (up) {
+        const int at = c.chosen.selected;
+        if (Hit(c.save.rect, e.button.x, e.button.y)) {
+            Click();
+            SaveCampaign(c);
+        } else if (Hit(c.add.rect, e.button.x, e.button.y) && c.scenarios.selected >= 0) {
+            Click();
+            const std::filesystem::path path = c.scenario_paths[static_cast<size_t>(c.scenarios.selected)];
+            std::ifstream in(path, std::ios::binary);
+            Scenario::CampaignScenario entry{path.stem().string(), path.filename().string(),
+                                             {std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()}};
+            // After the one chosen, or at the end.
+            const size_t place = at >= 0 ? static_cast<size_t>(at) + 1 : c.entries.size();
+            c.entries.insert(c.entries.begin() + static_cast<long>(place), std::move(entry));
+            c.chosen.selected = static_cast<int>(place);
+            ShowEntries(c);
+            c.dirty = true;
+        } else if (Hit(c.remove.rect, e.button.x, e.button.y) && at >= 0) {
+            Click();
+            c.entries.erase(c.entries.begin() + at);
+            ShowEntries(c);
+            c.dirty = true;
+        } else if (Hit(c.up.rect, e.button.x, e.button.y) && at > 0) {
+            Click();
+            std::swap(c.entries[static_cast<size_t>(at)], c.entries[static_cast<size_t>(at - 1)]);
+            c.chosen.selected = at - 1;
+            ShowEntries(c);
+            c.dirty = true;
+        } else if (Hit(c.down.rect, e.button.x, e.button.y) && at >= 0 &&
+                   at + 1 < static_cast<int>(c.entries.size())) {
+            Click();
+            std::swap(c.entries[static_cast<size_t>(at)], c.entries[static_cast<size_t>(at + 1)]);
+            c.chosen.selected = at + 1;
+            ShowEntries(c);
+            c.dirty = true;
+        } else if (Hit(c.ok.rect, e.button.x, e.button.y)) {
+            Click();
+            if (!c.dirty || SaveCampaign(c)) Open(Id::MainMenu);
+        } else if (Hit(c.cancel.rect, e.button.x, e.button.y)) {
+            Click();
+            if (c.dirty) {
+                // "Do you want to save your changes to campaign %s?"
+                char text[512];
+                std::snprintf(text, sizeof(text), Get(11209).c_str(), c.name.text.c_str());
+                OpenNotice(c.notice, c.dialog, text, Get(4003));
+                c.asking = true;
+                c.no = c.notice.ok;
+                c.no.label = Get(4004);
+                c.notice.ok.rect.x -= c.notice.ok.rect.w / 2 + 8;
+                c.no.rect.x += c.no.rect.w / 2 + 8;
+            } else {
+                Open(Id::MainMenu);
+            }
+        } else if (Hit(kCloseBox, e.button.x, e.button.y)) {
+            request.kind = Request::Kind::Quit;
+        }
+    } else if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) {
+        Open(Id::MainMenu);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // The scenario's instructions before its game: the "Mission Dialog", on
 // the loading screen's art (scr9, 50060). Across the top the
 // scenario's name (font 1, centred in 794x40 at (3, 12)); its map picture,
@@ -751,6 +969,8 @@ void Init() {
     TheSelect().theme = MakeTheme(Sin::kParchment2, kMenuWidth, kMenuHeight);
     TheMission().theme = MakeTheme(Sin::kLoading, kMenuWidth, kMenuHeight);
     TheAftermath().theme = MakeTheme(Sin::kParchment2, kMenuWidth, kMenuHeight);
+    TheEditor().theme = MakeTheme(Sin::kParchment4, kMenuWidth, kMenuHeight);
+    TheEditor().dialog = MakeTheme(Sin::kParchmentDialog, kMenuWidth, kMenuHeight, true);
 }
 
 void PrepareBook() {
@@ -832,6 +1052,29 @@ void PrepareCustom() {
     c.cancel = Button{kSelectCancel, Get(4002), Text::GameFont(0)};
 }
 
+void PrepareCampaignEditor() {
+    CampaignEditor& c = TheEditor();
+    ListCampaigns(c);
+    c.name = TextField{kEditorName, Get(11210), kCampaignNameLength, true, Text::GameFont(11)};
+    c.scenario_paths = FilesIn("../assets/original/Scenario", {".scn", ".scx"});
+    for (const std::string& p : FilesIn(ScenariosDir(), {".scn", ".scx"})) c.scenario_paths.push_back(p);
+    for (const std::string& p : FilesIn("../original_game_1999/GOODIES", {".scn", ".scx"})) c.scenario_paths.push_back(p);
+    c.scenarios = ListBox{kEditorScenarios, {}, c.scenario_paths.empty() ? -1 : 0, 0, Text::GameFont(11)};
+    for (const auto& path : c.scenario_paths) c.scenarios.items.push_back(std::filesystem::path(path).stem().string());
+    c.entries.clear();
+    c.chosen = ListBox{kEditorChosen, {}, -1, 0, Text::GameFont(11)};
+    c.save = Button{kEditorSave, Get(11204), Text::GameFont(0)};
+    c.add = Button{kEditorAdd, Get(11205), Text::GameFont(0)};
+    c.remove = Button{kEditorRemove, Get(11206), Text::GameFont(0)};
+    c.up = Button{kEditorUp, Get(11221), Text::GameFont(0)};
+    c.down = Button{kEditorDown, Get(11222), Text::GameFont(0)};
+    c.ok = Button{kEditorOk, Get(4001), Text::GameFont(0)};
+    c.cancel = Button{kEditorCancel, Get(4002), Text::GameFont(0)};
+    c.dirty = false;
+    c.asking = false;
+    c.notice.open = false;
+}
+
 void PrepareMission(const Scenario::File& file) {
     Mission& m = TheMission();
     if (m.picture != nullptr) SDL_DestroyTexture(m.picture);
@@ -887,6 +1130,7 @@ void Draw(Id screen, SDL_Renderer* r, const Pointer& p) {
     case Id::CampaignMap: DrawMap(r, p); break;
     case Id::ScenarioSelect: DrawSelect(r, p); break;
     case Id::CustomCampaigns: DrawCustom(r, p); break;
+    case Id::CampaignEditor: DrawCampaignEditor(r, p); break;
     case Id::Mission: DrawMission(r, p); break;
     case Id::Aftermath: DrawAftermath(r, p); break;
     default: break;
@@ -899,6 +1143,7 @@ void HandleEvent(Id screen, const SDL_Event& e, const Pointer& p, Request& reque
     case Id::CampaignMap: MapEvent(e, p, request); break;
     case Id::ScenarioSelect: SelectEvent(e, p, request); break;
     case Id::CustomCampaigns: CustomEvent(e, request); break;
+    case Id::CampaignEditor: CampaignEditorEvent(e, request); break;
     case Id::Mission: MissionEvent(e, p, request); break;
     case Id::Aftermath: AftermathEvent(e, p, request); break;
     default: break;

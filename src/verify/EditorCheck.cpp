@@ -872,6 +872,45 @@ void Personalities(Verdict& v) {
              "a personality did not survive a save");
 }
 
+// The campaign writer: Joan of Arc's file written again from its own six
+// scenarios comes back as it was, byte for byte past its name; a new campaign of DEMO.SCN and Joan's first
+// reads back with its name, its scenarios' names and files, and their bytes.
+void CampaignWriting(Verdict& v) {
+    const char* joan = "../assets/original/Campaign/cam1.cpn";
+    Scenario::Campaign campaign;
+    std::string error;
+    if (!Scenario::LoadCampaign(joan, campaign, &error)) {
+        v.Fail(std::string("cam1.cpn unread for the campaign writer: ") + error);
+        return;
+    }
+    std::vector<Scenario::CampaignScenario> again;
+    for (size_t i = 0; i < campaign.scenarios.size(); ++i) {
+        Scenario::CampaignScenario s{campaign.scenarios[i].name, campaign.scenarios[i].file, {}};
+        Scenario::ReadCampaignScenario(joan, static_cast<int>(i), s.bytes);
+        again.push_back(std::move(s));
+    }
+    std::ifstream in(joan, std::ios::binary);
+    std::vector<uint8_t> original((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    // What follows the name's end in its 256 bytes is not part of it: the
+    // file has old letters there.
+    for (size_t i = 4 + campaign.name.size(); i < 4 + 256 && i < original.size(); ++i) original[i] = 0;
+    v.Expect(Scenario::CampaignBytes(campaign.name, again) == original,
+             "Joan of Arc's campaign written again from its scenarios is not the file it was");
+    std::vector<uint8_t> demo;
+    ReadBytes(kDemo, -1, demo, error);
+    std::vector<Scenario::CampaignScenario> made = {{"DEMO", "DEMO.SCN", demo}, again.front()};
+    const std::string path =
+        (std::filesystem::temp_directory_path() / ("aoe-campaign-check-" + std::to_string(::getpid()) + ".cpn")).string();
+    Scenario::Campaign back;
+    std::vector<uint8_t> second;
+    v.Expect(Scenario::WriteCampaign(path, "My Campaign", made) && Scenario::LoadCampaign(path, back, &error) &&
+                 back.name == "My Campaign" && back.scenarios.size() == 2 && back.scenarios[0].file == "DEMO.SCN" &&
+                 back.scenarios[1].name == again.front().name &&
+                 Scenario::ReadCampaignScenario(path, 1, second) && second == again.front().bytes,
+             "a campaign written did not read back as it was made");
+    std::filesystem::remove(path);
+}
+
 } // namespace
 
 bool CheckEditor() {
@@ -909,6 +948,7 @@ bool CheckEditor() {
     MapCopying(v);
     Garrisoning(v);
     Personalities(v);
+    CampaignWriting(v);
     if (v.ok()) {
         std::printf("[editor] %d scenarios written back byte-identical inflated; %zu bytes packed by the "
                     "editor, %zu by the writer\n",

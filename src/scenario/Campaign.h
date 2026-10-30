@@ -30,6 +30,20 @@ struct Campaign {
 
 bool LoadCampaign(const std::string& path, Campaign& out, std::string* error = nullptr);
 
+// A scenario to put in a campaign file: its name and file name in the table
+// of contents, and the scenario file's own bytes.
+struct CampaignScenario {
+    std::string name;          // "Joan_scn1"
+    std::string file;          // "Joan_scn1.scn"
+    std::vector<uint8_t> bytes;
+};
+
+// A campaign file of the scenarios, in the order they are played, as
+// LoadCampaign reads one. Names longer than their fields are cut short.
+std::vector<uint8_t> CampaignBytes(const std::string& name, const std::vector<CampaignScenario>& scenarios);
+bool WriteCampaign(const std::string& path, const std::string& name,
+                   const std::vector<CampaignScenario>& scenarios, std::string* error = nullptr);
+
 // The bytes of a campaign's `entry`th scenario, for Scenario::Read.
 bool ReadCampaignScenario(const std::string& path, int entry, std::vector<uint8_t>& out,
                           std::string* error = nullptr);

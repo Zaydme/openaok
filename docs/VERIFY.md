@@ -54,7 +54,7 @@ that the script reads.
 | `repair`, `packing`, `converted` | Repairing; siege engines packing, their icons from the units' sheet, placed as units from a scenario; converted units keeping their maker's rules |
 | `formations` | Locked formations: kept wherever one of the group is sent, lit on the panel, Disband Formation, another formation for some, a member lost |
 | `walls`, `waypoints` | Walls, gates going up as their site units, and locking; queued waypoints |
-| `scenario`, `editor` | Every scenario on the CD read; triggers; saving and loading; the scenario editor's edits |
+| `scenario`, `editor` | Every scenario on the CD read; triggers; saving and loading; the scenario editor's edits, Map Copy, garrisons and personalities; campaign files written |
 
 ## The golden hash
 

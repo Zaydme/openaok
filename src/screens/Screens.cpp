@@ -154,8 +154,7 @@ SDL_Rect SubRect(int i) {
 
 bool SubEnabled(int i) {
     const MainMenu& menu = Menu();
-    // There is no campaign editor: its item stays disabled.
-    if (menu.editor_open) return i != 2;
+    if (menu.editor_open) return true;
     switch (i) {
     case 4: return menu.has_campaigns;
     case 5: return menu.has_scenarios;
@@ -293,6 +292,7 @@ void MainMenuEvent(const SDL_Event& e) {
             menu.editor_open = false;
             if (sub == 0) Ask(Request::Kind::CreateScenario);
             else if (sub == 1) Ask(Request::Kind::EditScenario);
+            else Open(Id::CampaignEditor);
         } else if (sub >= 0 && sub == menu.sub_pressed && SubEnabled(sub)) {
             Click();
             switch (sub) {
@@ -786,10 +786,12 @@ void Open(Id screen) {
     case Id::Campaigns: Campaigns::PrepareBook(); break;
     case Id::ScenarioSelect: Campaigns::PrepareSelect(); break;
     case Id::CustomCampaigns: Campaigns::PrepareCustom(); break;
+    case Id::CampaignEditor: Campaigns::PrepareCampaignEditor(); break;
     default: break;
     }
     if (screen != Id::MultiplayerSetup) {
-        HAL::TextInput::Want(screen == Id::Options ? HAL::TextInput::Kind::Fields : HAL::TextInput::Kind::None);
+        HAL::TextInput::Want(screen == Id::Options || screen == Id::CampaignEditor ? HAL::TextInput::Kind::Fields
+                                                                                   : HAL::TextInput::Kind::None);
     }
 }
 
@@ -824,6 +826,7 @@ void HandleEvent(const SDL_Event& e) {
     case Id::Mission:
     case Id::Aftermath:
     case Id::CustomCampaigns:
+    case Id::CampaignEditor:
         Campaigns::HandleEvent(s.current, e, Campaigns::Pointer{s.mx, s.my, s.held}, s.request);
         break;
     case Id::SavedGames: FileListEvent(e); break;
@@ -852,6 +855,7 @@ void Draw(SDL_Renderer* r) {
     case Id::Mission:
     case Id::Aftermath:
     case Id::CustomCampaigns:
+    case Id::CampaignEditor:
         Campaigns::Draw(S().current, r, Campaigns::Pointer{S().mx, S().my, S().held});
         break;
     case Id::SavedGames: DrawFileList(r); break;
