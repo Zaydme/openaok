@@ -1,6 +1,9 @@
 #pragma once
 #include <SDL2/SDL.h>
 
+#include <string>
+#include <vector>
+
 #include "Screens.h"
 #include "Widgets.h"
 #include "scenario/Scenario.h"
@@ -16,6 +19,8 @@
 //                 far; the difficulty, except for the learning campaign
 //   ScenarioSelect  Single Player's Custom Scenario: the scenario files, the
 //                 difficulty, OK and Cancel
+//   CustomCampaigns  Single Player's Custom Campaign: the custom campaigns,
+//                 the chosen one's scenarios opened so far, the difficulty
 //   Mission       the scenario's instructions before its game (the "Mission
 //                 Dialog"): its name, its map picture, the Instructions,
 //                 History and Hints, OK
@@ -35,6 +40,9 @@ void Init();
 void PrepareBook();
 void PrepareMap(int number, bool from_main_menu);
 void PrepareSelect();
+void PrepareCustom();
+// The custom campaigns: the campaign files that are none of the game's five.
+std::vector<std::string> CustomCampaigns();
 void PrepareMission(const Scenario::File& file);
 // False when the scenario has no text for the end it came to.
 bool PrepareAftermath(const Scenario::File& file, bool won);

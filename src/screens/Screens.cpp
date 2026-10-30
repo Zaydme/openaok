@@ -300,7 +300,7 @@ void MainMenuEvent(const SDL_Event& e) {
             case 1: Setup::OpenSingle(0); break;
             case 2: Setup::OpenSingle(1); break;
             case 3: Setup::OpenSingle(2); break;
-            case 4: OpenFileList(Id::CustomCampaigns); break;
+            case 4: Open(Id::CustomCampaigns); break;
             case 5: Open(Id::ScenarioSelect); break;
             case 6: OpenFileList(Id::SavedGames); break;
             default: break;
@@ -610,7 +610,7 @@ void HistoryEvent(const SDL_Event& e) {
 }
 
 // ---------------------------------------------------------------------------
-// Lists of files to choose from: custom campaigns, saved games and recorded
+// Lists of files to choose from: saved games and recorded
 // games, on the plain parchment.
 
 struct FileList {
@@ -650,6 +650,11 @@ std::string ScenariosDir() {
     return base.empty() ? "../assets/original/Scenario/" : base;
 }
 
+std::string CampaignsDir() {
+    const std::string base = HAL::Platform::PrefPath("Campaign");
+    return base.empty() ? "../assets/original/Campaign/" : base;
+}
+
 std::string SavedGamesDir() {
     const std::string base = HAL::Platform::PrefPath("SaveGame");
     return base.empty() ? "../assets/original/SaveGame/" : base;
@@ -661,11 +666,7 @@ void OpenFileList(Id which, bool restoring) {
     FileList& f = Files();
     f.which = which;
     f.restoring = restoring;
-    if (which == Id::CustomCampaigns) {
-        f.paths = FilesIn("../assets/original/Campaign", {".cpn"});
-    } else {
-        f.paths = FilesIn(SavedGamesDir(), {".gam", ".mgl"});
-    }
+    f.paths = FilesIn(SavedGamesDir(), {".gam", ".mgl"});
     f.list = ListBox{SDL_Rect{150, 100, 500, 400}, {}, f.paths.empty() ? -1 : 0, 0,
                      Text::kGeorgia10B};
     for (const auto& path : f.paths) {
@@ -681,8 +682,7 @@ void DrawFileList(SDL_Renderer* r) {
     const Theme& theme = f.theme;
     DrawBackground(r, theme);
     const SDL_Color ink = {0, 0, 0, 255};
-    const int title = f.which == Id::CustomCampaigns ? 11214 : 9223;
-    DrawText(r, Text::kBlackletter28B, 400, 20, Get(title), ink, ink, Align::Centre, false);
+    DrawText(r, Text::kBlackletter28B, 400, 20, Get(9223), ink, ink, Align::Centre, false);
     DrawListBox(r, theme, f.list, S().mx, S().my);
     Button ok = f.ok;
     ok.enabled = f.list.selected >= 0;
@@ -699,16 +699,14 @@ void FileListEvent(const SDL_Event& e) {
         if (Hit(f.ok.rect, e.button.x, e.button.y) && f.list.selected >= 0) {
             Click();
             S().request.path = f.paths[f.list.selected];
-            S().request.entry = f.which == Id::CustomCampaigns ? 0 : -1;
+            S().request.entry = -1;
             const std::string ext = std::filesystem::path(S().request.path).extension().string();
             if (f.restoring && ext == ".gam") {
                 Multiplayer::Restore(S().request.path);
                 S().request = Request{};
                 return;
             }
-            Ask(f.which == Id::SavedGames
-                    ? (ext == ".mgl" ? Request::Kind::PlayRecording : Request::Kind::LoadGame)
-                    : Request::Kind::StartScenario);
+            Ask(ext == ".mgl" ? Request::Kind::PlayRecording : Request::Kind::LoadGame);
         } else if (Hit(f.cancel.rect, e.button.x, e.button.y)) {
             Click();
             Open(Id::MainMenu);
@@ -767,12 +765,7 @@ void Init() {
     Files().theme = MakeTheme(Sin::kParchment, kMenuWidth, kMenuHeight);
     LoadingState().theme = MakeTheme(Sin::kParchment, kMenuWidth, kMenuHeight);
     // A custom campaign is any but the game's own five.
-    for (const auto& path : FilesIn("../assets/original/Campaign", {".cpn"})) {
-        const std::string stem = std::filesystem::path(path).stem().string();
-        if (stem != "cam1" && stem != "cam2" && stem != "cam3" && stem != "cam4" && stem != "cam8") {
-            Menu().has_campaigns = true;
-        }
-    }
+    Menu().has_campaigns = !Campaigns::CustomCampaigns().empty();
     Menu().has_scenarios = !FilesIn("../assets/original/Scenario", {".scn", ".scx"}).empty() ||
                            !FilesIn(ScenariosDir(), {".scn", ".scx"}).empty() ||
                            !FilesIn("../original_game_1999/GOODIES", {".scn", ".scx"}).empty();
@@ -787,6 +780,7 @@ void Open(Id screen) {
     case Id::History: OpenHistory(); break;
     case Id::Campaigns: Campaigns::PrepareBook(); break;
     case Id::ScenarioSelect: Campaigns::PrepareSelect(); break;
+    case Id::CustomCampaigns: Campaigns::PrepareCustom(); break;
     default: break;
     }
     if (screen != Id::MultiplayerSetup) {
@@ -824,9 +818,9 @@ void HandleEvent(const SDL_Event& e) {
     case Id::ScenarioSelect:
     case Id::Mission:
     case Id::Aftermath:
+    case Id::CustomCampaigns:
         Campaigns::HandleEvent(s.current, e, Campaigns::Pointer{s.mx, s.my, s.held}, s.request);
         break;
-    case Id::CustomCampaigns:
     case Id::SavedGames: FileListEvent(e); break;
     case Id::Credits:
         if (e.type == SDL_MOUSEBUTTONUP || e.type == SDL_KEYDOWN) Open(Id::MainMenu);
@@ -852,9 +846,9 @@ void Draw(SDL_Renderer* r) {
     case Id::ScenarioSelect:
     case Id::Mission:
     case Id::Aftermath:
+    case Id::CustomCampaigns:
         Campaigns::Draw(S().current, r, Campaigns::Pointer{S().mx, S().my, S().held});
         break;
-    case Id::CustomCampaigns:
     case Id::SavedGames: DrawFileList(r); break;
     case Id::Loading: DrawLoading(r); break;
     case Id::Credits: DrawCredits(r); break;

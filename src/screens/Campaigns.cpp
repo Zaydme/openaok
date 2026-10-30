@@ -428,6 +428,98 @@ void SelectEvent(const SDL_Event& e, const Pointer& p, Request& request) {
 }
 
 // ---------------------------------------------------------------------------
+// Custom Campaign: the Campaign Selection Screen, on the plain parchment
+// (scr2) as Custom Scenario is, laid out at 640x480 and scaled the same way.
+// The custom campaigns -- any but the game's five -- above; the chosen one's
+// scenarios below, from its first to the furthest the player has opened, the
+// furthest chosen; the difficulty; OK and Cancel.
+
+constexpr SDL_Rect kCustomTitle = Scaled(20, 10, 600, 30);
+constexpr SDL_Rect kCustomCampaignLabel = Scaled(72, 50, 200, 20);
+constexpr SDL_Rect kCustomCampaigns = Scaled(70, 70, 500, 130);
+constexpr SDL_Rect kCustomScenarioLabel = Scaled(72, 210, 200, 20);
+constexpr SDL_Rect kCustomScenarios = Scaled(70, 230, 500, 130);
+
+struct Custom {
+    ListBox campaigns;
+    ListBox scenarios;
+    std::vector<std::string> paths;
+    Scenario::Campaign chosen;
+    int shown = -1;           // the campaign whose scenarios are listed
+    DropDown difficulty;
+    Button ok, cancel;
+};
+
+Custom& TheCustom() {
+    static Custom custom;
+    return custom;
+}
+
+// The chosen campaign's scenarios, from the first to the furthest opened.
+void ListScenarios(Custom& c) {
+    c.shown = c.campaigns.selected;
+    c.scenarios = ListBox{kCustomScenarios, {}, -1, 0, Text::GameFont(11)};
+    if (c.shown < 0 || !Scenario::LoadCampaign(c.paths[static_cast<size_t>(c.shown)], c.chosen)) return;
+    const Scenario::Progress::Book book = Scenario::Progress::Load();
+    const int open = std::min(static_cast<int>(c.chosen.scenarios.size()),
+                              Scenario::Progress::Unlocked(book, Player(), c.chosen.name));
+    for (int i = 0; i < open; ++i) c.scenarios.items.push_back(c.chosen.scenarios[static_cast<size_t>(i)].name);
+    c.scenarios.selected = open - 1;
+    c.scenarios.scroll = std::max(0, open - ListBoxRows(c.scenarios));
+}
+
+void DrawCustom(SDL_Renderer* r, const Pointer& p) {
+    Custom& c = TheCustom();
+    const Theme& theme = TheSelect().theme;
+    DrawBackground(r, theme);
+    DrawPanelText(r, Text::GameFont(1), kCustomTitle, Get(11213), Align::Centre, Down::Top, false, kBlackInk);
+    DrawPanelText(r, Text::GameFont(4), kCustomCampaignLabel, Get(11214), Align::Left, Down::Top, false, kBlackInk);
+    DrawListBox(r, theme, c.campaigns, p.x, p.y);
+    DrawPanelText(r, Text::GameFont(4), kCustomScenarioLabel, Get(9726), Align::Left, Down::Top, false, kBlackInk);
+    DrawListBox(r, theme, c.scenarios, p.x, p.y);
+    DrawPanelText(r, Text::GameFont(4), kSelectDifficultyLabel, Get(11215), Align::Left, Down::Top, false,
+                  kBlackInk);
+    Button ok = c.ok;
+    ok.enabled = c.scenarios.selected >= 0;
+    DrawButton(r, theme, ok, StateOf(ok, p.x, p.y, p.held));
+    DrawButton(r, theme, c.cancel, StateOf(c.cancel, p.x, p.y, p.held));
+    DrawDropDown(r, theme, c.difficulty, p.x, p.y, p.held, kMenuHeight);
+    DrawCloseBox(r, theme, p.held && Hit(kCloseBox, p.x, p.y));
+}
+
+void CustomEvent(const SDL_Event& e, Request& request) {
+    Custom& c = TheCustom();
+    if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
+        if (c.difficulty.open || Hit(c.difficulty.rect, e.button.x, e.button.y)) {
+            ClickDropDown(c.difficulty, e.button.x, e.button.y, kMenuHeight);
+            g_difficulty = DifficultyOf(c.difficulty);
+            return;
+        }
+        if (ClickListBox(c.campaigns, e.button.x, e.button.y)) {
+            if (c.campaigns.selected != c.shown) ListScenarios(c);
+            return;
+        }
+        ClickListBox(c.scenarios, e.button.x, e.button.y);
+    } else if (e.type == SDL_MOUSEBUTTONUP && e.button.button == SDL_BUTTON_LEFT) {
+        if (Hit(c.ok.rect, e.button.x, e.button.y) && c.scenarios.selected >= 0) {
+            Click();
+            g_origin = Origin{Id::CustomCampaigns, 0, false};
+            request.kind = Request::Kind::StartScenario;
+            request.path = c.paths[static_cast<size_t>(c.shown)];
+            request.entry = c.scenarios.selected;
+            request.setup.difficulty = g_difficulty;
+        } else if (Hit(c.cancel.rect, e.button.x, e.button.y)) {
+            Click();
+            Open(Id::MainMenu);
+        } else if (Hit(kCloseBox, e.button.x, e.button.y)) {
+            request.kind = Request::Kind::Quit;
+        }
+    } else if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) {
+        Open(Id::MainMenu);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // The scenario's instructions before its game: the "Mission Dialog", on
 // the loading screen's art (scr9, 50060). Across the top the
 // scenario's name (font 1, centred in 794x40 at (3, 12)); its map picture,
@@ -710,6 +802,36 @@ void PrepareSelect() {
     s.cancel = Button{kSelectCancel, Get(4002), Text::GameFont(0)};
 }
 
+std::vector<std::string> CustomCampaigns() {
+    std::vector<std::string> out;
+    std::vector<std::string> found = FilesIn(kCampaignDir, {".cpn"});
+    const auto own = FilesIn(CampaignsDir(), {".cpn"});
+    found.insert(found.end(), own.begin(), own.end());
+    for (const std::string& path : found) {
+        Scenario::Campaign campaign;
+        if (!Scenario::LoadCampaign(path, campaign) || Scenario::CampaignNumber(campaign) != 0) continue;
+        out.push_back(path);
+    }
+    return out;
+}
+
+void PrepareCustom() {
+    Custom& c = TheCustom();
+    c.paths = CustomCampaigns();
+    c.campaigns = ListBox{kCustomCampaigns, {}, c.paths.empty() ? -1 : 0, 0, Text::GameFont(11)};
+    for (const std::string& path : c.paths) {
+        c.campaigns.items.push_back(std::filesystem::path(path).stem().string());
+    }
+    // Back from a scenario, the campaign it was in stays chosen.
+    for (size_t i = 0; i < c.paths.size(); ++i) {
+        if (c.paths[i] == c.chosen.path) c.campaigns.selected = static_cast<int>(i);
+    }
+    ListScenarios(c);
+    c.difficulty = DifficultyList(kSelectDifficulty);
+    c.ok = Button{kSelectOk, Get(4001), Text::GameFont(0)};
+    c.cancel = Button{kSelectCancel, Get(4002), Text::GameFont(0)};
+}
+
 void PrepareMission(const Scenario::File& file) {
     Mission& m = TheMission();
     if (m.picture != nullptr) SDL_DestroyTexture(m.picture);
@@ -754,6 +876,7 @@ void Return() {
     switch (g_origin.screen) {
     case Id::CampaignMap: OpenCampaignMap(g_origin.campaign, g_origin.from_main_menu); break;
     case Id::ScenarioSelect: Open(Id::ScenarioSelect); break;
+    case Id::CustomCampaigns: Open(Id::CustomCampaigns); break;
     default: Open(Id::MainMenu); break;
     }
 }
@@ -763,6 +886,7 @@ void Draw(Id screen, SDL_Renderer* r, const Pointer& p) {
     case Id::Campaigns: DrawBook(r, p); break;
     case Id::CampaignMap: DrawMap(r, p); break;
     case Id::ScenarioSelect: DrawSelect(r, p); break;
+    case Id::CustomCampaigns: DrawCustom(r, p); break;
     case Id::Mission: DrawMission(r, p); break;
     case Id::Aftermath: DrawAftermath(r, p); break;
     default: break;
@@ -774,6 +898,7 @@ void HandleEvent(Id screen, const SDL_Event& e, const Pointer& p, Request& reque
     case Id::Campaigns: BookEvent(e, p, request); break;
     case Id::CampaignMap: MapEvent(e, p, request); break;
     case Id::ScenarioSelect: SelectEvent(e, p, request); break;
+    case Id::CustomCampaigns: CustomEvent(e, request); break;
     case Id::Mission: MissionEvent(e, p, request); break;
     case Id::Aftermath: AftermathEvent(e, p, request); break;
     default: break;

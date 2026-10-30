@@ -33,7 +33,7 @@ enum class Id {
     ScenarioSelect,  // Custom Scenario: the scenario files to choose from
     Mission,       // a scenario's instructions before its game
     Aftermath,     // a scenario's victory or loss text after its game
-    CustomCampaigns,
+    CustomCampaigns,  // Custom Campaign: a campaign of the player's and its scenario
     SavedGames,
 };
 
@@ -94,6 +94,8 @@ void SetLoadingProgress(int percent);
 std::string SavedGamesDir();
 // Where the scenario editor saves scenarios: beside the saved games.
 std::string ScenariosDir();
+// Where the campaign editor saves campaigns, beside them.
+std::string CampaignsDir();
 // The files in `dir` with one of `exts`, sorted.
 std::vector<std::string> FilesIn(const std::string& dir, const std::vector<std::string>& exts);
 
