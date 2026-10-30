@@ -7,7 +7,9 @@
 #include <cmath>
 #include <ctime>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <iterator>
 #include <queue>
 
 #include "core/Cliffs.h"
@@ -29,6 +31,7 @@
 #include "ecs/components/Sprite.h"
 #include "ecs/components/Transform.h"
 #include "editor/EditorState.h"
+#include "screens/Screens.h"
 #include "hal/GraphicCache.h"
 #include "rendering/EntityRenderer.h"
 #include "rendering/TerrainRenderer.h"
@@ -523,6 +526,47 @@ void Delete(State& s, entt::entity e) {
     }
     RemoveFromWorld(s, e);
     if (s.selected == e) s.selected = entt::null;
+    s.dirty = true;
+}
+
+// The script a player with the personality None is given: no rules, so the
+// computer player does nothing.
+constexpr const char* kNoneScript = "; None\n";
+
+std::vector<std::string> AiFiles() {
+    std::vector<std::string> out;
+    for (const std::string& path : Screens::FilesIn(Screens::AiDir(), {".ai"})) {
+        out.push_back(std::filesystem::path(path).stem().string());
+    }
+    return out;
+}
+
+int PersonalityOf(const State& s, int player) {
+    const Scenario::Player& p = s.doc.players[player];
+    const std::string& name = s.doc.kept.slots[player - 1].personality_name;
+    if (name.empty()) return p.ai_script.empty() ? 0 : (p.ai_script == kNoneScript ? 1 : -1);
+    const auto files = AiFiles();
+    for (size_t i = 0; i < files.size(); ++i) {
+        if (files[i] == name) return static_cast<int>(i) + 2;
+    }
+    return -1;
+}
+
+void SetPersonality(State& s, int player, const std::string& name, bool none) {
+    Scenario::Player& p = s.doc.players[player];
+    std::string& kept = s.doc.kept.slots[player - 1].personality_name;
+    if (none) {
+        kept.clear();
+        p.ai_script = kNoneScript;
+    } else if (name.empty()) {
+        kept.clear();
+        p.ai_script.clear();
+    } else {
+        std::ifstream in(Screens::AiDir() + name + ".per", std::ios::binary);
+        if (!in) return;
+        kept = name;
+        p.ai_script.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    }
     s.dirty = true;
 }
 

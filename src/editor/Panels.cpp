@@ -238,12 +238,21 @@ void PlayersPanel(State& s, Ui& ui, const At& at) {
         s.dirty = true;
         BuildWorld(s, true);
     }
+    // The personality: Standard, None, or a script of the player's own.
     Label(ui, at(400, 92, 200, 18), Get(10258));
-    std::vector<std::string> personalities = {Get(10101)};
-    if (!p.ai_name.empty()) personalities.push_back(p.ai_name);
-    int personality = p.ai_name.empty() ? 0 : 1;
+    std::vector<std::string> personalities = {Get(10390), Get(10391)};
+    for (const std::string& name : AiFiles()) personalities.push_back(name);
+    const std::string& chosen = s.doc.kept.slots[s.player - 1].personality_name;
+    int personality = PersonalityOf(s, s.player);
+    if (personality < 0) {
+        personalities.push_back(chosen);
+        personality = static_cast<int>(personalities.size()) - 1;
+    }
     Help(ui, at(400, 110, 330, 22), 30549);
-    Drop(ui, at(400, 110, 330, 22), personalities, personality);
+    if (Drop(ui, at(400, 110, 330, 22), personalities, personality)) {
+        SetPersonality(s, s.player, personality == 0 ? std::string{} : personalities[static_cast<size_t>(personality)],
+                       personality == 1);
+    }
 }
 
 // --- Units (mode 4). ---------------------------------------------------------

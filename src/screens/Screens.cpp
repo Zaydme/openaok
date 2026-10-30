@@ -650,6 +650,11 @@ std::string ScenariosDir() {
     return base.empty() ? "../assets/original/Scenario/" : base;
 }
 
+std::string AiDir() {
+    const std::string base = HAL::Platform::PrefPath("AI");
+    return base.empty() ? "../assets/original/AI/" : base;
+}
+
 std::string CampaignsDir() {
     const std::string base = HAL::Platform::PrefPath("Campaign");
     return base.empty() ? "../assets/original/Campaign/" : base;

@@ -848,6 +848,30 @@ void Garrisoning(Verdict& v) {
     v.Expect(!rammed && s.doc.players[1].units.size() <= before + 1, "a ram was put inside a Town Center");
 }
 
+// The Personality list on DEMO.SCN: player 2's own script, among none of the
+// player's files, shown as itself; Standard leaving the seat to the game's
+// own computer player; None, a script of no rules, kept through a save.
+void Personalities(Verdict& v) {
+    Editor::State s;
+    std::string error;
+    if (!Scenario::Load(kDemo, -1, s.doc, &error)) {
+        v.Fail("DEMO.SCN unread for personalities: " + error);
+        return;
+    }
+    v.Expect(Editor::PersonalityOf(s, 2) == -1 || Editor::PersonalityOf(s, 2) >= 2,
+             "a scenario's own personality was not shown as itself");
+    Editor::SetPersonality(s, 2, std::string{}, false);
+    v.Expect(Editor::PersonalityOf(s, 2) == 0 && s.doc.players[2].ai_script.empty(),
+             "Standard did not leave player 2 to the game's own computer player");
+    Editor::SetPersonality(s, 3, std::string{}, true);
+    v.Expect(Editor::PersonalityOf(s, 3) == 1, "None was not set for player 3");
+    Scenario::File back;
+    const std::vector<uint8_t> bytes = Scenario::Write(s.doc);
+    v.Expect(Scenario::Read(bytes, back, &error) && back.players[3].ai_script == s.doc.players[3].ai_script &&
+                 back.players[2].ai_script.empty(),
+             "a personality did not survive a save");
+}
+
 } // namespace
 
 bool CheckEditor() {
@@ -884,6 +908,7 @@ bool CheckEditor() {
     Editing(v);
     MapCopying(v);
     Garrisoning(v);
+    Personalities(v);
     if (v.ok()) {
         std::printf("[editor] %d scenarios written back byte-identical inflated; %zu bytes packed by the "
                     "editor, %zu by the writer\n",

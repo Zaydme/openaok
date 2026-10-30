@@ -277,6 +277,14 @@ void FillUnitList(State& s);
 bool SaveTo(State& s, const std::string& path, bool adopt = true);
 // Players' and their seats' active flags, from the number of players.
 void SetPlayerCount(State& s, int count);
+// The personalities of the player's own: each name.ai in Screens::AiDir().
+std::vector<std::string> AiFiles();
+// A player's personality as the Personality list offers it: 0 Standard, 1
+// None, 2 on one of AiFiles(); -1 for one of the file's own not among them.
+int PersonalityOf(const State& s, int player);
+// Gives a player a personality: Standard (empty), None (`none`), or the
+// named one of AiFiles(), its script read into the file.
+void SetPersonality(State& s, int player, const std::string& name, bool none);
 
 // --- Panels.cpp: the tabs.
 void Panel(State& s, Ui& ui);

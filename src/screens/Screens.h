@@ -96,6 +96,9 @@ std::string SavedGamesDir();
 std::string ScenariosDir();
 // Where the campaign editor saves campaigns, beside them.
 std::string CampaignsDir();
+// Where players keep computer player personalities of their own, beside
+// them: a name.ai with its name.per script.
+std::string AiDir();
 // The files in `dir` with one of `exts`, sorted.
 std::vector<std::string> FilesIn(const std::string& dir, const std::vector<std::string>& exts);
 
