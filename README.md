@@ -87,7 +87,9 @@ edges.
 - **Presentation**: sprites straight from the original SLPs with player colours
   and shadows, terrain blending, fog of war, the original interface, sounds,
   music and the start-up movies.
-- **Multiplayer** in lockstep over TCP, with desync detection.
+- **Multiplayer** in lockstep over TCP, with desync detection: games on the
+  local network found by themselves, others joined by address, and the lobby
+  with its chat and ready checks.
 
 What's left, and the known issues, are in [ROADMAP.md](ROADMAP.md).
 
@@ -241,7 +243,7 @@ Start from the main menu, or straight into a game from the command line:
 | `--size S`, `--seed N` | tiny, small, medium, normal, large, giant; the map's seed |
 | `--resources R`, `--age A`, `--reveal V` | Starting resources, age and map visibility |
 | `--ai-only`, `--no-ai` | The computer plays every seat, or none |
-| `--host PORT --players N`, `--join HOST:PORT` | A network game |
+| `--host PORT --players N`, `--join HOST:PORT` | A network game without the lobby, started once N people are in |
 | `--windowed`, `--fullscreen`, `--widescreen`, `--mute`, `--no-movies` | |
 
 The controls are the original's: left-click and drag to select, right-click to

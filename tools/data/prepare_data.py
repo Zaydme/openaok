@@ -61,6 +61,7 @@ EXTRACTORS = [
     ['extract_ai.py'],
     ['extract_techtree.py'],
     ['extract_hotkeys.py'],
+    ['extract_connections.py'],
 ]
 
 OUTPUTS = [
@@ -69,6 +70,7 @@ OUTPUTS = [
     'assets/extracted_data/rules.json',
     'assets/extracted_data/strings.json',
     'assets/extracted_data/hotkeys.json',
+    'assets/extracted_data/connections.json',
     'assets/sprites/terrain/blendmasks.png',
 ]
 

@@ -884,6 +884,7 @@ Screens::Request RunMenus(HAL::Window& window, const Launch& launch) {
             Screens::HandleEvent(down);
             Screens::HandleEvent(up);
         }
+        Screens::Update();
         Screens::Request request = Screens::TakeRequest();
         if (request.kind != Screens::Request::Kind::None) return request;
 
@@ -1912,7 +1913,7 @@ int main(int argc, char* argv[]) {
             const std::string& m = launch.menu;
             if (m == "options") Screens::Open(Screens::Id::Options);
             else if (m == "history") Screens::Open(Screens::Id::History);
-            else if (m == "multiplayer") Screens::Open(Screens::Id::Multiplayer);
+            else if (m == "multiplayer") { Screens::Open(Screens::Id::MainMenu); Screens::OpenMultiplayerMenu(); }
             else if (m == "loading") Screens::Open(Screens::Id::Loading);
             else if (m == "campaigns") Screens::Open(Screens::Id::Campaigns);
             else if (m == "aftermath") {
@@ -1992,34 +1993,14 @@ int main(int argc, char* argv[]) {
                 }
                 break;
             }
-            case Screens::Request::Kind::HostGame:
-            case Screens::Request::Kind::JoinGame: {
-                Net::Session net;
-                Core::GameSetup setup = request.setup;
-                const bool hosting = request.kind == Screens::Request::Kind::HostGame;
-                int people = 2;
-                if (hosting && !request.path.empty()) {
-                    // Create (Restore): the saved game's own lobby, its people
-                    // seated again as they join.
-                    if (!Save::ReadBytes(request.path, net.restore) || !Save::ReadSetup(net.restore, setup)) {
-                        std::cerr << "[App] " << Core::Strings::Get(9719) << std::endl;
-                        Screens::Open(Screens::Id::MainMenu);
-                        break;
-                    }
-                    people = 0;
-                    for (int seat = 1; seat < Core::kMaxPlayers; ++seat) {
-                        if (setup.players[seat].active && !setup.players[seat].computer) ++people;
-                    }
-                } else if (hosting) {
-                    for (int seat = 2; seat < Core::kMaxPlayers; ++seat) {
-                        setup.players[seat].computer = false;
-                    }
-                }
-                if (RunLobby(net, setup, hosting ? request.port : 0, people,
-                             hosting ? std::string{} : request.address)) {
-                    quit = RunGame(window, renderer, setup, net, launch) == GameEnd::Quit;
-                    Net::Leave(net);
-                }
+            case Screens::Request::Kind::NetworkGame: {
+                // The lobby's game: every machine's seat and setup from the
+                // host, a restored game's save with them.
+                Net::Session net = Screens::TakeNetworkSession();
+                Core::SetLocalPlayer(net.seat);
+                const Core::GameSetup setup = net.setup;
+                quit = RunGame(window, renderer, setup, net, launch) == GameEnd::Quit;
+                Net::Leave(net);
                 Core::SetLocalPlayer(1);
                 Screens::Open(Screens::Id::MainMenu);
                 break;

@@ -598,4 +598,40 @@ bool TypeIntoField(TextField& f, const SDL_Event& event) {
     return false;
 }
 
+namespace {
+// The message box's margins inside its art, and its button's size.
+constexpr int kBoxMargin = 24;
+constexpr int kBoxButtonW = 144;
+constexpr int kBoxButtonH = 30;
+}
+
+void OpenNotice(Notice& box, const Theme& dialog, std::string text, std::string button) {
+    const SDL_Point size = BackgroundSize(dialog);
+    const SDL_Rect art = {dialog.origin.x, dialog.origin.y, size.x, size.y};
+    box.open = true;
+    box.text = std::move(text);
+    box.ok = Button{SDL_Rect{art.x + (art.w - kBoxButtonW) / 2, art.y + art.h - kBoxMargin - kBoxButtonH,
+                             kBoxButtonW, kBoxButtonH},
+                    std::move(button), Text::kBlackletter14};
+}
+
+void DrawNotice(SDL_Renderer* r, const Theme& dialog, const Notice& box, const Pointer& p) {
+    if (!box.open) return;
+    DrawBackground(r, dialog);
+    const SDL_Point size = BackgroundSize(dialog);
+    const int width = size.x - 2 * kBoxMargin;
+    const int font = Text::GameFont(11);
+    std::vector<std::string_view> lines;
+    Text::Wrap(font, box.text, width, lines);
+    const int tall = static_cast<int>(lines.size()) * Text::Height(font);
+    const int room = size.y - 3 * kBoxMargin - kBoxButtonH;
+    int y = dialog.origin.y + kBoxMargin + std::max(0, (room - tall) / 2);
+    for (const auto& line : lines) {
+        const int w = Text::Width(font, line);
+        Text::DrawShadowed(r, font, dialog.origin.x + (size.x - w) / 2, y, line, dialog.text, dialog.text_shadow);
+        y += Text::Height(font);
+    }
+    DrawButton(r, dialog, box.ok, StateOf(box.ok, p.x, p.y, p.held));
+}
+
 } // namespace Screens

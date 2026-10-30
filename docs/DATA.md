@@ -62,6 +62,7 @@ CD's files change or `--force` is given. Everything it writes is ignored by git.
 | `extract_ai.py` | `ai.json` | Villager targets and fishing figures from the computer players' scripts |
 | `extract_techtree.py` | `techtree.json` | The tech tree screen's layout |
 | `extract_hotkeys.py` | `hotkeys.json` | The default hotkeys |
+| `extract_connections.py` | `connections.json` | The TCP/IP connection's name in the multiplayer menu, from `DIRECTX/DPLAY.INF` |
 
 ## Read at run time
 

@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include "ecs/Digest.h"
+#include "net/Lobby.h"
 #include "net/Wire.h"
 
 namespace Net {
@@ -76,6 +77,7 @@ void Compare(Session& session, uint32_t turn) {
 }
 
 void Arrived(Session& session, const std::vector<uint8_t>& message, Peer* from) {
+    if (LobbyMessage(session, message, from)) return;
     Wire::Reader in(message);
     const uint8_t kind = in.U8();
     if (kind == kWelcome && session.role == Role::Client) {
@@ -184,8 +186,27 @@ bool Join(Session& session, const std::string& host, uint16_t port) {
 
 void Pump(Session& session) {
     if (session.role == Role::Offline) return;
-    // The host seats whoever connects, in seat order, until the table is full.
-    if (session.role == Role::Host && !session.started) {
+    // A client still connecting says hello once it is through.
+    if (session.role == Role::Client && session.dialing && !session.peers.empty()) {
+        const int dialled = HAL::Net::Dialled(session.peers[0].connection);
+        if (dialled < 0) {
+            session.dialing = false;
+            session.failure = "cannot reach the host";
+            return;
+        }
+        if (dialled == 0) return;
+        session.dialing = false;
+        Wire::Writer hello;
+        hello.U8('H');
+        hello.U8(kVersion);
+        hello.Text(session.name);
+        HAL::Net::Send(session.peers[0].connection, hello.bytes);
+    }
+    if (session.role == Role::Host && !session.started && session.lobby) {
+        ServeLobby(session);
+    } else if (session.role == Role::Host && !session.started) {
+        // The host seats whoever connects, in seat order, until the table
+        // is full.
         HAL::Net::Connection incoming;
         while (HAL::Net::Accept(session.listener, incoming)) {
             Peer peer;
@@ -212,13 +233,30 @@ void Pump(Session& session) {
         Broadcast(session, out.bytes, 0);
     }
     std::vector<uint8_t> message;
+    bool lost = false;
     for (Peer& peer : session.peers) {
         HAL::Net::Pump(peer.connection);
         while (HAL::Net::Receive(peer.connection, message)) Arrived(session, message, &peer);
-        if (peer.connection.closed && session.failure.empty()) {
+        if (!peer.connection.closed) continue;
+        // In the lobby a client leaving opens its row; the host leaving ends
+        // it. In a game a lost connection ends the game.
+        if (session.lobby && !session.started) {
+            LostInLobby(session, peer);
+            lost = true;
+        } else if (session.failure.empty()) {
             session.failure = "a player's connection was lost";
         }
     }
+    if (lost && session.role == Role::Host) {
+        std::erase_if(session.peers, [](const Peer& p) { return p.connection.closed; });
+    }
+    for (Peer& peer : session.peers) HAL::Net::Pump(peer.connection);
+}
+
+void Launch(Session& session) {
+    for (Peer& peer : session.peers) HAL::Net::Send(peer.connection, Welcome(session, peer.seat));
+    Broadcast(session, Start(), 0);
+    Begin(session);
     for (Peer& peer : session.peers) HAL::Net::Pump(peer.connection);
 }
 

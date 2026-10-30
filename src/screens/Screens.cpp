@@ -1,6 +1,8 @@
 #include "Screens.h"
 
 #include "Campaigns.h"
+#include "Multiplayer.h"
+#include "Setup.h"
 #include "TechTree.h"
 #include "Widgets.h"
 #include "audio/InterfaceSounds.h"
@@ -190,6 +192,7 @@ void DrawMainMenu(SDL_Renderer* r) {
         if (i == menu.pressed && over == i) frame = item.frame + 2;
         else if (i == over) frame = item.frame + 1;
         else if (i == kSinglePlayer && menu.single_open) frame = item.frame + 3;
+        else if (i == kMultiplayer && Multiplayer::MenuOpen()) frame = item.frame + 3;
         else if (i == kEditor && menu.editor_open) frame = item.frame + 3;
         if (frame >= 0) {
             const HAL::GraphicAtlas* atlas =
@@ -210,6 +213,7 @@ void DrawMainMenu(SDL_Renderer* r) {
     if (over >= 0) help = kMainItems[over].help;
     const int sub = SubAt(S().mx, S().my);
     if (sub >= 0) help = menu.editor_open ? kEditorItems[sub].help : kSingleItems[sub].help;
+    if (const int mp = Multiplayer::HelpAt(Pointer{S().mx, S().my, S().held}); mp >= 0) help = mp;
     if (help >= 0) {
         DrawWrapped(r, Text::kGeorgia9B, 395, 505, 372, Get(help), theme.text,
                     theme.text_shadow);
@@ -237,14 +241,15 @@ void DrawMainMenu(SDL_Renderer* r) {
             DrawButton(r, theme, button, state);
         }
     }
+    Multiplayer::DrawMenu(r, theme, Pointer{S().mx, S().my, S().held});
     DrawCloseBox(r, theme);
 }
 
-void OpenSetup(int kind);   // the game setup screen, below
 void OpenFileList(Id which, bool restoring = false);
 
 void MainMenuEvent(const SDL_Event& e) {
     MainMenu& menu = Menu();
+    if (Multiplayer::MenuEvent(e, Pointer{S().mx, S().my, S().held}, S().request)) return;
     if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
         menu.pressed = SignAt(e.button.x, e.button.y);
         menu.sub_pressed = SubAt(e.button.x, e.button.y);
@@ -260,8 +265,14 @@ void MainMenuEvent(const SDL_Event& e) {
             case kSinglePlayer:
                 menu.single_open = !menu.single_open;
                 menu.editor_open = false;
+                Multiplayer::CloseMenu();
                 break;
-            case kMultiplayer: Open(Id::Multiplayer); break;
+            case kMultiplayer:
+                // The Multiplayer menu on the plank.
+                menu.single_open = menu.editor_open = false;
+                if (Multiplayer::MenuOpen()) Multiplayer::CloseMenu();
+                else Multiplayer::OpenMenu();
+                break;
             case kZone: break;   // the Gaming Zone is long gone
             // Learn to Play: straight to William Wallace's map, its way
             // back the main menu.
@@ -270,6 +281,7 @@ void MainMenuEvent(const SDL_Event& e) {
                 // The Map Editor's own menu on the plank.
                 menu.editor_open = !menu.editor_open;
                 menu.single_open = false;
+                Multiplayer::CloseMenu();
                 break;
             case kHistory: Open(Id::History); break;
             case kOptions: Open(Id::Options); break;
@@ -285,9 +297,9 @@ void MainMenuEvent(const SDL_Event& e) {
             Click();
             switch (sub) {
             case 0: Open(Id::Campaigns); break;
-            case 1: OpenSetup(0); break;
-            case 2: OpenSetup(1); break;
-            case 3: OpenSetup(2); break;
+            case 1: Setup::OpenSingle(0); break;
+            case 2: Setup::OpenSingle(1); break;
+            case 3: Setup::OpenSingle(2); break;
             case 4: OpenFileList(Id::CustomCampaigns); break;
             case 5: Open(Id::ScenarioSelect); break;
             case 6: OpenFileList(Id::SavedGames); break;
@@ -299,318 +311,7 @@ void MainMenuEvent(const SDL_Event& e) {
     } else if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) {
         if (menu.single_open) menu.single_open = false;
         if (menu.editor_open) menu.editor_open = false;
-    }
-}
-
-// ---------------------------------------------------------------------------
-// The game setup screen: a single-player Random Map, Regicide or Death Match,
-// on the parchment with the wooden chest (50103). The players on the left,
-// the game's settings in the inset on the right, and the buttons to start or
-// go back below.
-
-constexpr int kMaxComputers = 7;
-
-struct PlayerRow {
-    DropDown civ;
-    DropDown colour;
-    DropDown team;
-};
-
-struct Setup {
-    Theme theme;
-    int kind = 0;   // 0 Random Map, 1 Regicide, 2 Death Match
-    PlayerRow you;
-    PlayerRow computers[kMaxComputers];
-    DropDown difficulty, others, map, size, resources, population, reveal, age, victory;
-    CheckBox team_together, lock_teams, all_techs, record;
-    Button start, cancel, reset, tech_tree;
-};
-
-Setup& SetupState() {
-    static Setup setup;
-    return setup;
-}
-
-// The settings rows: label on the left, the drop-down on the right.
-constexpr int kSettingLabelRight = 649;
-constexpr int kSettingX = 677;
-constexpr int kSettingW = 114;
-constexpr int kSettingH = 21;
-constexpr int kSettingRows[] = {88, 117, 146, 175, 204, 233, 262, 291, 320};
-
-// The player table's columns.
-constexpr int kNameX = 58;
-constexpr int kCivX = 240;
-constexpr int kCivW = 110;
-constexpr int kColourX = 367;
-constexpr int kTeamX = 456;
-constexpr int kBoxW = 30;
-constexpr int kRowH = 20;
-constexpr int kYouY = 87;
-constexpr int kComputerY = 160;
-constexpr int kComputerPitch = 24;
-
-std::vector<std::string> CivNames() {
-    std::vector<std::string> names;
-    names.push_back(Get(10230));            // Random
-    for (int civ = 1; civ <= 13; ++civ) names.push_back(Get(10230 + civ));
-    return names;
-}
-
-std::vector<std::string> Numbers(int from, int to) {
-    std::vector<std::string> out;
-    for (int n = from; n <= to; ++n) out.push_back(std::to_string(n));
-    return out;
-}
-
-void ResetSetup(Setup& s) {
-    const auto civs = CivNames();
-    auto row = [&](PlayerRow& p, int seat) {
-        p.civ = DropDown{SDL_Rect{kCivX, 0, kCivW, kRowH}, civs, 0};
-        p.civ.font = Text::kGeorgia9B;
-        p.civ.plain = true;
-        p.colour = DropDown{SDL_Rect{kColourX, 0, kBoxW, kRowH}, Numbers(1, 8), seat - 1};
-        p.colour.font = Text::kGeorgia9B;
-        p.colour.boxed = true;
-        p.colour.coloured = true;
-        std::vector<std::string> teams = {Get(9648)};
-        for (const auto& n : Numbers(1, 4)) teams.push_back(n);
-        p.team = DropDown{SDL_Rect{kTeamX, 0, kBoxW, kRowH}, teams, 0};
-        p.team.font = Text::kGeorgia9B;
-        p.team.boxed = true;
-    };
-    row(s.you, 1);
-    s.you.civ.rect.y = s.you.colour.rect.y = s.you.team.rect.y = kYouY;
-    for (int i = 0; i < kMaxComputers; ++i) {
-        row(s.computers[i], i + 2);
-        const int y = kComputerY + i * kComputerPitch;
-        s.computers[i].civ.rect.y = s.computers[i].colour.rect.y = s.computers[i].team.rect.y = y;
-    }
-    auto setting = [&](DropDown& d, int row_index, std::vector<std::string> items, int selected) {
-        d = DropDown{SDL_Rect{kSettingX, kSettingRows[row_index], kSettingW, kSettingH},
-                     std::move(items), selected};
-        d.font = Text::kGeorgia9B;
-    };
-    setting(s.difficulty, 0, {Get(11216), Get(11217), Get(11218), Get(11219), Get(11220)}, 3);
-    setting(s.others, 1, Numbers(1, kMaxComputers), 0);
-    std::vector<std::string> maps;
-    for (int id = 10875; id <= 10890; ++id) maps.push_back(Get(id));
-    setting(s.map, 2, maps, 0);
-    std::vector<std::string> sizes;
-    for (int id = 10611; id <= 10616; ++id) sizes.push_back(Get(id));
-    setting(s.size, 3, sizes, 0);
-    setting(s.resources, 4, {Get(9702), Get(9703), Get(9704)}, 0);
-    std::vector<std::string> population;
-    for (int n = 25; n <= 200; n += 25) population.push_back(std::to_string(n));
-    setting(s.population, 5, population, 2);
-    setting(s.reveal, 6, {Get(9755), Get(9756), Get(9757)}, 0);
-    setting(s.age, 7, {Get(4332), Get(4202), Get(4203), Get(4204)}, 0);
-    setting(s.victory, 8, {Get(4327), Get(4321)}, 0);
-    s.team_together = CheckBox{SDL_Rect{613, 373, 24, 26}, true};
-    s.lock_teams = CheckBox{SDL_Rect{740, 373, 24, 26}, true};
-    s.all_techs = CheckBox{SDL_Rect{613, 401, 24, 26}, false};
-    s.record = CheckBox{SDL_Rect{740, 401, 24, 26}, false};
-    s.start = Button{SDL_Rect{37, 551, 160, 35}, Get(9710), Text::kBlackletter14};
-    s.cancel = Button{SDL_Rect{217, 551, 163, 35}, Get(4002), Text::kBlackletter14};
-    s.reset = Button{SDL_Rect{681, 52, 94, 28}, Get(9305), Text::kBlackletter14};
-    s.tech_tree = Button{SDL_Rect{300, 491, 36, 36}, std::string{}, Text::kBlackletter14};
-}
-
-void OpenSetup(int kind) {
-    Setup& s = SetupState();
-    s.kind = kind;
-    ResetSetup(s);
-    Open(Id::GameSetup);
-}
-
-std::vector<DropDown*> SetupDropDowns(Setup& s) {
-    std::vector<DropDown*> all = {&s.difficulty, &s.others, &s.map, &s.size};
-    if (s.kind != 2) all.push_back(&s.resources);
-    for (DropDown* d : {&s.population, &s.reveal, &s.age, &s.victory}) all.push_back(d);
-    all.push_back(&s.you.civ);
-    all.push_back(&s.you.colour);
-    all.push_back(&s.you.team);
-    // A computer player's colour follows its seat and has no box.
-    const int others = s.others.selected + 1;
-    for (int i = 0; i < others; ++i) {
-        all.push_back(&s.computers[i].civ);
-        all.push_back(&s.computers[i].team);
-    }
-    return all;
-}
-
-void DrawSetup(SDL_Renderer* r) {
-    Setup& s = SetupState();
-    const Theme& theme = s.theme;
-    DrawBackground(r, theme);
-    const SDL_Color ink = {0, 0, 0, 255};
-
-    // The title, and the column heads in black letter.
-    static const int kTitles[3] = {9653, 9753, 9751};
-    DrawText(r, Text::kBlackletter21B, 400, 6, Get(kTitles[s.kind]), ink, ink, Align::Centre,
-             false);
-    DrawText(r, Text::kBlackletter14, kNameX - 2, 54, Get(9680), ink, ink, Align::Left, false);
-    DrawText(r, Text::kBlackletter14, kCivX, 54, Get(9681), ink, ink, Align::Left, false);
-    DrawText(r, Text::kBlackletter14, kColourX, 54, Get(9646), ink, ink, Align::Left, false);
-    DrawText(r, Text::kBlackletter14, kTeamX - 12, 54, Get(9647), ink, ink, Align::Left, false);
-    DrawText(r, Text::kBlackletter14, kNameX - 2, 127, Get(13541), ink, ink, Align::Left, false);
-
-    // The players: the one at this machine, then the computer players.
-    DrawText(r, Text::kGeorgia9B, kNameX, kYouY + 2, Core::Profile::Current().name, ink, ink,
-             Align::Left, false);
-    const int others = s.others.selected + 1;
-    for (int i = 0; i < others; ++i) {
-        DrawText(r, Text::kGeorgia9B, kNameX, kComputerY + i * kComputerPitch + 2, Get(9683),
-                 ink, ink, Align::Left, false);
-    }
-
-    // The settings, each label right-aligned against its drop-down.
-    DrawText(r, Text::kBlackletter14, 532, 50, Get(9682), ink, ink, Align::Left, false);
-    struct Row { int label; const DropDown* d; };
-    const Row rows[] = {
-        {13513, &s.difficulty}, {13541, &s.others}, {13511, &s.map}, {13512, &s.size},
-        {13514, &s.resources}, {13516, &s.population}, {13522, &s.reveal}, {13515, &s.age},
-        {13518, &s.victory},
-    };
-    for (const Row& row : rows) {
-        if (row.d == &s.resources && s.kind == 2) continue;   // Death Match fixes them
-        DrawText(r, Text::kGeorgia9B, kSettingLabelRight, row.d->rect.y + 3, Get(row.label),
-                 ink, ink, Align::Right, false);
-    }
-    struct Check { int label; const CheckBox* c; };
-    const Check checks[] = {
-        {13521, &s.team_together}, {13523, &s.lock_teams}, {13524, &s.all_techs},
-        {13542, &s.record},
-    };
-    for (const Check& c : checks) {
-        DrawText(r, Text::kGeorgia9B, c.c->box.x - 7, c.c->box.y + 5, Get(c.label), ink, ink,
-                 Align::Right, false);
-    }
-    for (const CheckBox* c : {&s.team_together, &s.lock_teams, &s.all_techs, &s.record}) {
-        DrawCheckBox(r, theme, *c, S().mx, S().my, S().held);
-    }
-    for (const Button* b : {&s.start, &s.cancel, &s.reset}) {
-        DrawButton(r, theme, *b, StateOf(*b, S().mx, S().my, S().held));
-    }
-    // The technology tree: the button art's own picture of it.
-    DrawButtonArt(r, theme, 16, s.tech_tree.rect.x, s.tech_tree.rect.y);
-
-    // The player number in its own colour: the dat's pure player colour.
-    {
-        const int index = Core::ConfigManager::Get().ColourMinimapIndex(s.you.colour.selected);
-        const HAL::PaletteColor c = HAL::GraphicCache::Get().GetPaletteColor(static_cast<size_t>(index));
-        s.you.colour.colour = SDL_Color{c.r, c.g, c.b, 255};
-    }
-
-    // Drop-downs last, an open one over everything.
-    DropDown* open = nullptr;
-    for (DropDown* d : SetupDropDowns(s)) {
-        if (d->open) { open = d; continue; }
-        DrawDropDown(r, theme, *d, S().mx, S().my, S().held, kMenuHeight);
-    }
-    if (open != nullptr) DrawDropDown(r, theme, *open, S().mx, S().my, S().held, kMenuHeight);
-    DrawCloseBox(r, theme);
-}
-
-// The game the setup screen describes.
-Core::GameSetup BuildGame(const Setup& s) {
-    Core::GameSetup game = Core::DefaultSetup();
-    game.seed = static_cast<uint32_t>(std::time(nullptr)) ^ SDL_GetTicks();
-    uint32_t roll = game.seed * 2654435761u;
-    auto pick = [&](int n) {
-        roll = roll * 1664525u + 1013904223u;
-        return static_cast<int>((roll >> 8) % static_cast<uint32_t>(n));
-    };
-    // The map: the random map script by its name; Random draws one.
-    static const char* kScripts[] = {
-        "Arabia", "Archipelago", "Baltic", "Black Forest", "Coastal", "Continental",
-        "Crater Lake", "Fortress", "Gold Rush", "Highland", "Islands", "Mediterranean",
-        "Migration", "Rivers", "Team Islands"};
-    const int map = s.map.selected;
-    game.map_script = map < 15 ? kScripts[map] : kScripts[pick(15)];
-    game.map_size = Core::kMapSizes[std::clamp(s.size.selected, 0, 5)].tiles;
-    game.resources = s.kind == 2 ? Core::StartingResources::DeathMatch
-                   : s.resources.selected == 1 ? Core::StartingResources::Medium
-                   : s.resources.selected == 2 ? Core::StartingResources::High
-                   : Core::StartingResources::Standard;
-    game.population_limit = 25 * (s.population.selected + 1);
-    game.reveal = s.reveal.selected == 1 ? Core::Reveal::Explored
-                : s.reveal.selected == 2 ? Core::Reveal::AllVisible : Core::Reveal::Normal;
-    game.starting_age = s.age.selected;
-    game.victory = s.victory.selected == 1 ? Core::VictoryKind::Conquest
-                                           : Core::VictoryKind::Standard;
-    game.regicide = s.kind == 1;
-    game.death_match = s.kind == 2;
-    game.difficulty = s.difficulty.selected;
-    game.lock_teams = s.lock_teams.checked;
-    game.all_techs = s.all_techs.checked;
-    game.record = s.record.checked;
-    // A game against the computer allows cheats: its lobby has no box for
-    // them (only the multiplayer lobby's "Allow Cheats", 13526, does).
-    game.cheats = true;
-    auto civ_of = [&](const DropDown& d) { return d.selected == 0 ? 1 + pick(13) : d.selected; };
-    auto team_of = [&](const DropDown& d) { return static_cast<Core::TeamId>(d.selected); };
-    for (int seat = 1; seat < Core::kMaxPlayers; ++seat) game.players[seat] = Core::PlayerSetup{};
-    game.players[1] = Core::PlayerSetup{true, civ_of(s.you.civ), team_of(s.you.team), false,
-                                        Core::Profile::Current().name};
-    game.players[1].colour = s.you.colour.selected;
-    const int others = s.others.selected + 1;
-    for (int i = 0; i < others; ++i) {
-        const PlayerRow& row = s.computers[i];
-        game.players[2 + i] = Core::PlayerSetup{true, civ_of(row.civ), team_of(row.team), true};
-        game.players[2 + i].colour = row.colour.selected;
-    }
-    return game;
-}
-
-void SetupEvent(const SDL_Event& e) {
-    Setup& s = SetupState();
-    if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
-        // An open list takes the click first, whether it chooses or closes.
-        for (DropDown* d : SetupDropDowns(s)) {
-            if (d->open) {
-                const int before = d->selected;
-                ClickDropDown(*d, e.button.x, e.button.y, kMenuHeight);
-                Click();
-                // Choosing the player's civilisation plays its theme (RANDOM
-                // for a random civ).
-                if (d == &s.you.civ && d->selected != before) Audio::Music::Civ(d->selected);
-                return;
-            }
-        }
-        for (DropDown* d : SetupDropDowns(s)) {
-            if (ClickDropDown(*d, e.button.x, e.button.y, kMenuHeight)) {
-                Click();
-                return;
-            }
-        }
-        for (CheckBox* c : {&s.team_together, &s.lock_teams, &s.all_techs, &s.record}) {
-            if (c->enabled && Hit(c->box, e.button.x, e.button.y)) {
-                c->checked = !c->checked;
-                Click();
-                return;
-            }
-        }
-    } else if (e.type == SDL_MOUSEBUTTONUP && e.button.button == SDL_BUTTON_LEFT) {
-        if (Hit(s.start.rect, e.button.x, e.button.y)) {
-            Click();
-            S().request.setup = BuildGame(s);
-            Ask(Request::Kind::StartGame);
-        } else if (Hit(s.cancel.rect, e.button.x, e.button.y)) {
-            Click();
-            Open(Id::MainMenu);
-        } else if (Hit(s.reset.rect, e.button.x, e.button.y)) {
-            Click();
-            ResetSetup(s);
-        } else if (Hit(s.tech_tree.rect, e.button.x, e.button.y)) {
-            Click();
-            TechTree::OpenPregame(s.you.civ.selected > 0 ? s.you.civ.selected : 1);
-        } else if (Hit(kCloseBox, e.button.x, e.button.y)) {
-            Click();
-            Ask(Request::Kind::Quit);
-        }
-    } else if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) {
-        Open(Id::MainMenu);
+        Multiplayer::CloseMenu();
     }
 }
 
@@ -909,86 +610,6 @@ void HistoryEvent(const SDL_Event& e) {
 }
 
 // ---------------------------------------------------------------------------
-// The multiplayer connection screen, on the plain parchment: the player's
-// name, a game to join by its address, or a new game to host.
-
-struct MultiplayerScreen {
-    Theme theme;
-    TextField address;
-    Button join, create, restore, cancel;
-};
-
-MultiplayerScreen& MultiplayerState() {
-    static MultiplayerScreen mp;
-    return mp;
-}
-
-void OpenMultiplayer() {
-    MultiplayerScreen& m = MultiplayerState();
-    m.address = TextField{SDL_Rect{300, 200, 260, 26}, m.address.text.empty() ? "127.0.0.1"
-                                                                                : m.address.text,
-                          64, true, Text::kGeorgia10B};
-    m.join = Button{SDL_Rect{300, 260, 160, 35}, Get(9632), Text::kBlackletter14};
-    m.create = Button{SDL_Rect{300, 310, 160, 35}, Get(9634), Text::kBlackletter14};
-    // "Create (Restore)": a saved game hosted again (LANGUAGE.DLL 9637,
-    // 31055).
-    m.restore = Button{SDL_Rect{470, 310, 160, 35}, Get(9637), Text::kBlackletter14};
-    m.cancel = Button{SDL_Rect{217, 551, 163, 35}, Get(4002), Text::kBlackletter14};
-}
-
-void DrawMultiplayer(SDL_Renderer* r) {
-    MultiplayerScreen& m = MultiplayerState();
-    const Theme& theme = m.theme;
-    DrawBackground(r, theme);
-    const SDL_Color ink = {0, 0, 0, 255};
-    DrawText(r, Text::kBlackletter28B, 400, 20, Get(9611), ink, ink, Align::Centre, false);
-    DrawText(r, Text::kGeorgia10B, 280, 120, Get(9612), ink, ink, Align::Right, false);
-    DrawText(r, Text::kGeorgia10B, 300, 120, Core::Profile::Current().name, ink, ink,
-             Align::Left, false);
-    DrawText(r, Text::kGeorgia10B, 280, 160, Get(9613), ink, ink, Align::Right, false);
-    DrawText(r, Text::kGeorgia10B, 300, 160, Get(9620), ink, ink, Align::Left, false);
-    DrawText(r, Text::kGeorgia10B, 280, 204, Get(9711), ink, ink, Align::Right, false);
-    DrawTextField(r, theme, m.address);
-    for (const Button* b : {&m.join, &m.create, &m.restore, &m.cancel}) {
-        DrawButton(r, theme, *b, StateOf(*b, S().mx, S().my, S().held));
-    }
-    DrawWrapped(r, Text::kGeorgia9B, 300, 380, 400, Get(9643), ink, ink, false);
-    DrawCloseBox(r, theme);
-}
-
-void MultiplayerEvent(const SDL_Event& e) {
-    MultiplayerScreen& m = MultiplayerState();
-    if (TypeIntoField(m.address, e)) return;
-    if (e.type == SDL_MOUSEBUTTONUP && e.button.button == SDL_BUTTON_LEFT) {
-        if (Hit(m.join.rect, e.button.x, e.button.y)) {
-            Click();
-            S().request.address = m.address.text;
-            Ask(Request::Kind::JoinGame);
-        } else if (Hit(m.create.rect, e.button.x, e.button.y)) {
-            Click();
-            // The host chooses the game on the setup screen, as a network
-            // game's host does.
-            Setup& s = SetupState();
-            s.kind = 0;
-            ResetSetup(s);
-            S().request.setup = BuildGame(s);
-            S().request.port = 27015;
-            Ask(Request::Kind::HostGame);
-        } else if (Hit(m.restore.rect, e.button.x, e.button.y)) {
-            Click();
-            OpenFileList(Id::SavedGames, true);
-        } else if (Hit(m.cancel.rect, e.button.x, e.button.y)) {
-            Click();
-            Open(Id::MainMenu);
-        } else if (Hit(kCloseBox, e.button.x, e.button.y)) {
-            Ask(Request::Kind::Quit);
-        }
-    } else if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) {
-        Open(Id::MainMenu);
-    }
-}
-
-// ---------------------------------------------------------------------------
 // Lists of files to choose from: custom campaigns, saved games and recorded
 // games, on the plain parchment.
 
@@ -1081,8 +702,8 @@ void FileListEvent(const SDL_Event& e) {
             S().request.entry = f.which == Id::CustomCampaigns ? 0 : -1;
             const std::string ext = std::filesystem::path(S().request.path).extension().string();
             if (f.restoring && ext == ".gam") {
-                S().request.port = 27015;
-                Ask(Request::Kind::HostGame);
+                Multiplayer::Restore(S().request.path);
+                S().request = Request{};
                 return;
             }
             Ask(f.which == Id::SavedGames
@@ -1139,10 +760,10 @@ void DrawCredits(SDL_Renderer* r) {
 void Init() {
     Menu().theme = MakeTheme(Sin::kMainMenu, kMenuWidth, kMenuHeight);
     Campaigns::Init();
-    SetupState().theme = MakeTheme(Sin::kParchment3, kMenuWidth, kMenuHeight);
+    Setup::Init();
+    Multiplayer::Init();
     OptionsState().theme = MakeTheme(Sin::kParchment, kMenuWidth, kMenuHeight);
     HistoryState().theme = MakeTheme(Sin::kHistory, kMenuWidth, kMenuHeight);
-    MultiplayerState().theme = MakeTheme(Sin::kParchment, kMenuWidth, kMenuHeight);
     Files().theme = MakeTheme(Sin::kParchment, kMenuWidth, kMenuHeight);
     LoadingState().theme = MakeTheme(Sin::kParchment, kMenuWidth, kMenuHeight);
     // A custom campaign is any but the game's own five.
@@ -1164,13 +785,13 @@ void Open(Id screen) {
     case Id::MainMenu: Menu().single_open = Menu().single_open && true; break;
     case Id::Options: OpenOptions(); break;
     case Id::History: OpenHistory(); break;
-    case Id::Multiplayer: OpenMultiplayer(); break;
     case Id::Campaigns: Campaigns::PrepareBook(); break;
     case Id::ScenarioSelect: Campaigns::PrepareSelect(); break;
     default: break;
     }
-    HAL::TextInput::Want(screen == Id::Options || screen == Id::Multiplayer
-                             ? HAL::TextInput::Kind::Fields : HAL::TextInput::Kind::None);
+    if (screen != Id::MultiplayerSetup) {
+        HAL::TextInput::Want(screen == Id::Options ? HAL::TextInput::Kind::Fields : HAL::TextInput::Kind::None);
+    }
 }
 
 Id Current() { return S().current; }
@@ -1193,10 +814,11 @@ void HandleEvent(const SDL_Event& e) {
     }
     switch (s.current) {
     case Id::MainMenu: MainMenuEvent(e); break;
-    case Id::GameSetup: SetupEvent(e); break;
+    case Id::GameSetup:
+    case Id::MultiplayerSetup: Setup::HandleEvent(e, Pointer{s.mx, s.my, s.held}, s.request); break;
     case Id::Options: OptionsEvent(e); break;
     case Id::History: HistoryEvent(e); break;
-    case Id::Multiplayer: MultiplayerEvent(e); break;
+    case Id::Multiplayer: Multiplayer::WaitEvent(e, Pointer{s.mx, s.my, s.held}); break;
     case Id::Campaigns:
     case Id::CampaignMap:
     case Id::ScenarioSelect:
@@ -1220,10 +842,11 @@ void Draw(SDL_Renderer* r) {
     }
     switch (S().current) {
     case Id::MainMenu: DrawMainMenu(r); break;
-    case Id::GameSetup: DrawSetup(r); break;
+    case Id::GameSetup:
+    case Id::MultiplayerSetup: Setup::Draw(r, Pointer{S().mx, S().my, S().held}); break;
     case Id::Options: DrawOptions(r); break;
     case Id::History: DrawHistory(r); break;
-    case Id::Multiplayer: DrawMultiplayer(r); break;
+    case Id::Multiplayer: Multiplayer::DrawWait(r, Pointer{S().mx, S().my, S().held}); break;
     case Id::Campaigns:
     case Id::CampaignMap:
     case Id::ScenarioSelect:
@@ -1244,6 +867,17 @@ Request TakeRequest() {
     S().request = Request{};
     return request;
 }
+
+void Update() {
+    Multiplayer::Update(S().request);
+    Setup::Update(S().request);
+}
+
+Net::Session TakeNetworkSession() { return Multiplayer::TakeSession(); }
+
+void OpenRestoreList() { OpenFileList(Id::SavedGames, true); }
+
+void OpenMultiplayerMenu() { Multiplayer::OpenMenu(); }
 
 void SetLoadingProgress(int percent) { S().loading = percent; }
 

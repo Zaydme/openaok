@@ -2,6 +2,7 @@
 #include <SDL2/SDL.h>
 
 #include "Screens.h"
+#include "Widgets.h"
 #include "scenario/Scenario.h"
 
 // The campaign and scenario screens, the part of the screens module that
@@ -25,12 +26,7 @@
 // for their own.
 namespace Screens::Campaigns {
 
-// The mouse as the screens see it.
-struct Pointer {
-    int x = -1;
-    int y = -1;
-    bool held = false;
-};
+using Screens::Pointer;
 
 // The art's layouts, read from the interface archive. After the archive.
 void Init();

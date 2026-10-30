@@ -34,6 +34,11 @@ bool Accept(Socket listener, Connection& out);
 // Connects to `host`:`port`, waiting until it is established or refused.
 bool Connect(const std::string& host, uint16_t port, Connection& out);
 
+// Starts connecting to `host`:`port` without waiting; `Dialled` then says
+// how it went: 1 established, 0 still under way, -1 refused or unreachable.
+bool Dial(const std::string& host, uint16_t port, Connection& out);
+int Dialled(Connection& connection);
+
 void Close(Connection& connection);
 void CloseListener(Socket listener);
 
@@ -45,5 +50,19 @@ void Pump(Connection& connection);
 
 // The next whole message received, if there is one.
 bool Receive(Connection& connection, std::vector<uint8_t>& message);
+
+// Datagrams: single messages to anyone, for finding games. A datagram socket
+// bound to `port` (0 for any) that may broadcast; kNoSocket on failure.
+Socket OpenDatagram(uint16_t port);
+void CloseDatagram(Socket s);
+// Sends to `host`:`port`, or to every machine on the local network when
+// `host` is empty.
+bool SendDatagram(Socket s, const std::string& host, uint16_t port, const std::vector<uint8_t>& message);
+// The next datagram waiting, and the address it came from.
+bool ReceiveDatagram(Socket s, std::vector<uint8_t>& message, std::string& from);
+
+// This machine's address on its network, as others would reach it; empty
+// when it has none.
+std::string LocalAddress();
 
 } // namespace HAL::Net

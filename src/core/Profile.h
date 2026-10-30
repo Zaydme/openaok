@@ -1,10 +1,18 @@
 #pragma once
 #include <string>
+#include <vector>
 
 // The player's profile, kept between runs: the name the player plays under
 // and the Options screen's choices. A plain text file of `key value` lines in
 // the user's own preferences folder.
 namespace Core::Profile {
+
+// A game joined by address, for the Show Games dialog's Recent Games.
+struct RecentGame {
+    std::string name;            // its host's name
+    std::string address;
+};
+constexpr size_t kRecentGames = 10;
 
 struct Options {
     std::string name;            // empty until the player picks one
@@ -39,6 +47,10 @@ struct Options {
     int panel_size = 100;
     int text_size = 100;
 #endif
+    // The multiplayer menu's connection type last chosen (0 TCP/IP, 1 the
+    // local network), and the games last joined by address, newest first.
+    int connection = 1;
+    std::vector<RecentGame> recent_games;
 };
 
 // The sizes the Options screens offer, in percent.

@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "core/GameSetup.h"
+#include "net/Lockstep.h"
 #include "scenario/Scenario.h"
 
 // The screens before and around a game: the main menu with its single
@@ -22,8 +23,8 @@ enum class Id {
     MainMenu,
     GameSetup,     // a single-player Random Map, Regicide or Death Match game
     Options,
-    Multiplayer,   // the connection screen
-    MultiplayerSetup,
+    Multiplayer,   // the wait while a network game is joined
+    MultiplayerSetup,  // a network game's lobby
     History,
     Credits,
     Loading,
@@ -46,8 +47,7 @@ struct Request {
         None,
         Quit,
         StartGame,     // `setup` is the game to start
-        HostGame,      // a network game on `port`, `setup` its lobby
-        JoinGame,      // the network game at `address`
+        NetworkGame,   // the lobby's game has started: TakeNetworkSession
         LoadGame,      // the saved game at `path`
         PlayRecording, // the recorded game at `path`
         // The scenario at `path` -- a campaign's `entry`th when `entry` is not
@@ -78,6 +78,14 @@ void HandleEvent(const SDL_Event& event);
 void Draw(SDL_Renderer* r);
 // What the screens want done, once.
 Request TakeRequest();
+// The screens' network each frame: games looked for, a lobby's messages.
+void Update();
+// The network game a lobby started, for the application to play.
+Net::Session TakeNetworkSession();
+// The saved games, to host one again as a network game.
+void OpenRestoreList();
+// The main menu's Multiplayer menu, open on the plank.
+void OpenMultiplayerMenu();
 
 // The loading screen's progress, 0 to 100, while a game is made.
 void SetLoadingProgress(int percent);

@@ -25,8 +25,8 @@
 // a desync, and the game says so instead of playing on in two different worlds.
 //
 // The host relays: clients send their orders to it and it passes them on.
-// The lobby is the host's: it seats each client as it connects, sends it the
-// game's setup, and starts everyone once the table is full.
+// Before the game the host keeps the lobby (net/Lobby), or, from the command
+// line, seats each client as it connects and starts once the table is full.
 namespace Net {
 
 constexpr int kTicksPerTurn = 8;
@@ -34,9 +34,39 @@ constexpr uint32_t kDelayTurns = 2;
 
 enum class Role : uint8_t { Offline, Host, Client };
 
+// The lobby's eight rows, one a player each: open to a person who joins,
+// closed, a computer player, or a person's.
+constexpr int kRows = 8;
+enum class RowKind : uint8_t { Open, Closed, Computer, Person };
+
+struct Row {
+    RowKind kind = RowKind::Open;
+    std::string name;
+    uint8_t civ = 0;       // 0 Random, else the civilisation
+    uint8_t number = 0;    // the player number less one: the colour and the place
+    uint8_t team = 0;      // 0 none
+    bool ready = false;
+    uint16_t ping = 0;     // milliseconds to the host and back, as it last measured
+};
+
+struct Said {
+    std::string name;      // who said it
+    std::string text;
+};
+
+// The lobby as every machine in it sees it. `changes` counts every change.
+struct Table {
+    Row rows[kRows];
+    std::vector<Said> chat;
+    bool restoring = false;   // a saved game hosted again: its rows are fixed
+    uint32_t changes = 0;
+};
+
 struct Peer {
     HAL::Net::Connection connection;
     Core::PlayerId seat = 0;
+    int row = -1;                  // the host: the lobby row this client has, -1 before it says hello
+    uint32_t pinged = 0;           // the host: when it last asked, in its milliseconds
 };
 
 struct Session {
@@ -52,6 +82,19 @@ struct Session {
     std::vector<Peer> peers;               // the host: one per client; a client: the host
     bool welcomed = false;
     bool started = false;
+
+    // The lobby, from the multiplayer screens: the table, this machine's
+    // row, and why it ended without a game.
+    bool lobby = false;
+    Table table;
+    int row = 0;
+    std::string name;               // this machine's player
+    bool dialing = false;           // a client: still connecting to the host
+    bool canceled = false;          // the host left (LANGUAGE.DLL 9674)
+    bool ejected = false;           // this machine was put out (9673)
+    int refused = 0;                // a LANGUAGE.DLL message the host refused with
+    HAL::Net::Socket beacon = HAL::Net::kNoSocket;   // the host: answers those looking for games
+    uint32_t table_sent = 0;        // the host: when it last sent the table round
 
     uint32_t turn = 0;                     // being played
     int tick_in_turn = 0;
@@ -78,6 +121,9 @@ bool Join(Session& session, const std::string& host, uint16_t port);
 
 // Moves messages: the lobby, relaying, and orders arriving.
 void Pump(Session& session);
+
+// The host: sends each client its seat and the setup, and starts the game.
+void Launch(Session& session);
 
 // An order given at this machine, for the next turn it can still reach.
 void Issue(Session& session, const Core::Command& command);

@@ -45,6 +45,14 @@ Options Load() {
         else if (key == "top_bar_size") options.top_bar_size = value;
         else if (key == "panel_size") options.panel_size = value;
         else if (key == "text_size") options.text_size = value;
+        else if (key == "connection") options.connection = value;
+        else if (key == "recent_game" && options.recent_games.size() < kRecentGames) {
+            // The address, then the host's name.
+            const size_t space = rest.find(' ');
+            if (space != std::string::npos) {
+                options.recent_games.push_back({rest.substr(space + 1), rest.substr(0, space)});
+            }
+        }
     }
     for (int* size : {&options.top_bar_size, &options.panel_size, &options.text_size}) {
         *size = std::clamp(*size, kInterfaceSizeLeast, kInterfaceSizeMost);
@@ -80,7 +88,11 @@ void Save(const Options& options) {
         << "widescreen " << (options.widescreen ? 1 : 0) << "\n"
         << "top_bar_size " << options.top_bar_size << "\n"
         << "panel_size " << options.panel_size << "\n"
-        << "text_size " << options.text_size << "\n";
+        << "text_size " << options.text_size << "\n"
+        << "connection " << options.connection << "\n";
+    for (const RecentGame& game : options.recent_games) {
+        out << "recent_game " << game.address << " " << game.name << "\n";
+    }
 }
 
 Options& Current() {

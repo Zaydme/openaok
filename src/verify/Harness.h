@@ -173,6 +173,12 @@ bool CheckCrossing();
 // both, worlds identical, tampering caught. Prints "net=".
 bool CheckNet();
 
+// A network game's lobby over a loopback socket: the game found, a client
+// seated, rows, ready checks and chat on both machines, a refused start, a
+// row given back, and the game started from the table in step. Prints
+// "lobby=".
+bool CheckLobby();
+
 // The standard victory: conquest, a Wonder, the relics. Prints "victory=".
 bool CheckVictory();
 

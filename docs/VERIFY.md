@@ -47,6 +47,7 @@ that the script reads.
 | `ai`, `pace`, `seven` | Twenty minutes of the computer against itself; each difficulty's pace; seven computer players |
 | `crossing`, `landing`, `water`, `fishing`, `navy` | Transport ships, passability on water maps, docks and fishing, warships |
 | `net` | A host and a client in lockstep over loopback, and a desync caught |
+| `lobby` | The multiplayer lobby over loopback: the game found, joined, rows, ready checks and chat, a refused start, the game started from the table |
 | `victory`, `modes` | Conquest, Wonders, relics; Regicide, Death Match, starting options |
 | `trade`, `tribute`, `market` | Trade routes and their pay; tribute and its fee; market prices |
 | `diplomacy`, `chat`, `cheats` | Stances, teams and shared sight; chat and flares; the cheat codes |

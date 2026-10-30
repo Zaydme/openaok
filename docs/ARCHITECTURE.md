@@ -47,12 +47,12 @@ is open to its owner and allies and shut to everyone else.
 | `src/ecs/components/` | Plain data, one concern per file |
 | `src/ecs/systems/` | Bulk systems: movement, workers, animation |
 | `src/ai/` | Computer players |
-| `src/net/` | Lockstep multiplayer and the wire format |
+| `src/net/` | Lockstep multiplayer, the lobby and finding games, the wire format |
 | `src/physics/` | The tile grid: terrain, walkability per passability layer, occupancy |
 | `src/pathfinding/` | A* over connected regions per layer, and the approach planner |
 | `src/rendering/` | The SDL2 draw layer |
 | `src/audio/` | Sound, beside rendering |
-| `src/screens/` | Menus and in-game dialogs |
+| `src/screens/` | Menus, the game setup screen and the multiplayer lobby, in-game dialogs |
 | `src/editor/` | The scenario editor |
 | `src/scenario/` | Scenario (.scn) and campaign (.cpn) files: reading and writing |
 | `src/save/` | Saved games and recorded games |

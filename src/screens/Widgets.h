@@ -16,6 +16,13 @@
 // calls these to draw them and hit-test them.
 namespace Screens {
 
+// The mouse as the screens see it.
+struct Pointer {
+    int x = -1;
+    int y = -1;
+    bool held = false;
+};
+
 // What a screen draws with: its style, resolved for the screen size it is
 // shown at, with its colours snapped to its palette.
 struct Theme {
@@ -207,5 +214,16 @@ struct TextField {
 void DrawTextField(SDL_Renderer* r, const Theme& theme, const TextField& f);
 // Keys and typing for a focused field; true when the event was taken.
 bool TypeIntoField(TextField& f, const SDL_Event& event);
+
+// A message over a screen: its text wrapped in the dialog art's middle, the
+// art centred on the screen (`dialog` is a centred theme), and one button
+// under the text.
+struct Notice {
+    bool open = false;
+    std::string text;
+    Button ok;
+};
+void OpenNotice(Notice& box, const Theme& dialog, std::string text, std::string button);
+void DrawNotice(SDL_Renderer* r, const Theme& dialog, const Notice& box, const Pointer& p);
 
 } // namespace Screens

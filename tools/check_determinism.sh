@@ -48,6 +48,7 @@ SEARCH="$(echo "$OUTPUT" | grep '^search=')"
 HUNT="$(echo "$OUTPUT" | grep '^hunt=')"
 ANSWER="$(echo "$OUTPUT" | grep '^answer=')"
 WOLVES="$(echo "$OUTPUT" | grep '^wolves=')"
+LOBBY="$(echo "$OUTPUT" | grep '^lobby=')"
 HERDING="$(echo "$OUTPUT" | grep '^herding=')"
 CROWD="$(echo "$OUTPUT" | grep '^crowd=')"
 SPREAD="$(echo "$OUTPUT" | grep '^spread=')"
@@ -252,6 +253,15 @@ if [ "$WOLVES" = "wolves=ok" ]; then
 else
     echo "WOLVES FAILED" >&2
     echo "  $WOLVES" >&2
+    STATUS=1
+fi
+
+# A network game's lobby: found, joined, readied, chatted in and started.
+if [ "$LOBBY" = "lobby=ok" ]; then
+    echo "lobby OK"
+else
+    echo "LOBBY FAILED" >&2
+    echo "  $LOBBY" >&2
     STATUS=1
 fi
 
