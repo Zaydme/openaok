@@ -44,6 +44,7 @@ TURNING="$(echo "$OUTPUT" | grep '^turning=')"
 POCKET="$(echo "$OUTPUT" | grep '^pocket=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
+SEARCH="$(echo "$OUTPUT" | grep '^search=')"
 HERDING="$(echo "$OUTPUT" | grep '^herding=')"
 CROWD="$(echo "$OUTPUT" | grep '^crowd=')"
 SPREAD="$(echo "$OUTPUT" | grep '^spread=')"
@@ -210,6 +211,13 @@ if [ "$BUTTONS" = "buttons=ok" ]; then
 else
     echo "BUTTONS FAILED" >&2
     echo "  $BUTTONS" >&2
+# A wolf goes for villagers and soldiers, never a building, a ram, a Monk or
+# a Trade Cart; a soldier goes for a wolf only when the computer plays it.
+if [ "$SEARCH" = "search=ok" ]; then
+    echo "search OK"
+else
+    echo "SEARCH FAILED" >&2
+    echo "  $SEARCH" >&2
     STATUS=1
 fi
 

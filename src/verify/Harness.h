@@ -201,6 +201,10 @@ bool CheckColours();
 // Heal, a loaded transport's Unload, a building's Set Gather Point, a
 // trebuchet's Pack and Unpack. Prints "buttons=".
 bool CheckButtons();
+// What a unit picks a fight with on sight: a wolf a villager, never a
+// building, a ram, a Monk or a Trade Cart; a soldier a wolf only when the
+// computer plays it. Prints "search=".
+bool CheckSearch();
 bool CheckPocket();
 
 // A landing on Islands: a transport takes on a war party under the dat's

@@ -15,6 +15,7 @@
 #include "ecs/Mortality.h"
 #include "ecs/Players.h"
 #include "ecs/Score.h"
+#include "ecs/Search.h"
 #include "ecs/VillagerJobs.h"
 #include "ecs/Turning.h"
 #include "ecs/components/Animation.h"
@@ -151,9 +152,9 @@ bool CanReach(const entt::registry& registry, const Physics::Grid& grid, entt::e
     return false;
 }
 
-// The best target in reach for `self`: the highest combat level first, then
-// the nearest, then the lowest entity id, so the choice is the same on every
-// machine.
+// The best target in reach for `self`, among the classes it looks for
+// (ecs/Search): the highest combat level first, then the nearest, then the
+// lowest entity id, so the choice is the same on every machine.
 // `candidates` holds everything with a place, health and an owner, by where it
 // stands.
 entt::entity FindTarget(const entt::registry& registry, const Physics::Grid& grid,
@@ -162,6 +163,7 @@ entt::entity FindTarget(const entt::registry& registry, const Physics::Grid& gri
     entt::entity best = entt::null;
     int best_level = -1;
     Core::Fixed32 best_gap{};
+    const uint64_t sought = Search::Sought(registry, self);
     // Nothing in reach is farther from `self`'s middle, on either axis, than
     // the reach and both sides' extents: a footprint or a body reaches at most
     // four tiles from its middle.
@@ -174,13 +176,14 @@ entt::entity FindTarget(const entt::registry& registry, const Physics::Grid& gri
         }
         if (other == self || !Alive(registry, other)) return;
         if (!Hostile(registry, self, other)) return;
+        const R::UnitRules* rules = DefendingRules(registry, other);
+        if (rules == nullptr || !Search::Holds(sought, rules->cls)) return;
         // A foundation not yet begun is nobody's target.
         if (!Buildings::Begun(registry, other)) return;
         const Core::Fixed32 gap = Gap(registry, self, other);
         if (gap > reach) return;
         if (!CanReach(registry, grid, self, other, own)) return;
-        const R::UnitRules* rules = DefendingRules(registry, other);
-        const int level = rules != nullptr ? rules->combat_level : 0;
+        const int level = rules->combat_level;
         const bool better =
             best == entt::null || level > best_level ||
             (level == best_level &&
