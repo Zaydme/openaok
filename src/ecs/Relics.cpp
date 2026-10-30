@@ -87,7 +87,10 @@ bool RouteTo(entt::registry& registry, const Physics::Grid& grid, entt::entity u
              entt::entity target) {
     const auto& at = registry.get<Components::Transform>(unit).position;
     Components::Vector2D goal = registry.get<Components::Transform>(target).position;
+    // A relic is walked up to, not round: the walk ends touching it.
+    entt::entity aimed = target;
     if (registry.all_of<Components::Building>(target)) {
+        aimed = entt::null;
         Pathfinding::ApproachRequest ask;
         ask.target = GroundOf(registry, target);
         ask.from = at;
@@ -97,7 +100,7 @@ bool RouteTo(entt::registry& registry, const Physics::Grid& grid, entt::entity u
         if (!plan.found) return false;
         goal = plan.spot;
     }
-    auto path = Navigation::Route(registry, grid, unit, at, goal);
+    auto path = Navigation::Route(registry, grid, unit, at, goal, aimed);
     if (path.waypoints.empty()) return false;
     registry.emplace_or_replace<Components::Path>(unit, std::move(path));
     return true;

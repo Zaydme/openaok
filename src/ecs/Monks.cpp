@@ -17,6 +17,7 @@
 #include "ecs/components/Health.h"
 #include "ecs/components/Identity.h"
 #include "ecs/components/Monk.h"
+#include "ecs/components/Relic.h"
 #include "ecs/components/Owner.h"
 #include "ecs/components/Path.h"
 #include "ecs/components/Transform.h"
@@ -214,13 +215,15 @@ void Update(entt::registry& registry, const Physics::Grid& grid, int32_t dt_ms) 
             if (state.faith > kFullFaith) state.faith = kFullFaith;
         }
 
-        // An idle healer looks about it for its own wounded.
+        // An idle healer looks about it for its own wounded: not one walking,
+        // fetching a relic or carrying one.
         if (state.target == entt::null) {
             const R::Task* heal = TaskOf(*rules, kHeal);
             const auto* path = registry.try_get<Components::Path>(monk);
             const bool walking = path != nullptr &&
                                  path->current_waypoint_index < path->waypoints.size();
-            if (heal == nullptr || walking) continue;
+            const bool errand = registry.any_of<Components::RelicErrand, Components::RelicBearer>(monk);
+            if (heal == nullptr || walking || errand) continue;
             state.scan_ms -= dt_ms;
             if (state.scan_ms > 0) continue;
             state.scan_ms = kHealScanMs;
