@@ -132,6 +132,7 @@ const Core::Fixed32 kKeepApart = Core::Fixed32(3) / Core::Fixed32(4);
 Components::Vector2D KeptApart(const Navigation::Traffic& traffic, const Physics::Grid& grid,
                                Physics::Layer layer, entt::entity self, entt::entity target,
                                Components::Vector2D from, Components::Vector2D at, Core::Fixed32 radius) {
+    if (at.x == from.x && at.y == from.y) return at;
     const int tx = Physics::TileOf(at.x);
     const int ty = Physics::TileOf(at.y);
     Core::Fixed32 push_x{}, push_y{};
