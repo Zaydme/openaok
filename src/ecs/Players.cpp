@@ -100,16 +100,24 @@ const Player* Find(const entt::registry& registry, Core::PlayerId player) {
     return p.active ? &p : nullptr;
 }
 
-const Core::Rules::UnitRules* UnitOf(const entt::registry& registry,
-                                     Core::PlayerId player, int unit_id) {
+const Table* TableOf(const entt::registry& registry) { return registry.ctx().find<Table>(); }
+
+const Core::Rules::UnitRules* UnitOf(const Table* table, Core::PlayerId player, int unit_id) {
     if (unit_id < 0) return nullptr;
-    if (const Player* p = Find(registry, player)) {
-        if (unit_id < static_cast<int>(p->units.size()) && p->units[unit_id].valid) {
-            return &p->units[unit_id];
+    if (table != nullptr && player < Core::kMaxPlayers && table->players[player].active) {
+        const Player& p = table->players[player];
+        if (unit_id < static_cast<int>(p.units.size()) && p.units[unit_id].valid) {
+            return &p.units[unit_id];
         }
         return nullptr;
     }
     return Core::Rules::Unit(unit_id);
+}
+
+const Core::Rules::UnitRules* UnitOf(const entt::registry& registry,
+                                     Core::PlayerId player, int unit_id) {
+    if (unit_id < 0) return nullptr;
+    return UnitOf(player < Core::kMaxPlayers ? TableOf(registry) : nullptr, player, unit_id);
 }
 
 int ArtOf(const entt::registry& registry, Core::PlayerId player, int unit_id) {

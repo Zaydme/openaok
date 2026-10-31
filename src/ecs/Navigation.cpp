@@ -55,14 +55,29 @@ void Survey(entt::registry& registry, const Physics::Grid& grid) {
     traffic.bodies.clear();
     // Every unit: what has an animation and is not a building, and still has
     // a body -- not one dying.
+    const auto& buildings = registry.storage<Components::Building>();
+    const auto& dying = registry.storage<Components::Dying>();
+    const auto& corpses = registry.storage<Components::Corpse>();
+    const auto& paths = registry.storage<Components::Path>();
+    const auto& identities = registry.storage<Components::Identity>();
+    const auto& makers = registry.storage<Components::RulesOf>();
+    const auto& owners = registry.storage<Components::Owner>();
+    const Players::Table* table = Players::TableOf(registry);
     auto units = registry.view<const Components::Transform, const Components::Animation>();
     for (auto e : units) {
-        if (registry.any_of<Components::Building, Components::Dying, Components::Corpse>(e)) continue;
+        if (buildings.contains(e) || dying.contains(e) || corpses.contains(e)) continue;
         const auto& at = units.get<const Components::Transform>(e).position;
         if (!grid.InBounds(Physics::TileOf(at.x), Physics::TileOf(at.y))) continue;
-        const auto* path = registry.try_get<Components::Path>(e);
-        traffic.bodies.push_back({e, at.x, at.y, RadiusOf(registry, e),
-                                  path != nullptr && path->current_waypoint_index < path->waypoints.size()});
+        // RadiusOf, from the storages and the table found above.
+        Core::Fixed32 radius{};
+        if (identities.contains(e)) {
+            const Core::PlayerId player = makers.contains(e)   ? makers.get(e).player
+                                          : owners.contains(e) ? owners.get(e).player_id
+                                                               : Core::PLAYER_GAIA;
+            if (const auto* rules = Players::UnitOf(table, player, identities.get(e).unit_id)) radius = rules->size_x;
+        }
+        const bool moving = paths.contains(e) && paths.get(e).current_waypoint_index < paths.get(e).waypoints.size();
+        traffic.bodies.push_back({e, at.x, at.y, radius, moving});
     }
     // By tile, then by entity: sorted on one key each, tile above entity.
     const int w = traffic.width;
@@ -78,10 +93,19 @@ void Survey(entt::registry& registry, const Physics::Grid& grid) {
     unsorted.swap(traffic.bodies);
     traffic.bodies.resize(unsorted.size());
     for (size_t i = 0; i < keys.size(); ++i) traffic.bodies[i] = unsorted[keys[i].second];
+    // Each tile's first body: the tiles up to a body's own start at it.
     const size_t tiles = static_cast<size_t>(w) * traffic.height;
-    traffic.first.assign(tiles + 1, 0);
-    for (const auto& k : keys) ++traffic.first[static_cast<size_t>(k.first >> 32) + 1];
-    for (size_t i = 1; i <= tiles; ++i) traffic.first[i] += traffic.first[i - 1];
+    traffic.first.resize(tiles + 1);
+    size_t from = 0;
+    for (size_t i = 0; i < keys.size(); ++i) {
+        const size_t tile = static_cast<size_t>(keys[i].first >> 32);
+        if (tile < from) continue;
+        std::fill(traffic.first.begin() + static_cast<std::ptrdiff_t>(from),
+                  traffic.first.begin() + static_cast<std::ptrdiff_t>(tile) + 1, static_cast<int32_t>(i));
+        from = tile + 1;
+    }
+    std::fill(traffic.first.begin() + static_cast<std::ptrdiff_t>(from), traffic.first.end(),
+              static_cast<int32_t>(keys.size()));
 }
 
 const Traffic* TrafficOf(const entt::registry& registry) {

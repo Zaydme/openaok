@@ -77,6 +77,10 @@ const Player* Find(const entt::registry& registry, Core::PlayerId player);
 // player has no table -- a world built without a lobby, or a map object.
 const Core::Rules::UnitRules* UnitOf(const entt::registry& registry,
                                      Core::PlayerId player, int unit_id);
+// The same from the seats' table, found once by a loop over many units
+// (null without a lobby).
+const Table* TableOf(const entt::registry& registry);
+const Core::Rules::UnitRules* UnitOf(const Table* table, Core::PlayerId player, int unit_id);
 
 // Whose art the player's slot for `unit_id` wears now.
 int ArtOf(const entt::registry& registry, Core::PlayerId player, int unit_id);
