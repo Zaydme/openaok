@@ -48,6 +48,9 @@ namespace {
 constexpr int kHpBarWidth = 24;
 constexpr int kHpBarHeight = 2;
 constexpr uint32_t kGroupDigits = 50403;
+// More than a building's art is ever set off its position, in tiles each
+// way (EntityRenderer::ArtOffset: half its footprint's lopsidedness).
+constexpr float kMostArtOffset = 4.0f;
 
 struct SelectionMark {
     int sx = 0, sy = 0;           // the pixel its outline is centred on
@@ -550,6 +553,16 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
     view.each([&](auto entity, const auto& t, auto& sprite) {
         float lx = t.previous_position.x.ToFloat() + (t.position.x.ToFloat() - t.previous_position.x.ToFloat()) * alpha;
         float ly = t.previous_position.y.ToFloat() + (t.position.y.ToFloat() - t.previous_position.y.ToFloat()) * alpha;
+        // Off the screen to either side, or above it, whatever its art's
+        // offset and however high its ground (which only lifts it): not
+        // looked at further.
+        {
+            const float slack_x = 2.0f * kMostArtOffset * (Core::IsometricMath::TILE_WIDTH / 2.0f);
+            const float slack_y = 2.0f * kMostArtOffset * (Core::IsometricMath::TILE_HEIGHT / 2.0f);
+            const float px = (lx - ly) * (Core::IsometricMath::TILE_WIDTH / 2.0f) - cx;
+            const float py = (lx + ly) * (Core::IsometricMath::TILE_HEIGHT / 2.0f) - cy;
+            if (px + slack_x < cull_min_x || px - slack_x > cull_max_x || py + slack_y < cull_min_y) return;
+        }
         // A building stands about its footprint's middle, its art, outline
         // and health bar alike.
         {
