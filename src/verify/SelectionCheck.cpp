@@ -4,7 +4,7 @@
 #include <cstring>
 #include <vector>
 
-#include <SDL.h>
+#include <SDL2/SDL.h>
 
 #include "core/ConfigManager.h"
 #include "core/GameSetup.h"
