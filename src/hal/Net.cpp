@@ -291,7 +291,7 @@ bool SendDatagram(Socket s, const std::string& host, uint16_t port, const std::v
     }
     const auto sent = sendto(static_cast<int>(s), reinterpret_cast<const char*>(message.data()),
                              static_cast<int>(message.size()), 0, reinterpret_cast<sockaddr*>(&to), sizeof(to));
-    return sent == static_cast<decltype(sent)>(message.size());
+    return sent >= 0 && static_cast<size_t>(sent) == message.size();
 }
 
 bool ReceiveDatagram(Socket s, std::vector<uint8_t>& message, std::string& from) {
