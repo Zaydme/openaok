@@ -24,9 +24,12 @@ and campaigns, the computer players' finer play, and polish.
   pictures, Custom Campaign; the scenario editor with Map Copy, garrisons and
   the personalities, and the Campaign Editor; the multiplayer menu and lobby, with games
   found on the local network or joined by address, chat and ready checks;
-  locked formations and Disband Formation. Beyond the original, the view zooms
-  out and in, in the game and the scenario editor: the mouse wheel, a pinch,
-  or ZL with the right stick.
+  locked formations and Disband Formation. Beyond the original: zoom, the
+  minimap's fog of war, no selection limit, populations up to 1000 and the
+  rest listed in [docs/IMPROVEMENTS.md](docs/IMPROVEMENTS.md).
+- **Performance**: the stress scenario in the self-check, eight computer
+  players on a giant map in the Imperial Age with nearly three thousand units
+  and buildings, runs at about a third of a millisecond a tick on a desktop.
 - **Linux**: built and checked on Debian 13 (GCC 14).
 - **Android**: touch controls, larger interface options, widescreen.
 - **Nintendo Switch**: homebrew, with the touch controls and the controller
@@ -42,8 +45,9 @@ and campaigns, the computer players' finer play, and polish.
      sn-number-defend-groups at 0.
    - Their economy on water maps: more wood in the Feudal Age, and more
      warships.
-2. **Performance**: eight players on a giant map, late game, at a steady
-   60 Hz, measured by a stress scenario in the self-check.
+2. **Performance on phones and the Switch**: fewer draw calls for the
+   world's sprites, which each graphic's own texture keeps apart, and the
+   chase routes of large fights.
 3. **Windows**: a build, and its packaging.
 4. **The Conquerors**: the 2000 expansion, played from the player's own copy
    when its files are in `original_game_1999/`, with the 1999 game unchanged.
