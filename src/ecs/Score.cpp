@@ -151,14 +151,17 @@ void CountPopulation(entt::registry& registry) {
     int civilian[Core::kMaxPlayers] = {};
     int military[Core::kMaxPlayers] = {};
     const auto& kinds = ClassKinds();
+    const auto& corpses = registry.storage<Components::Corpse>();
+    const auto& projectiles = registry.storage<Components::Projectile>();
+    const Players::Table* table = Players::TableOf(registry);
     auto units = registry.view<const Components::Identity, const Components::Owner>();
     for (auto e : units) {
         // Gaia's -- the trees, mines and animals -- are no one's population.
         const Core::PlayerId owner = units.get<const Components::Owner>(e).player_id;
         if (owner == Core::PLAYER_GAIA || owner >= Core::kMaxPlayers) continue;
-        if (registry.any_of<Components::Corpse, Components::Projectile>(e)) continue;
+        if (corpses.contains(e) || projectiles.contains(e)) continue;
         const R::UnitRules* rules =
-            Players::UnitOf(registry, owner, units.get<const Components::Identity>(e).unit_id);
+            Players::UnitOf(table, owner, units.get<const Components::Identity>(e).unit_id);
         if (rules == nullptr || rules->cls < 0 || rules->cls >= kClassTableSize) continue;
         const uint8_t kind = kinds[static_cast<size_t>(rules->cls)];
         if (kind & 1) ++civilian[owner];
