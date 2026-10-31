@@ -600,6 +600,30 @@ bool Overlaps(const Standing& a, const Standing& b) {
     return a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
 }
 
+// d * Fixed32(i) / Fixed32(n) for i = 0, 1, 2 ... in turn: the same values,
+// stepped on by a quotient and a remainder rather than divided each time.
+struct Along {
+    int64_t n;
+    bool negative;
+    int64_t step_q, step_r;
+    int64_t q = 0, r = 0;
+    Along(Fixed32 d, int steps)
+        : n(steps), negative(d.value < 0), step_q((negative ? -d.value : d.value) / n),
+          step_r((negative ? -d.value : d.value) % n) {}
+    Fixed32 Now() const { return Fixed32(negative ? -q : q, true); }
+    void Next() {
+        q += step_q;
+        r += step_r;
+        if (r >= n) {
+            ++q;
+            r -= n;
+        }
+    }
+};
+
+// Half of `v`, exactly as v / Fixed32(2) has it.
+Fixed32 Half(Fixed32 v) { return Fixed32(v.value / 2, true); }
+
 // One route's question: the ground, the body, and who stands about.
 struct Walker {
     const Physics::Grid& grid;
@@ -609,17 +633,27 @@ struct Walker {
     // Per standing unit: whether lines may go through it -- it stands where
     // the walk starts or ends, or on a tile the search went across.
     std::vector<uint8_t> passed;
+    // The boxes of those it may not, grown by the graze (Block).
+    std::vector<Standing>& blocking;
 
     // A body brushing past a standing unit's box by half its own width is
     // passing it, not going through it.
-    Fixed32 Graze() const { return radius / Fixed32(2); }
+    Fixed32 Graze() const { return Half(radius); }
+
+    // Takes in `passed` as it stands.
+    void Block() {
+        blocking.clear();
+        if (standing == nullptr) return;
+        const Fixed32 graze = Graze();
+        for (size_t i = 0; i < standing->size(); ++i) {
+            if (passed[i] == 0) blocking.push_back(Grown((*standing)[i], graze));
+        }
+    }
 
     bool Clear(Vector2D a, Vector2D b) const {
         if (!AStar::BodyClear(grid, a, b, layer, radius)) return false;
-        if (standing == nullptr) return true;
-        for (size_t i = 0; i < standing->size(); ++i) {
-            if (passed[i] != 0) continue;
-            if (Touches(a, b, Grown((*standing)[i], Graze()))) return false;
+        for (const Standing& q : blocking) {
+            if (Touches(a, b, q)) return false;
         }
         return true;
     }
@@ -708,9 +742,10 @@ bool AStar::BodyClear(const Physics::Grid& grid, Vector2D a, Vector2D b, Physics
         return tile == from_tile || tile == to_tile || grid.Passable(layer, x, y);
     });
     if (!middle_clear) return false;
-    for (int i = 0; i <= samples; ++i) {
-        const Vector2D p{a.x + dx * Fixed32(i) / Fixed32(samples),
-                         a.y + dy * Fixed32(i) / Fixed32(samples)};
+    Along along_x(dx, samples);
+    Along along_y(dy, samples);
+    for (int i = 0; i <= samples; ++i, along_x.Next(), along_y.Next()) {
+        const Vector2D p{a.x + along_x.Now(), a.y + along_y.Now()};
         const TileSpan under = Under(p, reach);
         for (int y = under.y0; y <= under.y1; ++y) {
             for (int x = under.x0; x <= under.x1; ++x) {
@@ -738,7 +773,8 @@ ECS::Components::Path AStar::FindRoute(const Physics::Grid& grid, Vector2D from,
                                        Physics::Layer layer, Fixed32 radius,
                                        const std::vector<Standing>* standing) {
     ECS::Components::Path path;
-    Walker walker{grid, layer, radius, standing, {}};
+    static std::vector<Standing> blocking;
+    Walker walker{grid, layer, radius, standing, {}, blocking};
     const int w = grid.GetWidth();
     const int h = grid.GetHeight();
     const int start_x = Physics::TileOf(from.x);
@@ -757,12 +793,13 @@ ECS::Components::Path AStar::FindRoute(const Physics::Grid& grid, Vector2D from,
         for (size_t i = 0; i < standing->size(); ++i) {
             const Standing& q = (*standing)[i];
             if (Overlaps(q, self_from) || Overlaps(q, self_to)) walker.passed[i] = 1;
-            const int qx = Physics::TileOf((q.x0 + q.x1) / Fixed32(2));
-            const int qy = Physics::TileOf((q.y0 + q.y1) / Fixed32(2));
+            const int qx = Physics::TileOf(Half(q.x0 + q.x1));
+            const int qy = Physics::TileOf(Half(q.y0 + q.y1));
             if (grid.InBounds(qx, qy)) crowd.push_back(qy * w + qx);
         }
         std::sort(crowd.begin(), crowd.end());
     }
+    walker.Block();
     auto finish = [&](std::vector<Vector2D> points) {
         path.waypoints = std::move(points);
         path.goal = path.waypoints.back();
@@ -924,12 +961,15 @@ ECS::Components::Path AStar::FindRoute(const Physics::Grid& grid, Vector2D from,
     if (reached >= 0) points.back() = to;
     // Those the search walked across may be walked through.
     if (standing != nullptr) {
+        static std::vector<int32_t> crossed;
+        crossed.assign(tiles.begin(), tiles.end());
+        std::sort(crossed.begin(), crossed.end());
         for (size_t i = 0; i < standing->size(); ++i) {
             const Standing& q = (*standing)[i];
-            const int32_t tile = index_of(Physics::TileOf((q.x0 + q.x1) / Fixed32(2)),
-                                          Physics::TileOf((q.y0 + q.y1) / Fixed32(2)));
-            if (std::find(tiles.begin(), tiles.end(), tile) != tiles.end()) walker.passed[i] = 1;
+            const int32_t tile = index_of(Physics::TileOf(Half(q.x0 + q.x1)), Physics::TileOf(Half(q.y0 + q.y1)));
+            if (std::binary_search(crossed.begin(), crossed.end(), tile)) walker.passed[i] = 1;
         }
+        walker.Block();
     }
 
     // Pulled straight: from each point kept, on to the furthest of the next
