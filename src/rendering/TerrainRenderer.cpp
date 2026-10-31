@@ -240,7 +240,8 @@ namespace {
 
 // Chunks are baked as the viewport first touches them, at most a few per
 // frame so scrolling never hitches, and chunks out of view are evicted once
-// the budget is exceeded.
+// the budget is exceeded: kMaxLiveChunks, or half as many again as are in
+// view when that is more.
 constexpr int kBakesPerFrame = 4;
 constexpr size_t kMaxLiveChunks = 64;
 
@@ -500,6 +501,7 @@ void TerrainRenderer::DrawTerrain(ECS::Simulation& sim, Renderer& renderer, SDL_
     };
 
     int baked = 0;
+    size_t in_view = 0;
     for (int cy = 0; cy < chunks_y; ++cy) {
         for (int cx = 0; cx < chunks_x; ++cx) {
             const SDL_FRect b = chunk_bounds(cx, cy);
@@ -519,6 +521,7 @@ void TerrainRenderer::DrawTerrain(ECS::Simulation& sim, Renderer& renderer, SDL_
                 it = chunks.emplace(key, chunk).first;
             }
             it->second.last_used = g_frame;
+            ++in_view;
 
             // Each tile's diamond is centred on its world position, the
             // convention every other part of the engine uses for a tile. The
@@ -534,14 +537,15 @@ void TerrainRenderer::DrawTerrain(ECS::Simulation& sim, Renderer& renderer, SDL_
     }
 
     // Evict the least recently seen chunks once the cache is over budget.
-    if (chunks.size() > kMaxLiveChunks) {
-        std::vector<std::pair<uint64_t, uint64_t>> aged; // last_used, key
-        aged.reserve(chunks.size());
+    const size_t budget = std::max(kMaxLiveChunks, in_view + in_view / 2);
+    if (chunks.size() > budget) {
+        static std::vector<std::pair<uint64_t, uint64_t>> aged; // last_used, key
+        aged.clear();
         for (const auto& entry : chunks) {
             aged.emplace_back(entry.second.last_used, entry.first);
         }
         std::sort(aged.begin(), aged.end());
-        const size_t excess = chunks.size() - kMaxLiveChunks;
+        const size_t excess = chunks.size() - budget;
         for (size_t i = 0; i < excess; ++i) {
             if (aged[i].first == g_frame) break;   // never evict what is on screen
             auto it = chunks.find(aged[i].second);
