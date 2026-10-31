@@ -64,17 +64,23 @@ void Survey(entt::registry& registry, const Physics::Grid& grid) {
         traffic.bodies.push_back({e, at.x, at.y, RadiusOf(registry, e),
                                   path != nullptr && path->current_waypoint_index < path->waypoints.size()});
     }
+    // By tile, then by entity: sorted on one key each, tile above entity.
     const int w = traffic.width;
-    auto tile_of = [w](const Body& b) {
-        return static_cast<int32_t>(Physics::TileOf(b.y)) * w + Physics::TileOf(b.x);
-    };
-    std::sort(traffic.bodies.begin(), traffic.bodies.end(), [&](const Body& a, const Body& b) {
-        const int32_t ta = tile_of(a), tb = tile_of(b);
-        return ta != tb ? ta < tb : a.entity < b.entity;
-    });
+    static std::vector<std::pair<uint64_t, uint32_t>> keys;   // key, body
+    static std::vector<Body> unsorted;
+    keys.resize(traffic.bodies.size());
+    for (size_t i = 0; i < traffic.bodies.size(); ++i) {
+        const Body& b = traffic.bodies[i];
+        const auto tile = static_cast<uint32_t>(Physics::TileOf(b.y) * w + Physics::TileOf(b.x));
+        keys[i] = {(static_cast<uint64_t>(tile) << 32) | entt::to_integral(b.entity), static_cast<uint32_t>(i)};
+    }
+    std::sort(keys.begin(), keys.end());
+    unsorted.swap(traffic.bodies);
+    traffic.bodies.resize(unsorted.size());
+    for (size_t i = 0; i < keys.size(); ++i) traffic.bodies[i] = unsorted[keys[i].second];
     const size_t tiles = static_cast<size_t>(w) * traffic.height;
     traffic.first.assign(tiles + 1, 0);
-    for (const Body& b : traffic.bodies) ++traffic.first[static_cast<size_t>(tile_of(b)) + 1];
+    for (const auto& k : keys) ++traffic.first[static_cast<size_t>(k.first >> 32) + 1];
     for (size_t i = 1; i <= tiles; ++i) traffic.first[i] += traffic.first[i - 1];
 }
 
