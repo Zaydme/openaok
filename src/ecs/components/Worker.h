@@ -40,6 +40,9 @@ struct Worker {
     // its catch to the drop sites its own entry lists -- the Dock.
     int gatherer = -1;
 
+    // Everything it has handed in at drop sites, all resources together.
+    int delivered = 0;
+
     // Fractional progress toward the next whole unit of the resource being
     // gathered.
     //

@@ -4,6 +4,7 @@
 #include <array>
 
 #include "ai/Catalog.h"
+#include "ai/Facts.h"
 #include "ai/Placement.h"
 #include "core/FixedMath.h"
 #include "core/Rules.h"
@@ -13,6 +14,7 @@
 #include "ecs/Combat.h"
 #include "ecs/DropSites.h"
 #include "ecs/Players.h"
+#include "ecs/Score.h"
 #include "ecs/Vision.h"
 #include "ecs/components/Building.h"
 #include "ecs/components/Combat.h"
@@ -51,6 +53,13 @@ const Core::Fixed32 kBesideFarm(3);
 const Core::Fixed32 kFarFood(10);
 // Food gatherers a boar hunt leaves at the food they were on.
 constexpr int kLeftAtFood = 2;
+// What a gatherer must hand in before it may be sent to another resource,
+// with sn-use-by-type-max-gathering: at a farm, of wood, of gold or stone.
+// At other food it is all the food there was.
+constexpr int kFarmTask = 50;
+constexpr int kWoodTask = 75;
+constexpr int kMineTask = 50;
+constexpr int kFarmUnit = 50;
 
 Core::Fixed32 Distance(const Vector2D& a, const Vector2D& b) {
     return Core::FixedMath::Distance(a.x - b.x, a.y - b.y);
@@ -237,8 +246,40 @@ Source* Best(const Turn& turn, Sources& sources, Core::ResourceType type, entt::
     return best;
 }
 
+// A gatherer sent to `target`: what it must hand in before it may be sent to
+// another resource -- by the resource with sn-use-by-type-max-gathering, else
+// sn-retask-gather-amount, at most sn-max-retask-gather-amount.
+void Tasked(Turn& turn, entt::entity villager, Core::ResourceType type, entt::entity target) {
+    const entt::registry& registry = *turn.registry;
+    int required = std::min(Sn(turn, Lang::SN::RetaskGatherAmount), Sn(turn, Lang::SN::MaxRetaskGatherAmount));
+    if (Sn(turn, Lang::SN::UseByTypeMaxGathering) == 1) {
+        const auto* id = registry.try_get<ECS::Components::Identity>(target);
+        const auto* res = registry.try_get<ECS::Components::Resource>(target);
+        if (id != nullptr && id->unit_id == kFarmUnit) required = kFarmTask;
+        else if (type == Core::ResourceType::Food) required = res != nullptr ? res->current_amount : 0;
+        else if (type == Core::ResourceType::Wood) required = kWoodTask;
+        else required = kMineTask;
+    }
+    const int delivered = registry.get<ECS::Components::Worker>(villager).delivered;
+    auto& list = turn.brain->gathering;
+    auto it = std::find_if(list.begin(), list.end(), [&](const Brain::Gathering& g) { return g.villager == villager; });
+    if (it == list.end()) it = list.insert(list.end(), Brain::Gathering{villager});
+    it->required = required;
+    it->delivered_at = delivered;
+}
+
+// Whether a gatherer has handed in what it was sent for, so may be sent to
+// another resource.
+bool Retaskable(const Turn& turn, entt::entity villager) {
+    const auto& list = turn.brain->gathering;
+    const auto it = std::find_if(list.begin(), list.end(), [&](const Brain::Gathering& g) { return g.villager == villager; });
+    if (it == list.end()) return true;
+    return turn.registry->get<ECS::Components::Worker>(villager).delivered - it->delivered_at >= it->required;
+}
+
 void Send(Turn& turn, Sources& sources, entt::entity villager, Core::ResourceType type, Source* s) {
     Give(*turn.registry, *turn.grid, Core::GatherCommand{villager, s->entity, turn.player});
+    Tasked(turn, villager, type, s->entity);
     s->bias = s->bias + s->crowd;
     // A farm takes one farmer.
     if (s->farm) {
@@ -274,6 +315,60 @@ void Herd(Turn& turn) {
     }
 }
 
+// The enemies' units and buildings standing where the player has explored.
+int EnemyThingsSeen(const Turn& turn) {
+    const entt::registry& registry = *turn.registry;
+    int seen = 0;
+    auto things = registry.view<const ECS::Components::Owner, const ECS::Components::Transform,
+                                const ECS::Components::Identity>();
+    for (auto e : things) {
+        const Core::PlayerId p = things.get<const ECS::Components::Owner>(e).player_id;
+        if (p == Core::PLAYER_GAIA || p == turn.player || Facts::StanceToward(turn, p) != Lang::Stance::Enemy) continue;
+        const Vector2D& at = things.get<const ECS::Components::Transform>(e).position;
+        if (ECS::Vision::Explored(registry, turn.player, Physics::TileOf(at.x), Physics::TileOf(at.y))) ++seen;
+    }
+    return seen;
+}
+
+// How many villagers explore, as the game reckons it: of three or more, the
+// share sn-percent-civilian-explorers asks, rounded up, no more than
+// sn-total-number-explorers less the explore groups out, nor than
+// sn-cap-civilian-explorers; then down to sn-minimum-civilian-explorers once
+// sn-percent-exploration-required of the map is explored and more than
+// sn-number-enemy-objects-required of the enemies' things seen, or else
+// halved once sn-percent-half-exploration of it is. Of two, one may explore,
+// within the cap; a lone villager explores.
+int ExplorersWanted(const Turn& turn, int villagers) {
+    const int cap = Sn(turn, Lang::SN::CapCivilianExplorers);
+    if (villagers <= 0) return 0;
+    if (villagers == 1) return 1;
+    if (villagers == 2) {
+        int gatherers = 1;
+        const int gatherer_cap = Sn(turn, Lang::SN::CapCivilianGatherers);
+        if (gatherer_cap >= 0 && gatherer_cap < 1) gatherers = gatherer_cap;
+        int wanted = villagers - gatherers;
+        if (cap >= 0) wanted = std::min(wanted, cap);
+        return std::max(0, wanted);
+    }
+    int wanted = (villagers * Sn(turn, Lang::SN::PercentCivilianExplorers) + 99) / 100;
+    int groups = turn.census->scout != entt::null && Sn(turn, Lang::SN::NumberExploreGroups) > 0 ? 1 : 0;
+    for (const auto& group : turn.brain->explore_groups) groups += group.empty() ? 0 : 1;
+    const int total = Sn(turn, Lang::SN::TotalNumberExplorers);
+    if (wanted + groups > total) wanted = total - groups;
+    if (cap >= 0) wanted = std::min(wanted, cap);
+    int explored = 0;
+    if (const ECS::Players::Player* seat = ECS::Players::Find(*turn.registry, turn.player)) {
+        explored = ECS::Players::Resource(*seat, ECS::Score::Res::MapExplored).ToInt();
+    }
+    if (explored >= Sn(turn, Lang::SN::PercentExplorationRequired) &&
+        EnemyThingsSeen(turn) > Sn(turn, Lang::SN::NumberEnemyObjectsRequired)) {
+        wanted = std::min(wanted, Sn(turn, Lang::SN::MinimumCivilianExplorers));
+    } else if (explored >= Sn(turn, Lang::SN::PercentHalfExploration)) {
+        wanted /= 2;
+    }
+    return std::max(0, wanted);
+}
+
 // Villagers exploring: as many as the strategic numbers ask.
 void Explorers(Turn& turn) {
     auto& explorers = turn.brain->explorers;
@@ -282,12 +377,7 @@ void Explorers(Turn& turn) {
                         return std::find(c.villagers.begin(), c.villagers.end(), e) == c.villagers.end();
                     }),
                     explorers.end());
-    const int villagers = static_cast<int>(c.villagers.size());
-    int wanted = villagers * Sn(turn, Lang::SN::PercentCivilianExplorers) / 100;
-    wanted = std::max(wanted, Sn(turn, Lang::SN::MinimumCivilianExplorers));
-    const int cap = Sn(turn, Lang::SN::CapCivilianExplorers);
-    if (cap >= 0) wanted = std::min(wanted, cap);
-    wanted = std::clamp(wanted, 0, std::max(0, villagers - 1));
+    const int wanted = ExplorersWanted(turn, static_cast<int>(c.villagers.size()));
     while (static_cast<int>(explorers.size()) > wanted) {
         const entt::entity freed = explorers.back();
         explorers.pop_back();
@@ -419,7 +509,7 @@ void Rebalance(Turn& turn, Sources& sources, std::array<int, 4>& working, const 
             if (static_cast<int>(w.carry_type) != over || Exploring(turn, v)) continue;
             int carried = 0;
             for (int k : w.carried) carried += k;
-            if (carried > 0) continue;
+            if (carried > 0 || !Retaskable(turn, v)) continue;
             pick = v;
             break;
         }
@@ -492,6 +582,7 @@ void HuntBoar(Turn& turn) {
     for (int i = 0; i < party; ++i) {
         brain.hunters.push_back(food[static_cast<size_t>(i)]);
         Give(registry, *turn.grid, Core::GatherCommand{food[static_cast<size_t>(i)], boar, turn.player});
+        Tasked(turn, food[static_cast<size_t>(i)], Core::ResourceType::Food, boar);
     }
 }
 
@@ -556,6 +647,9 @@ bool Build(Turn& turn, int slot, bool forward) {
 
 void Run(Turn& turn) {
     Census& c = *turn.census;
+    std::erase_if(turn.brain->gathering, [&](const Brain::Gathering& g) {
+        return std::find(c.villagers.begin(), c.villagers.end(), g.villager) == c.villagers.end();
+    });
     if (c.villagers.empty()) return;
     Herd(turn);
     Explorers(turn);
@@ -567,7 +661,9 @@ void Run(Turn& turn) {
     if (cap >= 0) allowed = std::min(allowed, cap);
     Staff(turn, allowed);
 
-    const int gatherers = std::max(0, villagers - c.builders - static_cast<int>(turn.brain->explorers.size()));
+    int gatherers = std::max(0, villagers - c.builders - static_cast<int>(turn.brain->explorers.size()));
+    const int gatherer_cap = Sn(turn, Lang::SN::CapCivilianGatherers);
+    if (gatherer_cap >= 0) gatherers = std::min(gatherers, gatherer_cap);
     const std::array<int, 4> share = {Sn(turn, Lang::SN::FoodGathererPercentage),
                                       Sn(turn, Lang::SN::WoodGathererPercentage),
                                       Sn(turn, Lang::SN::GoldGathererPercentage),

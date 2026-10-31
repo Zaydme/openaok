@@ -65,6 +65,7 @@ int Deposit(int building_unit_id, Components::Worker& worker, Players::Player* o
         handed_over += worker.carried[r];
         worker.carried[r] = 0;
     }
+    worker.delivered += handed_over;
     return handed_over;
 }
 
@@ -101,6 +102,7 @@ void DepositAll(int building_unit_id, Components::Worker& worker, Players::Playe
         Players::AddResource(*owner, dat, worker.gather_progress);
         Score::Collected(*owner, dat, worker.gather_progress);
     }
+    worker.delivered += worker.gather_progress.ToInt();
     worker.gather_progress = Core::Fixed32(0);
 }
 
@@ -115,6 +117,7 @@ void Bank(Components::Worker& worker, Players::Player* owner) {
             Players::AddStock(*owner, type, banked);
             Score::Collected(*owner, Core::Rules::DatResource(type), Core::Fixed32(banked));
         }
+        worker.delivered += banked;
         worker.carried[r] = 0;
     }
     worker.gather_progress = Core::Fixed32(0);

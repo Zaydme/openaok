@@ -32,6 +32,7 @@
 #include "ecs/components/ProductionQueue.h"
 #include "ecs/components/Relic.h"
 #include "ecs/components/Transform.h"
+#include "ecs/components/Worker.h"
 #include "hal/GraphicCache.h"
 
 namespace Verify {
@@ -828,6 +829,93 @@ const char* CheckRelics() {
     return nullptr;
 }
 
+// Civilian explorers as the game counts them: of the three villagers at the
+// start, sn-percent-civilian-explorers 34 rounded up and capped at 2 sends
+// two; with sn-percent-half-exploration reached, one; and a lone villager
+// explores whatever the cap.
+const char* CheckExplorers() {
+    using SN = AI::Lang::SN;
+    struct Case {
+        int half;
+        bool alone;
+        size_t explorers;
+    };
+    for (const Case c : {Case{30, false, 2}, Case{0, false, 1}, Case{30, true, 1}}) {
+        Core::GameSetup setup = Core::DefaultSetup();
+        setup.players[1].computer = true;
+        ECS::Simulation sim;
+        sim.Init(setup);
+        auto& reg = sim.GetRegistry();
+        Files files;
+        files["main"] = "(defrule (true) => (do-nothing))\n";
+        AI::Brains* brains = reg.ctx().find<AI::Brains>();
+        if (brains == nullptr || brains->brains.empty()) return "no brain for the computer seat";
+        AI::Brain& brain = brains->brains.front();
+        brain.program = CompileFiles(files, {}, 0);
+        AI::Reset(brain.mind, brain.program.rules.size(), &setup);
+        AI::SetStrategic(brain.mind, SN::PercentHalfExploration, c.half, &setup);
+        if (c.alone) {
+            AI::SetStrategic(brain.mind, SN::CapCivilianExplorers, 0, &setup);
+            std::vector<entt::entity> villagers;
+            for (auto e : reg.view<ECS::Components::Worker, ECS::Components::Owner>()) {
+                if (reg.get<ECS::Components::Owner>(e).player_id == 1) villagers.push_back(e);
+            }
+            for (size_t i = 1; i < villagers.size(); ++i) reg.destroy(villagers[i]);
+        }
+        for (int t = 0; t < 2 * kTicksPerSecond; ++t) sim.Update(16);
+        if (brain.explorers.size() != c.explorers) {
+            std::fprintf(stderr, "[script] half %d alone %d: %zu explorers\n", c.half, c.alone, brain.explorers.size());
+            return "the civilian explorers were not counted as the game counts them";
+        }
+    }
+    return nullptr;
+}
+
+// Retasking: villagers sent to food, then asked for nothing but wood, stay on
+// their food until they have handed in what they were sent for -- all the
+// food there was, by default (sn-use-by-type-max-gathering) -- and, with
+// sn-retask-gather-amount 10 instead, move once they have handed in a load.
+const char* CheckRetask() {
+    using SN = AI::Lang::SN;
+    for (const bool by_type : {true, false}) {
+        Core::GameSetup setup = Core::DefaultSetup();
+        setup.players[1].computer = true;
+        ECS::Simulation sim;
+        sim.Init(setup);
+        auto& reg = sim.GetRegistry();
+        Files files;
+        files["main"] = "(defrule (true) => (do-nothing))\n";
+        AI::Brains* brains = reg.ctx().find<AI::Brains>();
+        if (brains == nullptr || brains->brains.empty()) return "no brain for the computer seat";
+        AI::Brain& brain = brains->brains.front();
+        brain.program = CompileFiles(files, {}, 0);
+        AI::Reset(brain.mind, brain.program.rules.size(), &setup);
+        brain.mind.stance[2] = static_cast<uint8_t>(AI::Lang::Stance::Enemy);
+        const auto set = [&](SN n, int v) { AI::SetStrategic(brain.mind, n, v, &setup); };
+        set(SN::PercentCivilianExplorers, 0);
+        set(SN::CapCivilianExplorers, 0);
+        set(SN::NumberExploreGroups, 0);
+        set(SN::FoodGathererPercentage, 100);
+        set(SN::WoodGathererPercentage, 0);
+        set(SN::UseByTypeMaxGathering, by_type ? 1 : 0);
+        set(SN::RetaskGatherAmount, 10);
+        for (int t = 0; t < 5 * kTicksPerSecond; ++t) sim.Update(16);
+        set(SN::FoodGathererPercentage, 0);
+        set(SN::WoodGathererPercentage, 100);
+        for (int t = 0; t < 90 * kTicksPerSecond; ++t) sim.Update(16);
+        int food = 0, wood = 0;
+        for (auto e : reg.view<ECS::Components::Worker, ECS::Components::Owner>()) {
+            if (reg.get<ECS::Components::Owner>(e).player_id != 1) continue;
+            const auto& w = reg.get<ECS::Components::Worker>(e);
+            if (w.gatherer >= 0 || w.state == Core::UnitState::Idle) continue;
+            (w.carry_type == Core::ResourceType::Food ? food : wood) += 1;
+        }
+        if (by_type && (food < 3 || wood > 0)) return "a villager was moved off its food before handing in all of it";
+        if (!by_type && food > 0) return "a villager that had handed in its retask amount was kept on its food";
+    }
+    return nullptr;
+}
+
 } // namespace
 
 bool CheckScript() {
@@ -842,6 +930,8 @@ bool CheckScript() {
     if (verdict == nullptr) verdict = CheckTrading();
     if (verdict == nullptr) verdict = CheckExploring();
     if (verdict == nullptr) verdict = CheckRelics();
+    if (verdict == nullptr) verdict = CheckRetask();
+    if (verdict == nullptr) verdict = CheckExplorers();
     std::printf("script=%s\n", verdict == nullptr ? "ok" : verdict);
     return verdict == nullptr;
 }

@@ -68,6 +68,15 @@ struct Brain {
     Group attack;                 // land attack group
     Group boat_attack;            // boat attack group
     std::vector<entt::entity> explorers;   // villagers sent exploring
+    // Each gatherer the player sent to a resource: what it must hand in
+    // there before it may be moved to another (ai/Economy), and what it had
+    // handed in all told when sent (ECS::Components::Worker::delivered).
+    struct Gathering {
+        entt::entity villager = entt::null;
+        int required = 0;
+        int delivered_at = 0;
+    };
+    std::vector<Gathering> gathering;
     // Soldiers' explore groups past the scout's, as sn-number-explore-groups
     // asks (ai/Scouting); out of the army while they explore.
     std::vector<std::vector<entt::entity>> explore_groups;

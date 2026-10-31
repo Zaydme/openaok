@@ -58,7 +58,7 @@ and campaigns, the computer players' finer play, and polish.
   to hear them; menu, civilisation and campaign music play from the files
   as they are.
 - **Computer players are slow to advance.** On the standard test map the
-  hardest reach the Feudal Age around minute 20 to 22.
+  hardest reach the Feudal Age around minute 17 to 19.
 - **57 graphics are missing** from the 1999 data; the game draws without them.
 - **Windows is not supported yet.**
 - **On the Switch, network games** from the multiplayer menu are not yet
