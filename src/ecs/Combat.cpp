@@ -58,6 +58,15 @@ const Core::Fixed32 kDisengageSlack = Core::Fixed32(3) / Core::Fixed32(10);
 constexpr int32_t kChaseReplanMs = 500;
 // Empty routes to a target before the chase is given up.
 constexpr int kChaseGiveUp = 3;
+// The chases planned in one pass at most: an army ordered at once plans its
+// routes over a few passes rather than all in one.
+constexpr int kChasePlansPerPass = 8;
+// A chase still walking, further than kChaseNear from its target, is planned
+// again only once the target has strayed kChaseDrift tiles from where the
+// walk is going -- at a building, never. Nearer, it is planned again as
+// often as ever, to find its place round the target among the others.
+const Core::Fixed32 kChaseDrift(1);
+const Core::Fixed32 kChaseNear(5);
 constexpr int32_t kScanMs = 500;
 
 // A defensive unit pursues no further from where it was than this many times
@@ -429,6 +438,18 @@ void Disengage(entt::registry& registry, const Physics::Grid& grid, entt::entity
 
 // Re-plans a chase toward the target: straight at a unit, or to a spot
 // against a building's wall. False when there is no route to it at all.
+// Whether a chase walking on, still far from its target, goes where the
+// target is: a building, which never moves, or a unit within kChaseDrift of
+// the walk's goal.
+bool StillThere(const entt::registry& registry, entt::entity self, entt::entity target,
+                const Components::Path& path) {
+    if (path.target != target || !path.has_goal) return false;
+    if (Gap(registry, self, target) <= kChaseNear) return false;
+    if (IsBuilding(registry, target)) return true;
+    const auto& at = registry.get<Components::Transform>(target).position;
+    return Core::FixedMath::Distance(at.x - path.goal.x, at.y - path.goal.y) <= kChaseDrift;
+}
+
 bool PlanChase(entt::registry& registry, const Physics::Grid& grid, entt::entity self,
                entt::entity target, const R::UnitRules& rules) {
     const auto& from = registry.get<Components::Transform>(self).position;
@@ -803,6 +824,7 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
                   registry.view<const Components::Transform, const Components::Health, const Components::Owner>(),
                   grid.GetWidth(), grid.GetHeight());
 
+    int plans = 0;
     auto fighters = registry.view<Combat, Components::Transform>();
     for (auto self : fighters) {
         auto& combat = fighters.get<Combat>(self);
@@ -890,6 +912,13 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
             const bool walking = path != nullptr &&
                                  path->current_waypoint_index < path->waypoints.size();
             if (combat.chase_ms <= 0 || !walking) {
+                if (walking && StillThere(registry, self, combat.target, *path)) {
+                    combat.chase_ms = kChaseReplanMs;
+                    break;
+                }
+                // Over the pass's plans, it waits for the next pass.
+                if (plans >= kChasePlansPerPass) break;
+                ++plans;
                 combat.chase_ms = kChaseReplanMs;
                 if (PlanChase(registry, grid, self, combat.target, *rules)) {
                     combat.chase_failures = 0;
