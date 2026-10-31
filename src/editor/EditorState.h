@@ -222,6 +222,9 @@ void Notice(State& s, const std::string& text);
 // The world point under a screen point, and whether it is in the map view.
 bool WorldAt(State& s, int x, int y, float& wx, float& wy);
 void CentreOn(State& s, float wx, float wy);
+// Zooms the map view at once by `factor`, keeping the screen point (x, y)
+// where it is (rendering/Renderer's limits).
+void Zoom(State& s, float factor, float x, float y);
 
 // --- Document.cpp: the file and its world.
 // A new file: eight players on a 144-tile map of grass.

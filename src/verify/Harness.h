@@ -349,7 +349,8 @@ bool CheckWaypoints();
 
 // The scenario writer: every one of the disc's 32 scenarios read, written and
 // read again is the same file, field by field and, inflated, byte by byte;
-// an editor's changes survive a write; a new file reads. Prints "editor=".
+// an editor's changes survive a write; a new file reads; its view zooms about
+// a point. Prints "editor=".
 bool CheckEditor();
 
 } // namespace Verify

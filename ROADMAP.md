@@ -25,7 +25,8 @@ and campaigns, the computer players' finer play, and polish.
   the personalities, and the Campaign Editor; the multiplayer menu and lobby, with games
   found on the local network or joined by address, chat and ready checks;
   locked formations and Disband Formation. Beyond the original, the view zooms
-  out and in: the mouse wheel, a pinch, or ZL with the right stick.
+  out and in, in the game and the scenario editor: the mouse wheel, a pinch,
+  or ZL with the right stick.
 - **Linux**: built and checked on Debian 13 (GCC 14).
 - **Android**: touch controls, larger interface options, widescreen.
 - **Nintendo Switch**: homebrew, with the touch controls and the controller

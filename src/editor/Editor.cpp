@@ -16,8 +16,10 @@
 #include "hal/Pad.h"
 #include "hal/TextInput.h"
 #include "hal/Touch.h"
+#include "hal/Window.h"
 #include "rendering/EntityRenderer.h"
 #include "rendering/FogRenderer.h"
+#include "rendering/Renderer.h"
 #include "rendering/Ground.h"
 #include "rendering/TerrainRenderer.h"
 #include "rendering/Text.h"
@@ -53,6 +55,8 @@ constexpr int kEditorFont = 10;
 // How fast the view scrolls under the arrow keys or at the screen's edge,
 // pixels a second.
 constexpr float kScrollSpeed = 900.0f;
+// How fast the right stick zooms pushed all the way, as a factor a second.
+constexpr float kStickZoomPerSecond = 2.5f;
 constexpr int kEdge = 2;
 
 void Click() { HAL::Audio::Play(Audio::InterfaceSound::kButton2, 1.0f, 0.0f); }
@@ -88,9 +92,9 @@ void ClampCamera(State& s) {
     const auto top = Core::IsometricMath::WorldToScreen(Core::Fixed32(0), Core::Fixed32(0));
     const auto bottom = Core::IsometricMath::WorldToScreen(gw, gh);
     const SDL_Rect& v = s.frame.view;
-    const float cx = v.x + v.w / 2.0f;
-    const float cy = v.y + v.h / 2.0f;
     auto& c = s.view;
+    const float cx = (v.x + v.w / 2.0f) / c.camera_zoom;
+    const float cy = (v.y + v.h / 2.0f) / c.camera_zoom;
     c.camera_x = std::clamp(c.camera_x, left.x - cx, right.x - cx);
     c.camera_y = std::clamp(c.camera_y, top.y - cy, bottom.y - cy);
     c.target_camera_x = c.camera_x;
@@ -101,15 +105,22 @@ void DrawWorld(State& s, SDL_Renderer* r) {
     auto& v = s.view;
     v.view_w = static_cast<float>(s.w);
     v.view_h = static_cast<float>(s.h);
-    v.camera_zoom = 1.0f;
     ClampCamera(s);
-    SDL_RenderSetScale(r, 1.0f, 1.0f);
-    // The whole screen's worth; the editor's frame goes over all but the view.
+    v.target_camera_zoom = v.camera_zoom;
+    // The whole screen's worth, at the view's zoom; the editor's frame goes
+    // over all but the view.
+    Rendering::SetZoom(r, v.camera_zoom);
     Rendering::TerrainRenderer::DrawWaterLayer(*s.sim, v, r);
     Rendering::TerrainRenderer::DrawTerrain(*s.sim, v, r);
     Rendering::EntityRenderer::DrawGroundLevel(*s.sim, v, r, 1.0f);
     Rendering::FogRenderer::Draw(*s.sim, v, r);
     Rendering::EntityRenderer::DrawStanding(v, r);
+    Rendering::SetZoom(r, 1.0f);
+}
+
+// A point of the world on the screen, at the view's zoom.
+SDL_FPoint OnScreen(const State& s, const SDL_FPoint& p) {
+    return SDL_FPoint{(p.x - s.view.camera_x) * s.view.camera_zoom, (p.y - s.view.camera_y) * s.view.camera_zoom};
 }
 
 // The file's tile under a point of the world.
@@ -136,7 +147,7 @@ void DrawBrush(State& s, SDL_Renderer* r) {
     const float half = size / 2.0f;
     auto at = [&](float x, float y) {
         const auto p = Core::IsometricMath::WorldToScreen(Core::Fixed32(x), Core::Fixed32(y));
-        return SDL_FPoint{p.x - s.view.camera_x, p.y - s.view.camera_y};
+        return OnScreen(s, p);
     };
     const float x0 = tx - half, y0 = ty - half, x1 = tx + half, y1 = ty + half;
     const SDL_FPoint q[5] = {at(x0, y0), at(x1, y0), at(x1, y1), at(x0, y1), at(x0, y0)};
@@ -171,7 +182,7 @@ void DrawCopy(State& s, SDL_Renderer* r) {
     auto at = [&](int fx, int fy) {
         const auto w = WorldOf(s, Core::Fixed32(fx), Core::Fixed32(fy));
         const auto p = Core::IsometricMath::WorldToScreen(w.x, w.y);
-        return SDL_FPoint{p.x - s.view.camera_x, p.y - s.view.camera_y};
+        return OnScreen(s, p);
     };
     const SDL_FPoint q[5] = {at(x0, y0), at(x1 + 1, y0), at(x1 + 1, y1 + 1), at(x0, y1 + 1), at(x0, y0)};
     SDL_RenderSetClipRect(r, &s.frame.view);
@@ -193,7 +204,7 @@ void DrawPlacing(State& s, SDL_Renderer* r) {
     const Core::Fixed32 ex = world.x, ey = world.y;
     auto at = [&](float x, float y) {
         const auto p = Core::IsometricMath::WorldToScreen(Core::Fixed32(x), Core::Fixed32(y));
-        return SDL_FPoint{p.x - s.view.camera_x, p.y - s.view.camera_y};
+        return OnScreen(s, p);
     };
     SDL_RenderSetClipRect(r, &s.frame.view);
     if (footprint > 0) {
@@ -210,8 +221,8 @@ void DrawPlacing(State& s, SDL_Renderer* r) {
         if (atlas != nullptr && atlas->base != nullptr && !atlas->frames.empty()) {
             const HAL::GraphicFrame& f = atlas->frames[0];
             const SDL_FPoint p = at(ex.ToFloat(), ey.ToFloat());
-            const SDL_FRect dst = {p.x - f.hotspot_x, p.y - f.hotspot_y, static_cast<float>(f.rect.w),
-                                   static_cast<float>(f.rect.h)};
+            const float z = s.view.camera_zoom;
+            const SDL_FRect dst = {p.x - f.hotspot_x * z, p.y - f.hotspot_y * z, f.rect.w * z, f.rect.h * z};
             for (SDL_Texture* layer : {atlas->base, graphics.GetPlayerLayer(static_cast<uint32_t>(art.slp_id), s.unit_player)}) {
                 if (layer == nullptr) continue;
                 SDL_SetTextureAlphaMod(layer, 160);
@@ -573,19 +584,28 @@ void Layout(State& s) {
 
 bool WorldAt(State& s, int x, int y, float& wx, float& wy) {
     if (!s.sim || !Hit(s.frame.view, x, y)) return false;
-    const auto wc = Rendering::Ground::Pick(s.sim->GetGrid(), s.view.camera_x + static_cast<float>(x),
-                                            s.view.camera_y + static_cast<float>(y));
+    const auto wc = Rendering::Ground::Pick(s.sim->GetGrid(), s.view.camera_x + x / s.view.camera_zoom,
+                                            s.view.camera_y + y / s.view.camera_zoom);
     wx = wc.first;
     wy = wc.second;
     const auto& grid = s.sim->GetGrid();
     return wx > -0.5f && wy > -0.5f && wx < grid.GetWidth() - 0.5f && wy < grid.GetHeight() - 0.5f;
 }
 
+// Zooms the view at once by `factor`, keeping the screen point (x, y) where
+// it is.
+void Zoom(State& s, float factor, float x, float y) {
+    s.view.target_camera_x = s.view.camera_x;
+    s.view.target_camera_y = s.view.camera_y;
+    s.view.target_camera_zoom = s.view.camera_zoom;
+    s.view.ZoomBy(factor, x, y, true);
+}
+
 void CentreOn(State& s, float wx, float wy) {
     const auto p = Core::IsometricMath::WorldToScreen(Core::Fixed32(static_cast<int>(wx)),
                                                       Core::Fixed32(static_cast<int>(wy)));
-    s.view.camera_x = p.x - (s.frame.view.x + s.frame.view.w / 2.0f);
-    s.view.camera_y = p.y - (s.frame.view.y + s.frame.view.h / 2.0f);
+    s.view.camera_x = p.x - (s.frame.view.x + s.frame.view.w / 2.0f) / s.view.camera_zoom;
+    s.view.camera_y = p.y - (s.frame.view.y + s.frame.view.h / 2.0f) / s.view.camera_zoom;
     s.view.target_camera_x = s.view.camera_x;
     s.view.target_camera_y = s.view.camera_y;
 }
@@ -754,6 +774,18 @@ void HandleEvent(const SDL_Event& event) {
             Delete(s, s.selected);
             s.selected = entt::null;
         }
+        // = and - zoom about the middle of the view, as in the game.
+        const SDL_Keycode key = event.key.keysym.sym;
+        if ((event.key.keysym.mod & (KMOD_CTRL | KMOD_ALT)) == 0 &&
+            (key == SDLK_EQUALS || key == SDLK_PLUS || key == SDLK_MINUS)) {
+            Zoom(s, key == SDLK_MINUS ? 1.0f / Rendering::Renderer::kZoomStep : Rendering::Renderer::kZoomStep,
+                 s.frame.view.x + s.frame.view.w / 2.0f, s.frame.view.y + s.frame.view.h / 2.0f);
+        }
+    }
+    // The wheel over the map, where no list took it, zooms about the pointer.
+    if (event.type == SDL_MOUSEWHEEL && event.wheel.y != 0 && Hit(s.frame.view, s.ui.mx, s.ui.my)) {
+        Zoom(s, event.wheel.y > 0 ? Rendering::Renderer::kZoomStep : 1.0f / Rendering::Renderer::kZoomStep,
+             static_cast<float>(s.ui.mx), static_cast<float>(s.ui.my));
     }
 }
 
@@ -787,8 +819,23 @@ void Update(float dt) {
     dy += stick_y;
     float drag_x = 0.0f, drag_y = 0.0f;
     HAL::Touch::TakePan(drag_x, drag_y);
-    s.view.camera_x += dx * kScrollSpeed * dt - drag_x / s.view.camera_zoom;
-    s.view.camera_y += dy * kScrollSpeed * dt - drag_y / s.view.camera_zoom;
+    s.view.camera_x += (dx * kScrollSpeed * dt - drag_x) / s.view.camera_zoom;
+    s.view.camera_y += (dy * kScrollSpeed * dt - drag_y) / s.view.camera_zoom;
+    // A pinch zooms about the fingers, and the right stick with ZL held about
+    // the middle of the view.
+    float pinch = 1.0f, pinch_x = 0.0f, pinch_y = 0.0f;
+    HAL::Touch::TakeZoom(pinch, pinch_x, pinch_y);
+    if (pinch != 1.0f) {
+        int gx = s.w / 2, gy = s.h / 2;
+        if (const HAL::Window* window = HAL::MainWindow()) {
+            window->ToGame(static_cast<int>(pinch_x), static_cast<int>(pinch_y), gx, gy);
+        }
+        Zoom(s, pinch, static_cast<float>(gx), static_cast<float>(gy));
+    }
+    if (const float lean = HAL::Pad::Zoom(); lean != 0.0f) {
+        Zoom(s, std::pow(kStickZoomPerSecond, lean * dt), s.frame.view.x + s.frame.view.w / 2.0f,
+             s.frame.view.y + s.frame.view.h / 2.0f);
+    }
 }
 
 void Draw(SDL_Renderer* r, Rendering::Renderer& renderer) {

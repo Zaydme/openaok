@@ -249,7 +249,8 @@ Start from the main menu, or straight into a game from the command line:
 The controls are the original's: left-click and drag to select, right-click to
 order, the command panel and hotkeys for the rest, the arrow keys, the screen's
 edges and the minimap to move the view. One thing the original did not have:
-the mouse wheel zooms the view in and out, as do `=` and `-`. The original's
+the mouse wheel zooms the view in and out, in the game and the scenario
+editor, as do `=` and `-`. The original's
 wheel hotkeys (the Town Center, the next idle villager) are on Ctrl and the
 wheel.
 

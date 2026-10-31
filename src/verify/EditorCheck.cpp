@@ -377,6 +377,17 @@ void Editing(Verdict& v) {
     const auto [view_fx, view_fy] = Editor::FileTile(s, view_x, view_y);
     v.Expect(viewed && std::abs(view_fx - s.doc.camera_x) <= 1 && std::abs(view_fy - s.doc.camera_y) <= 1,
              "the editor does not open on the view DEMO.SCN was saved with");
+    // Zoomed out about the middle of the view and back, the tile there stays.
+    {
+        const SDL_Rect& view = s.frame.view;
+        const float mx = view.x + view.w / 2.0f, my = view.y + view.h / 2.0f;
+        Editor::Zoom(s, 0.5f, mx, my);
+        int zx = -1, zy = -1;
+        const bool out = s.view.camera_zoom < 1.0f && view_tile(zx, zy) && zx == view_x && zy == view_y;
+        Editor::Zoom(s, 2.0f, mx, my);
+        v.Expect(out && s.view.camera_zoom == 1.0f && view_tile(zx, zy) && zx == view_x && zy == view_y,
+                 "zooming the editor's view moved the tile under its middle");
+    }
 
     // A unit from the Units list, for player 2, where the click lands: the
     // middle of the tile, in the file's frame.
