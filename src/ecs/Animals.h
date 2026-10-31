@@ -26,4 +26,8 @@ void Flee(entt::registry& registry, const Physics::Grid& grid, entt::entity anim
 // Once a tick: herdables change hands, grazers wander, the fleeing stop.
 void Update(entt::registry& registry, const Physics::Grid& grid, int32_t dt_ms);
 
+// Something has become another of the dat's units in place (Units::Become):
+// the next tick looks again for grazers not yet grazing.
+void Changed(entt::registry& registry);
+
 } // namespace ECS::Animals

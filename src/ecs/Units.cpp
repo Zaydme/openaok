@@ -6,6 +6,7 @@
 #include "core/ConfigManager.h"
 #include "core/FixedMath.h"
 #include "core/Rules.h"
+#include "ecs/Animals.h"
 #include "ecs/Combat.h"
 #include "ecs/Players.h"
 #include "ecs/Score.h"
@@ -124,6 +125,7 @@ void Become(entt::registry& registry, entt::entity unit, int unit_id) {
     Players::Contribute(registry, player, identity->unit_id,
                         Core::Rules::StorageMode::WhileAlive, -1);
     identity->unit_id = unit_id;
+    Animals::Changed(registry);
     Players::Contribute(registry, player, unit_id, Core::Rules::StorageMode::WhileAlive, +1);
 
     if (auto* anim = registry.try_get<Components::Animation>(unit)) {

@@ -208,9 +208,40 @@ void Flee(entt::registry& registry, const Physics::Grid& grid, entt::entity anim
     grazer.home = {at.x + dx * run, at.y + dy * run};
 }
 
-void Update(entt::registry& registry, const Physics::Grid& grid, int32_t dt_ms) {
-    // Every grazer gets its place on first sight.
-    std::vector<entt::entity> fresh;
+namespace {
+
+// Whether a tick must look for new grazers: something has been given an
+// identity or a place, or changed its identity, since the last look. Grazing is only ever taken
+// up, so between such changes there is nothing new to find.
+struct Unsurveyed {
+    bool look = true;
+};
+
+void MarkUnsurveyed(entt::registry& registry, entt::entity) {
+    registry.ctx().get<Unsurveyed>().look = true;
+}
+
+} // namespace
+
+void Changed(entt::registry& registry) {
+    if (auto* unsurveyed = registry.ctx().find<Unsurveyed>()) unsurveyed->look = true;
+}
+
+namespace {
+
+// Every grazer gets its place on first sight: those of the things given an
+// identity or a place, or a new identity, since the last look.
+void TakeUpGrazing(entt::registry& registry) {
+    if (!registry.ctx().contains<Unsurveyed>()) {
+        registry.ctx().emplace<Unsurveyed>();
+        registry.on_construct<Components::Identity>().connect<&MarkUnsurveyed>();
+        registry.on_construct<Components::Transform>().connect<&MarkUnsurveyed>();
+    }
+    auto& unsurveyed = registry.ctx().get<Unsurveyed>();
+    if (!unsurveyed.look) return;
+    unsurveyed.look = false;
+    static std::vector<entt::entity> fresh;
+    fresh.clear();
     auto animals = registry.view<Components::Identity, Components::Transform>(
         entt::exclude<Components::Grazer, Components::Building>);
     const std::vector<bool>& may_graze = MayGraze();
@@ -226,7 +257,13 @@ void Update(entt::registry& registry, const Physics::Grid& grid, int32_t dt_ms) 
         grazer.wait_ms = kLeastWaitMs + static_cast<int32_t>(rng.NextInt(kWaitSpreadMs));
         registry.emplace<Components::Grazer>(e, grazer);
     }
+}
 
+} // namespace
+
+void Update(entt::registry& registry, const Physics::Grid& grid, int32_t dt_ms) {
+    TakeUpGrazing(registry);
+    auto& rng = registry.ctx().get<Core::Random>();
     if (const Events::Log* log = Events::Read(registry)) Herd(registry, grid, log->tick);
 
     auto grazers = registry.view<Components::Grazer, Components::Transform>();
