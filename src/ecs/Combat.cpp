@@ -61,6 +61,9 @@ constexpr int kChaseGiveUp = 3;
 // The chases planned in one pass at most: an army ordered at once plans its
 // routes over a few passes rather than all in one.
 constexpr int kChasePlansPerPass = 8;
+// And the tiles their searches expand in one pass at most, past the first
+// plan: an army's long marches are planned a few a pass.
+constexpr int64_t kChaseSearchPerPass = 6000;
 // A chase still walking, further than kChaseNear from its target, is planned
 // again only once the target has strayed kChaseDrift tiles from where the
 // walk is going -- at a building, never. Nearer, it is planned again as
@@ -995,6 +998,7 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
     const Players::Table* table = Players::TableOf(registry);
 
     int plans = 0;
+    const int64_t searched_before = Pathfinding::AStar::Searched();
     auto fighters = registry.view<Combat, Components::Transform>();
     for (auto self : fighters) {
         auto& combat = fighters.get<Combat>(self);
@@ -1091,8 +1095,12 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
                     combat.chase_ms = kChaseReplanMs;
                     break;
                 }
-                // Over the pass's plans, it waits for the next pass.
-                if (plans >= kChasePlansPerPass) break;
+                // Over the pass's plans, or the searching they may do, it
+                // waits for the next pass.
+                if (plans >= kChasePlansPerPass ||
+                    (plans > 0 && Pathfinding::AStar::Searched() - searched_before >= kChaseSearchPerPass)) {
+                    break;
+                }
                 ++plans;
                 combat.chase_ms = kChaseReplanMs;
                 if (PlanChase(registry, grid, self, combat.target, *rules)) {

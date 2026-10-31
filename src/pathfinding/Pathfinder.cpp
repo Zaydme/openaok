@@ -201,6 +201,8 @@ inline int32_t Heuristic(int x1, int y1, int x2, int y2) {
 // make a route longer, so the difference between a tile's and the goal's
 // distances from a landmark never overestimates the way between them, while
 // knowing of the water and cliffs a straight line crosses.
+int64_t g_searched = 0;
+
 constexpr int kLandmarks = 8;
 constexpr int kLandmarksUsed = 3;    // the best of them for a search
 constexpr uint16_t kFar = 0xFFFF;          // a tile the landmark cannot reach
@@ -471,6 +473,7 @@ ECS::Components::Path AStar::FindPath(const Physics::Grid& grid,
     }
 
     Core::Costs::Route(expansions);
+    g_searched += expansions;
     if (!found) return path;
 
     // Walk the parent chain back to the start.
@@ -776,6 +779,8 @@ bool AStar::BodyClear(const Physics::Grid& grid, Vector2D a, Vector2D b, Physics
     return true;
 }
 
+int64_t AStar::Searched() { return g_searched; }
+
 ECS::Components::Path AStar::FindRoute(const Physics::Grid& grid, Vector2D from, Vector2D to,
                                        Physics::Layer layer, Fixed32 radius,
                                        const std::vector<Standing>* standing) {
@@ -953,6 +958,7 @@ ECS::Components::Path AStar::FindRoute(const Physics::Grid& grid, Vector2D from,
         }
     }
     Core::Costs::Route(expansions);
+    g_searched += expansions;
     const int32_t end = reached >= 0 ? reached : nearest;
     if (end == start_index) return path;
 

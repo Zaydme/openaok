@@ -69,6 +69,10 @@ public:
                                            Core::Fixed32 radius,
                                            const std::vector<Standing>* standing = nullptr);
 
+    // Tiles the route searches have expanded so far, a running count the
+    // same on every machine: what a caller budgets its searches by.
+    static int64_t Searched();
+
     // Whether a body reaching `radius` each way can go straight from a to b
     // without touching closed ground, but for what it touches already at
     // either end: a villager at a tree walks away from it.
