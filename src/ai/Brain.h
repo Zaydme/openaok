@@ -68,6 +68,9 @@ struct Brain {
     Group attack;                 // land attack group
     Group boat_attack;            // boat attack group
     std::vector<entt::entity> explorers;   // villagers sent exploring
+    // Villagers kept aside to build forward, as sn-number-forward-builders
+    // asks (ai/Economy).
+    std::vector<entt::entity> forward_builders;
     // Each gatherer the player sent to a resource: what it must hand in
     // there before it may be moved to another (ai/Economy), and what it had
     // handed in all told when sent (ECS::Components::Worker::delivered).

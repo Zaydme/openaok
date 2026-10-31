@@ -89,6 +89,16 @@ bool Exploring(const Turn& turn, entt::entity v) {
     return std::find(ex.begin(), ex.end(), v) != ex.end();
 }
 
+bool Forward(const Turn& turn, entt::entity v) {
+    const auto& fb = turn.brain->forward_builders;
+    return std::find(fb.begin(), fb.end(), v) != fb.end();
+}
+
+// Out of the gathering: exploring, or kept to build forward.
+bool Aside(const Turn& turn, entt::entity v) { return Exploring(turn, v) || Forward(turn, v); }
+
+int TownSize(const Turn& turn) { return std::max(8, Sn(turn, Lang::SN::MaximumTownSize)); }
+
 // Something to gather, with how far it is from the nearest place that takes
 // it, and how much worse it is than the distances say (a deer runs, a
 // carcass already cut is better than a fresh kill) -- worse again for every
@@ -377,7 +387,8 @@ void Explorers(Turn& turn) {
                         return std::find(c.villagers.begin(), c.villagers.end(), e) == c.villagers.end();
                     }),
                     explorers.end());
-    const int wanted = ExplorersWanted(turn, static_cast<int>(c.villagers.size()));
+    const int wanted =
+        ExplorersWanted(turn, static_cast<int>(c.villagers.size() - turn.brain->forward_builders.size()));
     while (static_cast<int>(explorers.size()) > wanted) {
         const entt::entity freed = explorers.back();
         explorers.pop_back();
@@ -387,8 +398,28 @@ void Explorers(Turn& turn) {
         if (static_cast<int>(explorers.size()) >= wanted) break;
         if (!Working(*turn.registry, v)) continue;
         const auto& w = turn.registry->get<ECS::Components::Worker>(v);
-        if (w.state == Core::UnitState::Building || Exploring(turn, v)) continue;
+        if (w.state == Core::UnitState::Building || Aside(turn, v)) continue;
         explorers.push_back(v);
+    }
+}
+
+// Villagers kept aside to build forward: as many as
+// sn-number-forward-builders asks, taken from the rest in order and stood
+// down from their work; let go as fewer are asked for.
+void ForwardBuilders(Turn& turn) {
+    auto& kept = turn.brain->forward_builders;
+    const Census& c = *turn.census;
+    std::erase_if(kept, [&](entt::entity e) {
+        return std::find(c.villagers.begin(), c.villagers.end(), e) == c.villagers.end();
+    });
+    const int wanted = std::max(0, Sn(turn, Lang::SN::NumberForwardBuilders));
+    if (static_cast<int>(kept.size()) > wanted) kept.resize(static_cast<size_t>(wanted));
+    for (entt::entity v : c.villagers) {
+        if (static_cast<int>(kept.size()) >= wanted) break;
+        if (!Working(*turn.registry, v) || Aside(turn, v)) continue;
+        if (turn.registry->get<ECS::Components::Worker>(v).state == Core::UnitState::Building) continue;
+        kept.push_back(v);
+        Give(*turn.registry, *turn.grid, Core::StopCommand{v, turn.player});
     }
 }
 
@@ -412,7 +443,8 @@ void Staff(Turn& turn, int allowed) {
             const int want = round == 0 ? 1 : BuildersWanted(registry, site.unit_id);
             if (on >= want) continue;
             const Vector2D& at = Where(registry, site.entity);
-            const entt::entity worker = PickWorker(turn, at);
+            const bool out = Distance(at, c.home) > Core::Fixed32(TownSize(turn));
+            const entt::entity worker = PickWorker(turn, at, out);
             if (worker == entt::null) return;
             Give(registry, *turn.grid, Core::BuildCommand{worker, site.unit_id, Physics::TileOf(at.x),
                                                           Physics::TileOf(at.y), turn.player});
@@ -449,7 +481,7 @@ void ToIdleFarms(Turn& turn, Sources& sources) {
         if (!registry.valid(w.target_resource) || registry.all_of<ECS::Components::Building>(w.target_resource)) continue;
         int carried = 0;
         for (int k : w.carried) carried += k;
-        if (carried > 0 || Exploring(turn, v)) continue;
+        if (carried > 0 || Aside(turn, v)) continue;
         const auto* at = registry.try_get<ECS::Components::Transform>(w.target_resource);
         if (at == nullptr || Distance(at->position, turn.census->home) <= kFarFood) continue;
         Source* farm = Best(turn, sources, Core::ResourceType::Food, v);
@@ -461,7 +493,7 @@ void ToIdleFarms(Turn& turn, Sources& sources) {
 void AssignIdle(Turn& turn, Sources& sources, std::array<int, 4>& working, const std::array<int, 4>& wanted) {
     const Census& c = *turn.census;
     for (entt::entity villager : c.idle_villagers) {
-        if (!Working(*turn.registry, villager) || Exploring(turn, villager)) continue;
+        if (!Working(*turn.registry, villager) || Aside(turn, villager)) continue;
         if (FarmBeside(turn, sources, villager)) {
             ++working[static_cast<size_t>(Core::ResourceType::Food)];
             continue;
@@ -506,7 +538,7 @@ void Rebalance(Turn& turn, Sources& sources, std::array<int, 4>& working, const 
             if (!Working(registry, v)) continue;
             const auto& w = registry.get<ECS::Components::Worker>(v);
             if (w.state == Core::UnitState::Building || w.state == Core::UnitState::Idle) continue;
-            if (static_cast<int>(w.carry_type) != over || Exploring(turn, v)) continue;
+            if (static_cast<int>(w.carry_type) != over || Aside(turn, v)) continue;
             int carried = 0;
             for (int k : w.carried) carried += k;
             if (carried > 0 || !Retaskable(turn, v)) continue;
@@ -550,7 +582,7 @@ void HuntBoar(Turn& turn) {
     for (entt::entity v : c.villagers) {
         if (!Working(registry, v)) continue;
         const auto& w = registry.get<ECS::Components::Worker>(v);
-        if (w.state == Core::UnitState::Building || Exploring(turn, v)) continue;
+        if (w.state == Core::UnitState::Building || Aside(turn, v)) continue;
         if (w.carry_type == Core::ResourceType::Food && w.state != Core::UnitState::Idle) food.push_back(v);
     }
     if (static_cast<int>(food.size()) < party + kLeftAtFood) return;
@@ -596,13 +628,26 @@ bool Pending(const Census& census, int slot, int allowed) {
 
 } // namespace
 
-entt::entity PickWorker(const Turn& turn, const Vector2D& at) {
+entt::entity PickWorker(const Turn& turn, const Vector2D& at, bool forward) {
     const entt::registry& registry = *turn.registry;
     const Census& c = *turn.census;
     entt::entity best = entt::null;
     Core::Fixed32 best_d{};
+    if (forward) {
+        for (entt::entity v : turn.brain->forward_builders) {
+            if (!Working(registry, v) || registry.get<ECS::Components::Worker>(v).state == Core::UnitState::Building) {
+                continue;
+            }
+            const Core::Fixed32 d = Distance(Where(registry, v), at);
+            if (best == entt::null || d < best_d || (d == best_d && v < best)) {
+                best = v;
+                best_d = d;
+            }
+        }
+        if (best != entt::null) return best;
+    }
     auto consider = [&](entt::entity v) {
-        if (!Working(registry, v) || Exploring(turn, v)) return;
+        if (!Working(registry, v) || Aside(turn, v)) return;
         const Core::Fixed32 d = Distance(Where(registry, v), at);
         if (best == entt::null || d < best_d || (d == best_d && v < best)) {
             best = v;
@@ -629,7 +674,7 @@ bool Build(Turn& turn, int slot, bool forward) {
     if (Pending(*turn.census, placed, rules->cls == kFarmClass ? 2 : 1)) return false;
     int x = 0, y = 0;
     if (!Placement::Site(turn, slot, forward, x, y)) return false;
-    const entt::entity worker = PickWorker(turn, {Core::Fixed32(x), Core::Fixed32(y)});
+    const entt::entity worker = PickWorker(turn, {Core::Fixed32(x), Core::Fixed32(y)}, forward);
     if (worker == entt::null) return false;
     Give(*turn.registry, *turn.grid, Core::BuildCommand{worker, slot, x, y, turn.player});
     // Keep the census in step: a foundation going up, a builder on it.
@@ -652,6 +697,7 @@ void Run(Turn& turn) {
     });
     if (c.villagers.empty()) return;
     Herd(turn);
+    ForwardBuilders(turn);
     Explorers(turn);
     HuntBoar(turn);
 
@@ -661,7 +707,16 @@ void Run(Turn& turn) {
     if (cap >= 0) allowed = std::min(allowed, cap);
     Staff(turn, allowed);
 
-    int gatherers = std::max(0, villagers - c.builders - static_cast<int>(turn.brain->explorers.size()));
+    // Forward builders at work are among the builders already.
+    int standing_by = 0;
+    for (entt::entity v : turn.brain->forward_builders) {
+        if (Working(*turn.registry, v) &&
+            turn.registry->get<ECS::Components::Worker>(v).state != Core::UnitState::Building) {
+            ++standing_by;
+        }
+    }
+    int gatherers =
+        std::max(0, villagers - c.builders - static_cast<int>(turn.brain->explorers.size()) - standing_by);
     const int gatherer_cap = Sn(turn, Lang::SN::CapCivilianGatherers);
     if (gatherer_cap >= 0) gatherers = std::min(gatherers, gatherer_cap);
     const std::array<int, 4> share = {Sn(turn, Lang::SN::FoodGathererPercentage),

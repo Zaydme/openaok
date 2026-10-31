@@ -32,7 +32,9 @@ void Run(Turn& turn);
 bool Build(Turn& turn, int slot, bool forward);
 
 // A villager to put to a new job near `at`: an idle one if there is any,
-// else the nearest one not building or exploring. Null if there are none.
-entt::entity PickWorker(const Turn& turn, const ECS::Components::Vector2D& at);
+// else the nearest one not building, exploring or kept to build forward; for
+// a forward building, the nearest forward builder first. Null if there are
+// none.
+entt::entity PickWorker(const Turn& turn, const ECS::Components::Vector2D& at, bool forward = false);
 
 } // namespace AI::Economy

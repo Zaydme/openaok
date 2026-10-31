@@ -834,6 +834,53 @@ const char* CheckRelics() {
     return nullptr;
 }
 
+// Forward builders: sn-number-forward-builders 1 stands a villager down from
+// gathering, build-forward sends that villager to the building, and asked for
+// none again it goes back to gathering.
+const char* CheckForwardBuilders() {
+    using SN = AI::Lang::SN;
+    Core::GameSetup setup = Core::DefaultSetup();
+    setup.players[1].computer = true;
+    ECS::Simulation sim;
+    sim.Init(setup);
+    auto& reg = sim.GetRegistry();
+    Files files;
+    files["main"] =
+        "(defrule (true) => (set-strategic-number sn-number-forward-builders 1)"
+        " (set-strategic-number sn-percent-civilian-explorers 0) (set-strategic-number sn-cap-civilian-explorers 0)"
+        " (disable-self))\n"
+        "(defrule (goal 1 0) (game-time >= 10) (can-build barracks) => (build-forward barracks) (set-goal 1 1))\n";
+    AI::Brains* brains = reg.ctx().find<AI::Brains>();
+    if (brains == nullptr || brains->brains.empty()) return "no brain for the computer seat";
+    AI::Brain& brain = brains->brains.front();
+    brain.program = CompileFiles(files, {}, 0);
+    if (!brain.program.errors.empty()) return "the forward builders script did not load";
+    AI::Reset(brain.mind, brain.program.rules.size(), &setup);
+    brain.mind.stance[2] = static_cast<uint8_t>(AI::Lang::Stance::Enemy);
+    for (int t = 0; t < 5 * kTicksPerSecond; ++t) sim.Update(16);
+    if (brain.forward_builders.size() != 1) return "sn-number-forward-builders 1 kept no villager aside";
+    const entt::entity kept = brain.forward_builders.front();
+    if (reg.get<ECS::Components::Worker>(kept).state == Core::UnitState::Gathering) {
+        return "the forward builder went on gathering";
+    }
+    for (int t = 0; t < 10 * kTicksPerSecond && brain.mind.goals[1] == 0; ++t) sim.Update(16);
+    if (brain.mind.goals[1] != 1) return "build-forward was never asked for";
+    sim.Update(16);
+    const auto& w = reg.get<ECS::Components::Worker>(kept);
+    if (!reg.valid(w.target_building) || !reg.all_of<ECS::Components::Building>(w.target_building)) {
+        return "build-forward did not send the forward builder";
+    }
+    AI::SetStrategic(brain.mind, SN::NumberForwardBuilders, 0, &setup);
+    ECS::Orders::Execute(reg, sim.GetGrid(), Core::DeleteCommand{w.target_building, 1});
+    for (int t = 0; t < 10 * kTicksPerSecond; ++t) sim.Update(16);
+    if (!brain.forward_builders.empty()) return "a forward builder was kept with none asked for";
+    const auto state = reg.get<ECS::Components::Worker>(kept).state;
+    if (state != Core::UnitState::Gathering && state != Core::UnitState::Moving && state != Core::UnitState::Returning) {
+        return "a forward builder let go did not go back to work";
+    }
+    return nullptr;
+}
+
 // Where a mining camp goes: with a villager mining stone further from a drop
 // site than sn-stone-dropsite-distance, beside the stone; with that distance
 // longer than the walk, at the gold as before.
@@ -1013,6 +1060,7 @@ bool CheckScript() {
     if (verdict == nullptr) verdict = CheckRetask();
     if (verdict == nullptr) verdict = CheckExplorers();
     if (verdict == nullptr) verdict = CheckCamps();
+    if (verdict == nullptr) verdict = CheckForwardBuilders();
     std::printf("script=%s\n", verdict == nullptr ? "ok" : verdict);
     return verdict == nullptr;
 }
