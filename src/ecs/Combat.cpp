@@ -687,7 +687,8 @@ void Hurt(entt::registry& registry, Physics::Grid& grid, entt::entity target,
     // as an ally. A new attacker first brings help from those idle nearby. A
     // villager fights off Gaia's and runs from anyone else's (AnswerAsVillager);
     // anything else armed and not told otherwise turns on whoever hurt it -- a
-    // boar on its hunter, a soldier on a neutral's -- unless busy at a job.
+    // boar on its hunter, a soldier on a neutral's -- unless busy at a job or
+    // at a building a person sent it at.
     if (health.current_hp > 0 && Alive(registry, attacker) &&
         !Friendly(registry, target, attacker)) {
         if (auto* combat = registry.try_get<Combat>(target);
@@ -702,7 +703,15 @@ void Hurt(entt::registry& registry, Physics::Grid& grid, entt::entity target,
             // Running for cover is busy too: it keeps running.
             const bool busy = (worker != nullptr && worker->state != Core::UnitState::Idle) ||
                               registry.all_of<Components::Boarding>(target);
-            if (combat->state == CombatState::Idle && !busy &&
+            // At a building nobody sent it at -- a wall it came upon -- it
+            // turns on whoever strikes it; at one a person sent it at, it
+            // keeps on. A computer player's turns on its striker either way.
+            const auto* setup = registry.ctx().find<Core::GameSetup>();
+            const Core::PlayerId own = OwnerOf(registry, target);
+            const bool computer = setup != nullptr && own < Core::kMaxPlayers && setup->players[own].computer;
+            const bool unsent = combat->state != CombatState::Idle && (!combat->ordered || computer) &&
+                                IsBuilding(registry, combat->target);
+            if ((combat->state == CombatState::Idle || unsent) && !busy &&
                 combat->stance != Components::Stance::NoAttack &&
                 !IsBuilding(registry, target)) {
                 Engage(registry, target, attacker, false);

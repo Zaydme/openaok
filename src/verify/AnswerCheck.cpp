@@ -1,4 +1,7 @@
 #include "verify/Harness.h"
+#include "ecs/Mortality.h"
+#include "ecs/components/Identity.h"
+#include "ecs/Buildings.h"
 
 #include <cstdio>
 #include <vector>
@@ -124,13 +127,51 @@ Answer Struck(const char* attacker_name, Core::PlayerId attacker_owner) {
     return out;
 }
 
+// A spearman of ours at an enemy wall, struck by an enemy spearman: what it
+// goes for after. `ordered`, a person sent it at the wall; `computer`, the
+// computer plays it. The striker or the wall, or null.
+entt::entity AtTheWall(bool ordered, bool computer) {
+    Core::GameSetup setup = Core::DefaultSetup();
+    setup.players[kUs].computer = computer;
+    ECS::Simulation sim;
+    sim.Init(setup);
+    auto& reg = sim.GetRegistry();
+    auto& grid = sim.GetGrid();
+    auto& cfg = Core::ConfigManager::Get();
+    int x = grid.GetWidth() / 2, y = grid.GetHeight() / 2;
+    if (!Clearing(grid, x, y, 4)) return entt::null;
+    // No wolf or boar about to pick a fight of its own.
+    std::vector<entt::entity> wild;
+    for (auto e : reg.view<ECS::Components::Combat, ECS::Components::Owner>()) {
+        if (reg.get<ECS::Components::Owner>(e).player_id == Core::PLAYER_GAIA) wild.push_back(e);
+    }
+    for (entt::entity e : wild) ECS::Mortality::Kill(reg, grid, e);
+    const entt::entity wall = ECS::Buildings::Place(reg, grid, cfg.GetUnitIdByName("WALL"), kThem, x, y, true);
+    const entt::entity ours = ECS::ScenarioWorld::Place(reg, grid, cfg.GetUnitIdByName("SPRMN"), kUs, At(x, y + 1), {}, 0);
+    if (wall == entt::null || ours == entt::null) return entt::null;
+    if (ordered) {
+        ECS::Orders::Execute(reg, grid, Core::AttackCommand{ours, wall, kUs});
+    } else {
+        ECS::Combat::Engage(reg, ours, wall, false);
+    }
+    for (int t = 0; t < 2 * kTicksPerSecond; ++t) sim.Update(16);
+    const entt::entity striker = ECS::ScenarioWorld::Place(reg, grid, cfg.GetUnitIdByName("SPRMN"), kThem, At(x + 2, y + 2), {}, 0);
+    if (striker == entt::null) return entt::null;
+    if (auto* combat = reg.try_get<ECS::Components::Combat>(striker)) combat->stance = ECS::Components::Stance::NoAttack;
+    ECS::Combat::Hurt(reg, grid, ours, Core::Fixed32(1), striker, kThem);
+    sim.Update(16);
+    const auto& combat = reg.get<ECS::Components::Combat>(ours);
+    return combat.target == striker ? striker : combat.target == wall ? wall : entt::null;
+}
+
 } // namespace
 
 // What a villager at work does when struck. By a wolf, it breaks off, fights
 // it, and goes back to its bush after; an idle villager and an idle spearman
 // beside it come to help. By another player's soldier, it runs a few steps
 // off and goes back, fighting nothing; the spearman comes, the villager does
-// not.
+// not. And a soldier at a wall, struck, turns on the striker unless a person
+// sent it at the wall.
 bool CheckAnswer() {
     const char* verdict = nullptr;
     const Answer wolf = Struck("WOLFX", Core::PLAYER_GAIA);
@@ -153,6 +194,21 @@ bool CheckAnswer() {
         verdict = "an idle villager went for another player's soldier";
     } else if (!soldier.soldier_came) {
         verdict = "an idle spearman beside a struck forager did not come to help";
+    }
+    // A soldier at a wall, struck: one that took the wall up itself turns on
+    // the striker, one a person sent at it keeps on, and a computer player's
+    // turns either way.
+    if (verdict == nullptr) {
+        const entt::entity unsent = AtTheWall(false, false);
+        const entt::entity sent = AtTheWall(true, false);
+        const entt::entity computers = AtTheWall(true, true);
+        if (unsent == entt::null || sent == entt::null || computers == entt::null) {
+            verdict = "no field for the wall";
+        } else if (sent == unsent) {
+            verdict = "a soldier at a wall it came upon did not turn on its striker, or one sent at it did";
+        } else if (computers != unsent) {
+            verdict = "a computer player's soldier sent at a wall did not turn on its striker";
+        }
     }
     std::printf("answer=%s\n", verdict == nullptr ? "ok" : verdict);
     return verdict == nullptr;
