@@ -9,10 +9,10 @@
 // most sn-maximum-attack-group-size. An idle group takes free soldiers
 // where most stand within sn-group-form-distance of one another, gathers on
 // its leader (within sn-attack-group-gather-spacing), and once it has its
-// soldiers and has gathered, and the player knows its enemy, attacks: the
-// nearest enemy it can see near its leader, else the nearest enemy building
-// the player has seen -- across the water by transport if there is none on
-// its own ground -- going idle to regather when the target falls. With
+// soldiers and has gathered, and the player knows its enemy, attacks what the
+// game's target evaluation chooses of the enemy things the player knows --
+// across the water by transport if there is none on its own ground -- going
+// idle to regather when the target falls. With
 // nothing to attack it walks off at random to look. Attacks wait for the
 // initial attack delay (sn-initial-attack-delay and its type).
 //

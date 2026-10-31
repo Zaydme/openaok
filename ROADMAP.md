@@ -33,8 +33,6 @@ and campaigns, the computer players' finer play, and polish.
 ## Next
 
 1. **Computer players**
-   - Their attack groups' choice of target by the game's target evaluation
-     (the sn-target-evaluation numbers).
    - The priority of their units' orders (sn-zero-priority-distance), which
      needs order priorities in the units' own behaviour.
    - Defend groups and what they guard (the defend priorities), which only
@@ -62,7 +60,7 @@ and campaigns, the computer players' finer play, and polish.
   to hear them; menu, civilisation and campaign music play from the files
   as they are.
 - **Computer players are slow to advance.** On the standard test map the
-  hardest reach the Feudal Age around minute 17 to 19.
+  hardest reach the Feudal Age around minute 17 to 20.
 - **57 graphics are missing** from the 1999 data; the game draws without them.
 - **Windows is not supported yet.**
 - **On the Switch, network games** from the multiplayer menu are not yet

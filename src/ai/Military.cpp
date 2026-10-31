@@ -10,8 +10,11 @@
 #include "ecs/Combat.h"
 #include "ecs/Diplomacy.h"
 #include "ecs/Garrisons.h"
+#include "ecs/Monks.h"
 #include "ecs/Navigation.h"
 #include "ecs/Players.h"
+#include "ecs/Relics.h"
+#include "ecs/Victory.h"
 #include "ecs/Vision.h"
 #include "ecs/components/Building.h"
 #include "ecs/components/Combat.h"
@@ -33,9 +36,26 @@ using Vector2D = ECS::Components::Vector2D;
 
 // How far past the town an intruder is still chased by defenders.
 constexpr int kChaseBeyondTown = 6;
-// How far from its group's lead an attack group looks for its next target
-// before going on to the next building.
-const Core::Fixed32 kNearbyTarget(12);
+// The target evaluation's figures: what each part of a score is worth, the
+// measure of a target the group cannot hurt or none can defend, and the
+// classes and units it tells apart.
+const Core::Fixed32 kPart(25);
+const Core::Fixed32 kOutright(100);
+const Core::Fixed32 kWallCap(99);
+const Core::Fixed32 kNever(1 << 30);
+constexpr int kKingClass = 59;
+constexpr int kRelicMonkClass = 43;
+constexpr int kWallClass = 27;
+constexpr int kGateClass = 39;
+constexpr int kBuildingClass = 3;
+constexpr int kFarmClass = 49;
+constexpr int kBoatClasses[] = {2, 20, 21, 22, 53};
+constexpr int kEconomicUnits[] = {70, 562, 584, 103, 50, 209, 68};
+constexpr int kMonasteryUnit = 104;
+constexpr int kWonderUnit = 276;
+constexpr int kDockUnit = 45;
+// How near a wall must come to the warships' water to be theirs to shoot.
+constexpr int kShoreWall = 3;
 // sn-gather-defense-units: how often the idle soldiers are gathered, how far
 // from the Town Center they may stand, and how far past the town an enemy
 // makes the town under attack, when they are not.
@@ -181,23 +201,206 @@ entt::entity Lead(const Turn& turn, const Group& group) {
     return entt::null;
 }
 
-// The group's next target: something near its lead, else the nearest enemy
-// building it has seen, else any -- of those it can get at, when `reach`.
-entt::entity NextTarget(const Turn& turn, const Group& group, bool reach) {
-    const entt::entity lead = Lead(turn, group);
-    const Vector2D from = lead == entt::null ? turn.census->home : Where(*turn.registry, lead);
-    const Ground ground = GroundOf(turn, lead);
-    const Ground* on = reach ? &ground : nullptr;
-    // The foe an ally's call named first, then any.
-    const Core::PlayerId foe = turn.brain->foe;
-    entt::entity t = entt::null;
-    for (int pass = foe != 0 ? 0 : 1; pass < 2 && t == entt::null; ++pass) {
-        const Core::PlayerId only = pass == 0 ? foe : Core::PlayerId{0};
-        t = NearestEnemy(turn, from, kNearbyTarget, false, false, on, only);
-        if (t == entt::null) t = NearestEnemy(turn, from, Core::Fixed32(1 << 16), true, false, on, only);
-        if (t == entt::null) t = NearestEnemy(turn, from, Core::Fixed32(1 << 16), true, true, on, only);
+bool Listed(const int* list, size_t n, int v) { return std::find(list, list + n, v) != list + n; }
+
+Core::Fixed32 HitPoints(const entt::registry& registry, entt::entity e) {
+    const auto* health = registry.try_get<ECS::Components::Health>(e);
+    return health == nullptr ? Core::Fixed32{} : Core::Fixed32(health->current_hp) - health->wound;
+}
+
+// How much of `target` `unit` takes away a second: a blow's damage over its
+// reload, or for a Monk that could convert it, a tenth of its hit points.
+Core::Fixed32 Rate(const entt::registry& registry, entt::entity unit, entt::entity target) {
+    const auto* rules = ECS::Combat::FightingRules(registry, unit);
+    const auto* defender = ECS::Combat::DefendingRules(registry, target);
+    if (rules == nullptr || defender == nullptr) return {};
+    if (rules->attack_count > 0 && rules->reload > Core::Fixed32(0)) {
+        return Core::Fixed32(ECS::Combat::Damage(rules->attacks, rules->attack_count, *defender)) / rules->reload;
     }
-    return t;
+    if (ECS::Monks::CanConvert(registry, unit, target)) return HitPoints(registry, target) / Core::Fixed32(10);
+    return {};
+}
+
+// One enemy thing as the target evaluation weighs it.
+struct Prospect {
+    entt::entity e = entt::null;
+    bool reaches = false;   // the group can get at it
+    bool zone = false;      // ... and stands on the group's ground
+    bool economic = false;  // a house, mill, camp, farm, Blacksmith or University
+    bool wall = false;      // a wall or gate
+    Core::Fixed32 kill;     // seconds the group takes to destroy it, kNever if it cannot
+    Core::Fixed32 defence;  // seconds its defenders take to kill the group, kNever if none
+    Core::Fixed32 distance; // from the group's middle to its edge
+    Core::Fixed32 score;
+    int tier = 0;
+};
+
+// A measure scored from 25, for the least of the prospects', down to 0 for
+// the greatest; 25 for all when they are alike. Against one the group cannot
+// measure (kNever) the rest all score 25 and it 0.
+Core::Fixed32 Part(Core::Fixed32 v, Core::Fixed32 low, Core::Fixed32 high) {
+    if (high - low <= Core::Fixed32(0)) return kPart;
+    if (high == kNever) return v == kNever ? Core::Fixed32{} : kPart;
+    return kPart - (v - low) * kPart / (high - low);
+}
+
+// Whether `e` scores 100 whatever its other parts: a Regicide game's King, the
+// Wonder of a player counting down to win by it, a Monastery with
+// sn-special-attack-type1, and -- of a player counting down by relics -- its
+// Monks carrying relics and Monasteries; a Monastery that holds none scores
+// 99.9.
+bool Outright(const Turn& turn, entt::entity e, int cls, int id, Core::Fixed32& score) {
+    const entt::registry& registry = *turn.registry;
+    const Core::PlayerId owner = registry.get<ECS::Components::Owner>(e).player_id;
+    const auto* state = registry.ctx().find<ECS::Victory::State>();
+    if (state != nullptr && state->setup.regicide && cls == kKingClass) {
+        score = kOutright;
+        return true;
+    }
+    if (state != nullptr && state->outcome.relic_holder == owner && (cls == kRelicMonkClass || id == kMonasteryUnit)) {
+        const bool holds = cls == kRelicMonkClass || ECS::Relics::Held(registry, e) > 0;
+        score = holds ? kOutright : Core::Fixed32(999) / Core::Fixed32(10);
+        return true;
+    }
+    if ((state != nullptr && state->outcome.wonder_holder == owner && id == kWonderUnit) ||
+        (id == kMonasteryUnit && Sn(turn, Lang::SN::SpecialAttackType1) == 1)) {
+        score = kOutright;
+        return true;
+    }
+    return false;
+}
+
+// The target evaluation's prospects for `group`: every enemy thing the player
+// knows of -- of player `only` if given -- that the group could fight
+// (warships: boats, docks and walls by their water; soldiers: anything but
+// boats), weighed and scored.
+std::vector<Prospect> Weigh(const Turn& turn, const Group& group, bool sea, Core::PlayerId only) {
+    const entt::registry& registry = *turn.registry;
+    const Physics::Grid& grid = *turn.grid;
+    const ECS::Victory::Outcome* outcome = ECS::Victory::Read(registry);
+    const Ground ground = GroundOf(turn, Lead(turn, group));
+    std::vector<entt::entity> units;
+    Vector2D middle{};
+    int placed = 0;
+    for (entt::entity u : group.units) {
+        if (!ECS::Combat::Alive(registry, u)) continue;
+        units.push_back(u);
+        if (!registry.all_of<ECS::Components::Transform>(u)) continue;
+        middle.x = middle.x + Where(registry, u).x;
+        middle.y = middle.y + Where(registry, u).y;
+        ++placed;
+    }
+    if (placed == 0) return {};
+    middle.x = middle.x / Core::Fixed32(placed);
+    middle.y = middle.y / Core::Fixed32(placed);
+
+    std::vector<Prospect> out;
+    std::vector<entt::entity> defenders;
+    auto all = registry.view<const ECS::Components::Transform, const ECS::Components::Owner>();
+    for (auto e : all) {
+        if (!Hostile(turn, e) || !ECS::Combat::Alive(registry, e)) continue;
+        const Core::PlayerId owner = all.get<const ECS::Components::Owner>(e).player_id;
+        if (outcome != nullptr && outcome->Defeated(owner)) continue;
+        const bool building = registry.all_of<ECS::Components::Building>(e);
+        const Vector2D& at = all.get<const ECS::Components::Transform>(e).position;
+        const int x = Physics::TileOf(at.x), y = Physics::TileOf(at.y);
+        if (building ? !Knowledge::Explored(turn, x, y) : !Knowledge::Sees(turn, e)) continue;
+        defenders.push_back(e);
+        if (only != 0 && owner != only) continue;
+        const auto* rules = ECS::Combat::DefendingRules(registry, e);
+        const int cls = rules != nullptr ? rules->cls : -1;
+        const int id = registry.get<ECS::Components::Identity>(e).unit_id;
+        const bool boat = Listed(kBoatClasses, std::size(kBoatClasses), cls);
+        if (sea && !boat && id != kDockUnit) {
+            if (cls != kWallClass) continue;
+            bool shore = false;
+            for (int dy = -kShoreWall; dy <= kShoreWall && !shore; ++dy) {
+                for (int dx = -kShoreWall; dx <= kShoreWall && !shore; ++dx) {
+                    shore = Pathfinding::RegionAt(grid, x + dx, y + dy, ground.layer) == ground.region;
+                }
+            }
+            if (!shore) continue;
+        }
+        if (!sea && boat) continue;
+        Prospect p;
+        p.e = e;
+        p.reaches = Reaches(turn, ground, e);
+        p.zone = p.reaches && !(sea && building);
+        p.economic = (cls == kBuildingClass || cls == kFarmClass) &&
+                     Listed(kEconomicUnits, std::size(kEconomicUnits), id);
+        p.wall = cls == kWallClass || cls == kGateClass;
+        Core::Fixed32 rate{};
+        for (entt::entity u : units) rate = rate + Rate(registry, u, e);
+        p.kill = rate > Core::Fixed32(0) ? HitPoints(registry, e) / rate : kNever;
+        p.distance = ECS::Combat::BoxOf(registry, e).DistanceFrom(middle);
+        out.push_back(p);
+    }
+    if (out.empty()) return out;
+
+    // How long what could shoot at each prospect's spot would take to kill
+    // the group, one soldier after another.
+    for (Prospect& p : out) {
+        const Vector2D& at = Where(registry, p.e);
+        std::vector<entt::entity> near;
+        for (entt::entity d : defenders) {
+            const auto* rules = ECS::Combat::FightingRules(registry, d);
+            if (rules != nullptr && ECS::Combat::BoxOf(registry, d).DistanceFrom(at) <= rules->max_range) near.push_back(d);
+        }
+        if (near.empty()) {
+            p.defence = kNever;
+            continue;
+        }
+        for (entt::entity u : units) {
+            Core::Fixed32 rate{};
+            for (entt::entity d : near) rate = rate + Rate(registry, d, u);
+            if (rate > Core::Fixed32(0)) p.defence = p.defence + HitPoints(registry, u) / rate;
+        }
+    }
+
+    Core::Fixed32 low[3] = {kNever, kNever, kNever}, high[3] = {Core::Fixed32(-1), Core::Fixed32(-1), Core::Fixed32(-1)};
+    for (const Prospect& p : out) {
+        const Core::Fixed32 v[3] = {p.kill, p.defence, p.distance};
+        for (int i = 0; i < 3; ++i) {
+            low[i] = std::min(low[i], v[i]);
+            high[i] = std::max(high[i], v[i]);
+        }
+    }
+    for (Prospect& p : out) {
+        const auto* rules = ECS::Combat::DefendingRules(registry, p.e);
+        const int cls = rules != nullptr ? rules->cls : -1;
+        const int id = registry.get<ECS::Components::Identity>(p.e).unit_id;
+        if (p.kill == kNever || !Outright(turn, p.e, cls, id, p.score)) {
+            const Core::Fixed32 kill = Part(p.kill, low[0], high[0]);
+            const Core::Fixed32 defence = high[1] - low[1] <= Core::Fixed32(0) ? kPart : kill;
+            p.score = kill + defence + Part(p.distance, low[2], high[2]) + (p.zone ? kPart : Core::Fixed32{});
+            if (cls == kWallClass && p.score >= kOutright) p.score = kWallCap;
+        }
+        p.tier = p.score >= kOutright ? 0 : (p.zone ? 1 : 4) + (p.wall ? 2 : (p.economic ? 1 : 0));
+    }
+    std::stable_sort(out.begin(), out.end(), [](const Prospect& a, const Prospect& b) {
+        return a.tier != b.tier ? a.tier < b.tier : a.score > b.score;
+    });
+    return out;
+}
+
+// The group's next target, by the game's target evaluation (Weigh): each
+// prospect scored out of 100 -- up to 25 for how soon the group would destroy
+// it, 25 more for that again (or for every prospect alike when the defences
+// round them all are alike), up to 25 for how near it is, and 25 if it is on
+// the group's ground -- and a wall at most 99. They are taken in tiers: those
+// scoring 100; then those on the group's ground -- all but walls and gates,
+// the economic buildings after the rest, then walls and gates; then the same
+// of those elsewhere; the highest score first in each. The first the group
+// can get at is its target, or with `reach` false the first of all. The foe an
+// ally's call named is looked to first.
+entt::entity NextTarget(const Turn& turn, const Group& group, bool reach, bool sea) {
+    const Core::PlayerId foe = turn.brain->foe;
+    for (int pass = foe != 0 ? 0 : 1; pass < 2; ++pass) {
+        for (const Prospect& p : Weigh(turn, group, sea, pass == 0 ? foe : Core::PlayerId{0})) {
+            if (!reach || p.reaches) return p.e;
+        }
+    }
+    return entt::null;
 }
 
 void Charge(Turn& turn, Group& group, bool idle_only) {
@@ -593,13 +796,13 @@ void Act(Turn& turn, bool sea) {
         if (g.task != kAttack) continue;
         if (!g.issued) {
             if (!brain.attacks_allowed && !g.now) continue;
-            g.target = NextTarget(turn, g, true);
+            g.target = NextTarget(turn, g, true, sea);
             if (g.target == entt::null && sea) {
                 g.task = kExplore;
                 continue;
             }
             if (g.target == entt::null) {
-                const entt::entity over = NextTarget(turn, g, false);
+                const entt::entity over = NextTarget(turn, g, false, sea);
                 g.target = over;
                 if (over != entt::null && Board(turn, g)) {
                     g.issued = true;

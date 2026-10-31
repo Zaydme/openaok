@@ -240,6 +240,12 @@ bool CheckBoats();
 // attack delay. Prints "attackgroups=".
 bool CheckAttackGroups();
 
+// The game's target evaluation, which a computer player's attack group goes
+// for first among the enemy's buildings it knows: a barracks before a house
+// scored alike, a house before a wall, the best scored of three barracks, and
+// a Monastery before them with sn-special-attack-type1. Prints "targets=".
+bool CheckTargets();
+
 // A landing on Islands: a transport takes on a war party under the dat's
 // garrison rules, sails it to the other island and puts it ashore, and the
 // party's assault ends the game in conquest; a transport sunk with a soldier

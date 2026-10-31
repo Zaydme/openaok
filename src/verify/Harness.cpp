@@ -62,6 +62,7 @@ int Run(int ticks) {
     if (runs("navy")) ok &= CheckNavy();
     if (runs("boats")) ok &= CheckBoats();
     if (runs("attackgroups")) ok &= CheckAttackGroups();
+    if (runs("targets")) ok &= CheckTargets();
     if (runs("shipangles")) ok &= CheckShipAngles();
     if (runs("turning")) ok &= CheckTurning();
     if (runs("colours")) ok &= CheckColours();

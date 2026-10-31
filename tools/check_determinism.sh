@@ -80,6 +80,7 @@ FISHING="$(echo "$OUTPUT" | grep '^fishing=')"
 NAVY="$(echo "$OUTPUT" | grep '^navy=')"
 BOATS="$(echo "$OUTPUT" | grep '^boats=')"
 ATTACKGROUPS="$(echo "$OUTPUT" | grep '^attackgroups=')"
+TARGETS="$(echo "$OUTPUT" | grep '^targets=')"
 LANDING="$(echo "$OUTPUT" | grep '^landing=')"
 MARKET="$(echo "$OUTPUT" | grep '^market=')"
 TRADE="$(echo "$OUTPUT" | grep '^trade=')"
@@ -578,6 +579,15 @@ if [ "$ATTACKGROUPS" = "attackgroups=ok" ]; then
 else
     echo "ATTACKGROUPS FAILED" >&2
     echo "  $ATTACKGROUPS" >&2
+    STATUS=1
+fi
+
+# The game's target evaluation: what an attack group goes for first.
+if [ "$TARGETS" = "targets=ok" ]; then
+    echo "targets OK"
+else
+    echo "TARGETS FAILED" >&2
+    echo "  $TARGETS" >&2
     STATUS=1
 fi
 
