@@ -163,6 +163,12 @@ bool PlaceRound(const entt::registry& registry, const Physics::Grid& grid, const
 void MovementSystem::Update(entt::registry& registry, const Physics::Grid& grid,
                             int32_t fixed_dt_ms) {
     const Navigation::Traffic* traffic = Navigation::TrafficOf(registry);
+    const auto& identities = registry.storage<Components::Identity>();
+    const auto& owners = registry.storage<Components::Owner>();
+    const auto& makers = registry.storage<Components::RulesOf>();
+    const auto& workers = registry.storage<Components::Worker>();
+    const auto& bodies = registry.storage<Components::Transform>();
+    const Players::Table* table = Players::TableOf(registry);
     auto view = registry.view<Components::Transform, Components::Path, Components::Sprite>();
     for (auto entity : view) {
         auto& transform = view.get<Components::Transform>(entity);
@@ -177,11 +183,13 @@ void MovementSystem::Update(entt::registry& registry, const Physics::Grid& grid,
         }
         // Its rules, once: the layer it moves on, its body and its pace, as
         // Navigation::LayerOf, RadiusOf and StepLength find them.
-        const auto* identity = registry.try_get<Components::Identity>(entity);
-        const auto* owner = registry.try_get<Components::Owner>(entity);
+        const auto* identity = identities.contains(entity) ? &identities.get(entity) : nullptr;
+        const auto* owner = owners.contains(entity) ? &owners.get(entity) : nullptr;
+        const Core::PlayerId rules_player = makers.contains(entity) ? makers.get(entity).player
+                                            : owner != nullptr      ? owner->player_id
+                                                                    : Core::PLAYER_GAIA;
         const Core::Rules::UnitRules* rules =
-            identity != nullptr ? Players::UnitOf(registry, Players::RulesPlayer(registry, entity), identity->unit_id)
-                                : nullptr;
+            identity != nullptr ? Players::UnitOf(table, rules_player, identity->unit_id) : nullptr;
         const Physics::Layer layer =
             identity == nullptr ? Physics::kLand
                                 : Physics::Keyed(rules != nullptr ? grid.LayerOf(rules->terrain_restriction) : Physics::kLand,
@@ -209,8 +217,7 @@ void MovementSystem::Update(entt::registry& registry, const Physics::Grid& grid,
 
         // A walk to something ends within range of it. One to a point ends
         // there, or, someone already standing on it, up against them.
-        const bool aimed = path.target != entt::null && registry.valid(path.target) &&
-                           registry.all_of<Components::Transform>(path.target);
+        const bool aimed = path.target != entt::null && registry.valid(path.target) && bodies.contains(path.target);
         // Within range of its target, as InRange: the target's box grown by
         // its body, worked out once.
         Buildings::Bounds reach{};
@@ -284,7 +291,7 @@ void MovementSystem::Update(entt::registry& registry, const Physics::Grid& grid,
                                              : nullptr;
         const bool walker = occupant_rules != nullptr && occupant_rules->speed.value > 0;
         // A villager walking to its work keeps to the spot its work gave it.
-        const auto* worker = registry.try_get<Components::Worker>(entity);
+        const auto* worker = workers.contains(entity) ? &workers.get(entity) : nullptr;
         const bool sent = worker == nullptr || worker->state == Core::UnitState::Idle;
         if (blocked && walker && sent && traffic != nullptr && path.moved_on < kMostMovesOn &&
             PlaceRound(registry, grid, *traffic, entity, path.goal, at, radius, place)) {
