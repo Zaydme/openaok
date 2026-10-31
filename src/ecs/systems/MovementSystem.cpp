@@ -121,6 +121,88 @@ bool Taken(const Navigation::Traffic& traffic, entt::entity self, Components::Ve
     return false;
 }
 
+// How near two bodies may come, in parts of their radii together: a crowd
+// overlaps a little, never stands one over another.
+const Core::Fixed32 kKeepApart = Core::Fixed32(3) / Core::Fixed32(4);
+
+// Where a step from `from` to `at` ends with the bodies about it kept off:
+// pushed out from each it would stand over -- by more than kKeepApart allows
+// -- by no more than the step went, and only where the ground lets it go. The
+// walker's target is not kept off; it is walked up to.
+Components::Vector2D KeptApart(const Navigation::Traffic& traffic, const Physics::Grid& grid,
+                               Physics::Layer layer, entt::entity self, entt::entity target,
+                               Components::Vector2D from, Components::Vector2D at, Core::Fixed32 radius) {
+    const int tx = Physics::TileOf(at.x);
+    const int ty = Physics::TileOf(at.y);
+    Core::Fixed32 push_x{}, push_y{};
+    for (int y = ty - 1; y <= ty + 1; ++y) {
+        if (y < 0 || y >= traffic.height) continue;
+        const int x0 = std::max(0, tx - 1);
+        const int x1 = std::min(traffic.width - 1, tx + 1);
+        if (x0 > x1) continue;
+        const size_t row = static_cast<size_t>(y) * traffic.width;
+        for (int32_t i = traffic.first[row + x0]; i < traffic.first[row + x1 + 1]; ++i) {
+            const Navigation::Body& b = traffic.bodies[static_cast<size_t>(i)];
+            if (b.entity == self || b.entity == target) continue;
+            const Core::Fixed32 need = (b.radius + radius) * kKeepApart;
+            const Core::Fixed32 dx = at.x - b.x;
+            const Core::Fixed32 dy = at.y - b.y;
+            if (Core::FixedMath::Abs(dx) >= need || Core::FixedMath::Abs(dy) >= need) continue;
+            const Core::Fixed32 d = Core::FixedMath::Distance(dx, dy);
+            if (d >= need) continue;
+            if (d.value == 0) {
+                // Right on top of it: out to the side of the step, the side
+                // set by which of the two is the elder.
+                const Core::Fixed32 sx = at.x - from.x, sy = at.y - from.y;
+                const bool left = self < b.entity;
+                const Core::Fixed32 ox = left ? Core::Fixed32(0) - sy : sy;
+                const Core::Fixed32 oy = left ? sx : Core::Fixed32(0) - sx;
+                if (ox.value == 0 && oy.value == 0) continue;
+                const auto out = Core::FixedMath::NormalizeAndScale(ox, oy, need);
+                push_x = push_x + out.x;
+                push_y = push_y + out.y;
+                continue;
+            }
+            push_x = push_x + dx * (need - d) / d;
+            push_y = push_y + dy * (need - d) / d;
+        }
+    }
+    if (push_x.value == 0 && push_y.value == 0) return at;
+    const Core::Fixed32 went = Core::FixedMath::Distance(at.x - from.x, at.y - from.y);
+    if (went.value == 0) return at;
+    // Never back the way it came, which could hold it still against a crowd
+    // for good: what would push it back turns it aside instead, round them.
+    const Core::Fixed32 ux = (at.x - from.x) / went, uy = (at.y - from.y) / went;
+    const Core::Fixed32 back = push_x * ux + push_y * uy;
+    if (back.value < 0) {
+        push_x = push_x - back * ux;
+        push_y = push_y - back * uy;
+        const Core::Fixed32 aside = Core::FixedMath::Distance(push_x, push_y);
+        const Core::Fixed32 owed = Core::FixedMath::Abs(back) - aside;
+        if (owed.value > 0) {
+            // Head on: to the side the push leans to, or the walker's left.
+            Core::Fixed32 sx = Core::Fixed32(0) - uy, sy = ux;
+            if (aside.value > 0) {
+                sx = push_x / aside;
+                sy = push_y / aside;
+            }
+            push_x = push_x + sx * owed;
+            push_y = push_y + sy * owed;
+        }
+    }
+    const Core::Fixed32 pushed = Core::FixedMath::Distance(push_x, push_y);
+    if (pushed > went) {
+        push_x = push_x * went / pushed;
+        push_y = push_y * went / pushed;
+    }
+    const Components::Vector2D kept{at.x + push_x, at.y + push_y};
+    if (!grid.Passable(layer, Physics::TileOf(kept.x), Physics::TileOf(kept.y)) ||
+        !Pathfinding::AStar::MiddleClear(grid, from, kept, layer)) {
+        return at;
+    }
+    return kept;
+}
+
 // The free place round `goal` nearest `from`, on the rings about it, that a
 // straight walk from `from` reaches; false when there is none.
 bool PlaceRound(const entt::registry& registry, const Physics::Grid& grid, const Navigation::Traffic& traffic,
@@ -272,6 +354,13 @@ void MovementSystem::Update(entt::registry& registry, const Physics::Grid& grid,
                 step = step - distance;
                 ++path.current_waypoint_index;
             }
+        }
+        // Kept off the others about it, but for a step that comes up
+        // against whoever stands on its goal (OnTheGoal). A walk to something
+        // that is kept out of reach of it walks on.
+        if (traffic != nullptr && !blocked) {
+            at = KeptApart(*traffic, grid, layer, entity, path.target, transform.position, at, radius);
+            if (aimed) arrived = in_range(at);
         }
         transform.position = at;
         if (heading.x.value != 0 || heading.y.value != 0) {

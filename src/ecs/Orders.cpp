@@ -235,6 +235,11 @@ void MarchInFormation(entt::registry& registry, Physics::Grid& grid,
         if (!Commands(registry, unit, cmd.player)) continue;
         (IsVillager(registry, unit) ? villagers : ours).push_back(unit);
     }
+    // None of them plans round the rest, which set off with it.
+    std::vector<entt::entity> group = ours;
+    group.insert(group.end(), villagers.begin(), villagers.end());
+    std::sort(group.begin(), group.end());
+    Navigation::Marching(&group);
     for (const auto& place : VillagerPlaces(registry, villagers, {cmd.target_x, cmd.target_y})) {
         WalkTo(registry, grid, place.first, place.second);
     }
@@ -251,6 +256,7 @@ void MarchInFormation(entt::registry& registry, Physics::Grid& grid,
             path->speed_cap = slowest;
         }
     }
+    Navigation::Marching(nullptr);
 }
 
 // A formation chosen: the soldiers among `units` that can march are locked

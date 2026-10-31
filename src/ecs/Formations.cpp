@@ -147,13 +147,45 @@ std::vector<std::pair<entt::entity, Components::Vector2D>> Layout(
     }
     }
 
-    for (int i = 0; i < n; ++i) {
-        const Slot& s = slots[static_cast<size_t>(i)];
-        Components::Vector2D at{
-            destination.x + across.x * s.side - forward.x * s.back,
-            destination.y + across.y * s.side - forward.y * s.back};
-        out.emplace_back(order[static_cast<size_t>(i)], at);
-    }
+    // Each class's places handed out by where its units stand, so none cuts
+    // across the rest on the way: those furthest forward to the front rank,
+    // and along each rank from one side to the other.
+    auto deal = [&](size_t first, size_t last) {
+        struct Placed {
+            entt::entity unit;
+            Core::Fixed32 ahead;
+            Core::Fixed32 side;
+        };
+        std::vector<Placed> placed;
+        for (size_t i = first; i < last; ++i) {
+            const auto& at = registry.get<Components::Transform>(order[i]).position;
+            const Core::Fixed32 dx = at.x - cx, dy = at.y - cy;
+            placed.push_back({order[i], dx * forward.x + dy * forward.y, dx * across.x + dy * across.y});
+        }
+        std::sort(placed.begin(), placed.end(), [](const Placed& a, const Placed& b) {
+            return a.ahead != b.ahead ? a.ahead > b.ahead : a.unit < b.unit;
+        });
+        std::vector<size_t> seats;
+        for (size_t i = first; i < last; ++i) seats.push_back(i);
+        std::stable_sort(seats.begin(), seats.end(), [&](size_t a, size_t b) {
+            return slots[a].rank != slots[b].rank ? slots[a].rank < slots[b].rank : slots[a].side < slots[b].side;
+        });
+        for (size_t k = 0; k < seats.size();) {
+            size_t end = k;
+            while (end < seats.size() && slots[seats[end]].rank == slots[seats[k]].rank) ++end;
+            std::sort(placed.begin() + static_cast<std::ptrdiff_t>(k), placed.begin() + static_cast<std::ptrdiff_t>(end),
+                      [](const Placed& a, const Placed& b) { return a.side != b.side ? a.side < b.side : a.unit < b.unit; });
+            for (size_t j = k; j < end; ++j) {
+                const Slot& s = slots[seats[j]];
+                out.emplace_back(placed[j].unit, Components::Vector2D{
+                    destination.x + across.x * s.side - forward.x * s.back,
+                    destination.y + across.y * s.side - forward.y * s.back});
+            }
+            k = end;
+        }
+    };
+    deal(0, melee.size());
+    deal(melee.size(), static_cast<size_t>(n));
     return out;
 }
 

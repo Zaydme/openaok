@@ -257,7 +257,9 @@ Approach ApproachGround(entt::registry& registry, const Physics::Grid& grid,
                                            entt::null, Core::Fixed32(0))
                        : Navigation::Route(registry, grid, self, transform.position, plan.spot,
                                            target_entity, range);
-    if (path.waypoints.empty()) return Approach::Unreachable;
+    // No way through: round a crew at work, the crowd is in the way and it
+    // stands by; with nobody there, the ground is.
+    if (path.waypoints.empty()) return taken.empty() ? Approach::Unreachable : Approach::Waiting;
 
     registry.emplace_or_replace<Components::Path>(self, std::move(path));
     return Approach::Walking;

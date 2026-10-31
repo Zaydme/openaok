@@ -259,6 +259,11 @@ bool CheckZoom();
 // Prints "selection=".
 bool CheckSelection();
 
+// Soldiers keep their room: a group sent over open ground keeps its width,
+// none over another; through a town it squeezes but does not stack; twenty at
+// one enemy stand round it. Prints "march=".
+bool CheckMarch();
+
 // The population limits the game setup offers, from 25 to 1000: the
 // original's among them, and a game at the largest supporting more than 200.
 // Prints "population=".

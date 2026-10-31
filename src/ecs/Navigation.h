@@ -61,6 +61,11 @@ void Survey(entt::registry& registry, const Physics::Grid& grid);
 // The tick's survey; null before the first.
 const Traffic* TrafficOf(const entt::registry& registry);
 
+// The units of a group sent off together, while their routes are planned:
+// they all set off at once, so none plans round the rest as though they stood
+// still. Sorted; null when no group is being sent.
+void Marching(const std::vector<entt::entity>* group);
+
 // `entity`'s route from `from` to `to`, on its own layer, for its body
 // (Pathfinding::AStar::FindRoute): round the units standing still about the
 // way where that is short, keeping off walls and trees. Empty when there is

@@ -177,7 +177,15 @@ namespace {
 // are taken in, in tiles.
 constexpr int kStandingReach = 3;
 
+const std::vector<entt::entity>* g_marching = nullptr;
+
+bool Marches(entt::entity e) {
+    return g_marching != nullptr && std::binary_search(g_marching->begin(), g_marching->end(), e);
+}
+
 } // namespace
+
+void Marching(const std::vector<entt::entity>* group) { g_marching = group; }
 
 Core::Fixed32 GapAt(const entt::registry& registry, entt::entity entity, Components::Vector2D at,
                     entt::entity target) {
@@ -201,7 +209,7 @@ Components::Path Route(const entt::registry& registry, const Physics::Grid& grid
             const size_t row = static_cast<size_t>(ty) * traffic->width;
             for (int32_t i = traffic->first[row + x0]; i < traffic->first[row + x1 + 1]; ++i) {
                 const Body& b = traffic->bodies[static_cast<size_t>(i)];
-                if (b.entity == entity || b.entity == target || b.moving) continue;
+                if (b.entity == entity || b.entity == target || b.moving || Marches(b.entity)) continue;
                 standing.push_back({b.x - b.radius, b.y - b.radius, b.x + b.radius, b.y + b.radius});
             }
         }

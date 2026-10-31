@@ -450,12 +450,69 @@ bool StillThere(const entt::registry& registry, entt::entity self, entt::entity 
     return Core::FixedMath::Distance(at.x - path.goal.x, at.y - path.goal.y) <= kChaseDrift;
 }
 
+// Within this many tiles of a unit it fights hand to hand, an attacker makes
+// for a place of its own about it rather than for its middle.
+const Core::Fixed32 kSurroundNear = Core::Fixed32(3);
+
+// Where `self` stands to fight `target` hand to hand beside the others on it:
+// a place round the target's body clear of those striking it and of where
+// those coming at it are headed, or, every place taken, standing by a body's
+// width further out. False when there is no such place.
+bool SurroundSpot(const entt::registry& registry, const Physics::Grid& grid, entt::entity self,
+                  entt::entity target, const R::UnitRules& rules, Components::Vector2D& spot) {
+    static std::vector<Components::Vector2D> taken;
+    taken.clear();
+    auto fighters = registry.view<const Combat, const Components::Transform>();
+    for (auto e : fighters) {
+        if (e == self) continue;
+        const auto& combat = fighters.get<const Combat>(e);
+        if (combat.target != target || combat.state == CombatState::Idle) continue;
+        const auto* path = registry.try_get<Components::Path>(e);
+        if (combat.state == CombatState::Chasing && path != nullptr && path->has_goal &&
+            path->current_waypoint_index < path->waypoints.size()) {
+            taken.push_back(path->goal);
+        } else {
+            taken.push_back(fighters.get<const Components::Transform>(e).position);
+        }
+    }
+    const Core::Fixed32 radius = Radius(registry, self);
+    Pathfinding::ApproachRequest ask;
+    ask.target = BoxOf(registry, target);
+    ask.from = registry.get<Components::Transform>(self).position;
+    ask.standoff = radius + Reach(rules) / Core::Fixed32(2);
+    ask.clearance = radius + radius;
+    ask.taken = taken.empty() ? nullptr : taken.data();
+    ask.taken_count = taken.size();
+    ask.layer = Navigation::LayerOf(registry, grid, self);
+    auto found = Pathfinding::FindStandingSpot(grid, ask);
+    if (!found.found && found.full) {
+        ask.standoff = ask.standoff + ask.clearance;
+        found = Pathfinding::FindStandingSpot(grid, ask);
+    }
+    if (!found.found) return false;
+    spot = found.spot;
+    return true;
+}
+
 bool PlanChase(entt::registry& registry, const Physics::Grid& grid, entt::entity self,
                entt::entity target, const R::UnitRules& rules) {
     const auto& from = registry.get<Components::Transform>(self).position;
     const auto& at = registry.get<Components::Transform>(target).position;
     const Physics::Layer layer = Navigation::LayerOf(registry, grid, self);
     Components::Vector2D goal = at;
+    // Near a unit it fights hand to hand: to a place of its own about it.
+    const bool building_target = IsBuilding(registry, target);
+    if (!Shoots(rules) && !building_target && Gap(registry, self, target) <= kSurroundNear &&
+        Navigation::CanStand(registry, grid, self, at)) {
+        Components::Vector2D spot{};
+        if (SurroundSpot(registry, grid, self, target, rules, spot)) {
+            auto path = Navigation::Route(registry, grid, self, from, spot, target, Reach(rules));
+            if (!path.waypoints.empty()) {
+                registry.emplace_or_replace<Components::Path>(self, std::move(path));
+                return true;
+            }
+        }
+    }
     // A building is reached at its wall; so is a unit standing where this one
     // cannot go -- a galley shooting at the shore, an archer at a ship -- from
     // the nearest of its own ground within reach.

@@ -18,7 +18,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TICKS=3000
-GOLDEN="entities=1970 ticks=3000 hash=0bc425674bcce4d4"
+GOLDEN="entities=1970 ticks=3000 hash=7627c023a5957619"
 
 # Build first; stop on failure.
 if ! "$ROOT/build.sh" >/dev/null 2>&1; then
@@ -83,6 +83,7 @@ ATTACKGROUPS="$(echo "$OUTPUT" | grep '^attackgroups=')"
 TARGETS="$(echo "$OUTPUT" | grep '^targets=')"
 ZOOM="$(echo "$OUTPUT" | grep '^zoom=')"
 SELECTION="$(echo "$OUTPUT" | grep '^selection=')"
+MARCH="$(echo "$OUTPUT" | grep '^march=')"
 POPULATION="$(echo "$OUTPUT" | grep '^population=')"
 STRESS="$(echo "$OUTPUT" | grep '^stress=')"
 LANDING="$(echo "$OUTPUT" | grep '^landing=')"
@@ -603,6 +604,12 @@ else
     echo "  $ZOOM" >&2
     STATUS=1
 fi
+
+# Soldiers keep their room: marching, through a town, and round one enemy.
+case "$MARCH" in
+    march=ok*) echo "march OK" ;;
+    *) echo "MARCH FAILED" >&2; echo "  $MARCH" >&2; STATUS=1 ;;
+esac
 
 # The selection limit: none by default, the original's forty when on.
 case "$SELECTION" in
