@@ -499,8 +499,13 @@ void ParseFlags(int argc, char* argv[], Launch& launch) {
             setup.death_match = true;
             setup.resources = Core::StartingResources::DeathMatch;
         } else if (arg == "--population" && i + 1 < argc) {
-            // The lobby's population limit, 25 to 200.
-            setup.population_limit = std::clamp(std::atoi(argv[++i]), 25, 200);
+            // The lobby's population limit: the largest of its choices (25 to
+            // 1000) not over the number given.
+            const int wanted = std::atoi(argv[++i]);
+            setup.population_limit = Core::kPopulationLimits[0];
+            for (int limit : Core::kPopulationLimits) {
+                if (limit <= wanted) setup.population_limit = limit;
+            }
         } else if (arg == "--all-techs") {
             setup.all_techs = true;
         } else if (arg == "--cheats") {
