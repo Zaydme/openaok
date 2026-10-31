@@ -938,6 +938,46 @@ void UIRenderer::DrawMinimap(ECS::Simulation& sim, Renderer& renderer,
     }
 }
 
+namespace {
+
+// Filled rectangles drawn in the order given, each run of one colour in a
+// single call: the minimap's thousands of cells and dots in a few calls.
+class FillBatch {
+public:
+    explicit FillBatch(SDL_Renderer* sdl_r) : sdl_r_(sdl_r) { Rects().clear(); }
+    ~FillBatch() { Flush(); }
+    FillBatch(const FillBatch&) = delete;
+    FillBatch& operator=(const FillBatch&) = delete;
+
+    void Add(uint8_t r, uint8_t g, uint8_t b, uint8_t a, const SDL_FRect& rect) {
+        auto& rects = Rects();
+        if (!rects.empty() && (r != r_ || g != g_ || b != b_ || a != a_)) Flush();
+        r_ = r;
+        g_ = g;
+        b_ = b;
+        a_ = a;
+        rects.push_back(rect);
+    }
+
+    void Flush() {
+        auto& rects = Rects();
+        if (rects.empty()) return;
+        SDL_SetRenderDrawColor(sdl_r_, r_, g_, b_, a_);
+        SDL_RenderFillRectsF(sdl_r_, rects.data(), static_cast<int>(rects.size()));
+        rects.clear();
+    }
+
+private:
+    static std::vector<SDL_FRect>& Rects() {
+        static std::vector<SDL_FRect> rects;
+        return rects;
+    }
+    SDL_Renderer* sdl_r_;
+    uint8_t r_ = 0, g_ = 0, b_ = 0, a_ = 0;
+};
+
+} // namespace
+
 void UIRenderer::DrawMinimapIn(ECS::Simulation& sim, Renderer& renderer, SDL_Renderer* sdl_r,
                                const SDL_FRect& well, const SDL_FRect& view) {
     auto& grid = sim.GetGrid();
@@ -987,6 +1027,7 @@ void UIRenderer::DrawMinimapIn(ECS::Simulation& sim, Renderer& renderer, SDL_Ren
         const float cell_h =
             std::max(1.0f, well.h * step / static_cast<float>(grid.GetHeight()));
 
+        FillBatch cells(sdl_r);
         for (int y = 0; y < grid.GetHeight(); y += step) {
             for (int x = 0; x < grid.GetWidth(); x += step) {
                 const auto& tile = grid.GetTile(x, y);
@@ -997,14 +1038,13 @@ void UIRenderer::DrawMinimapIn(ECS::Simulation& sim, Renderer& renderer, SDL_Ren
                 const int shade = light > 0.25f ? 0 : light < -0.25f ? 2 : 1;
                 const HAL::PaletteColor colour =
                     graphics.GetPaletteColor(static_cast<size_t>(art.minimap_shades[shade]));
-                SDL_SetRenderDrawColor(sdl_r, colour.r, colour.g, colour.b, 255);
                 const SDL_FPoint p = MinimapProject(local, static_cast<float>(x),
                                                     static_cast<float>(y),
                                                     grid.GetWidth(), grid.GetHeight());
-                SDL_FRect cell = {p.x - cell_w * 0.5f, p.y, cell_w, cell_h};
-                SDL_RenderFillRectF(sdl_r, &cell);
+                cells.Add(colour.r, colour.g, colour.b, 255, {p.x - cell_w * 0.5f, p.y, cell_w, cell_h});
             }
         }
+        cells.Flush();
         SDL_SetRenderTarget(sdl_r, prev);
     }
 
@@ -1043,30 +1083,32 @@ void UIRenderer::DrawMinimapIn(ECS::Simulation& sim, Renderer& renderer, SDL_Ren
                 std::max(1.0f, well.w * step / static_cast<float>(grid.GetWidth()));
             const float cell_h =
                 std::max(1.0f, well.h * step / static_cast<float>(grid.GetHeight()));
+            FillBatch cells(sdl_r);
             for (int y = 0; y < grid.GetHeight(); y += step) {
                 for (int x = 0; x < grid.GetWidth(); x += step) {
                     if (ECS::Vision::Visible(registry, LocalViewer(), x, y)) continue;
                     const bool seen = ECS::Vision::Explored(registry, LocalViewer(), x, y);
-                    SDL_SetRenderDrawColor(sdl_r, 0, 0, 0, seen ? 110 : 255);
                     const SDL_FPoint p = MinimapProject(local, static_cast<float>(x),
                                                         static_cast<float>(y),
                                                         grid.GetWidth(), grid.GetHeight());
-                    SDL_FRect cell = {p.x - cell_w * 0.5f, p.y, cell_w, cell_h};
-                    SDL_RenderFillRectF(sdl_r, &cell);
+                    cells.Add(0, 0, 0, seen ? 110 : 255, {p.x - cell_w * 0.5f, p.y, cell_w, cell_h});
                 }
             }
+            cells.Flush();
             SDL_SetRenderTarget(sdl_r, prev);
         }
         if (fog_tex) SDL_RenderCopyF(sdl_r, fog_tex, nullptr, &well);
     }
-    auto dot_at = [&](const ECS::Components::Transform& transform, int size) {
+    FillBatch dots(sdl_r);
+    auto dot_at = [&](const HAL::PaletteColor& colour, const ECS::Components::Transform& transform, int size) {
         const SDL_FPoint p = MinimapProject(well,
                                             transform.position.x.ToFloat(),
                                             transform.position.y.ToFloat(),
                                             grid.GetWidth(), grid.GetHeight());
-        const SDL_Rect dot = {static_cast<int>(std::floor(p.x)) - size / 2,
-                              static_cast<int>(std::floor(p.y)) - size / 2, size, size};
-        SDL_RenderFillRect(sdl_r, &dot);
+        const SDL_FRect dot = {static_cast<float>(static_cast<int>(std::floor(p.x)) - size / 2),
+                               static_cast<float>(static_cast<int>(std::floor(p.y)) - size / 2),
+                               static_cast<float>(size), static_cast<float>(size)};
+        dots.Add(colour.r, colour.g, colour.b, 255, dot);
     };
 
     // A unit a dot, a building a square its footprint's size.
@@ -1094,13 +1136,13 @@ void UIRenderer::DrawMinimapIn(ECS::Simulation& sim, Renderer& renderer, SDL_Ren
             if (!ECS::Vision::Shows(registry, LocalViewer(), entity)) continue;
             const HAL::PaletteColor colour = graphics.GetPaletteColor(
                 markers.get<ECS::Components::MinimapMarker>(entity).palette_index);
-            SDL_SetRenderDrawColor(sdl_r, colour.r, colour.g, colour.b, 255);
-            dot_at(markers.get<ECS::Components::Transform>(entity), 2);
+            dot_at(colour, markers.get<ECS::Components::Transform>(entity), 2);
         }
     }
 
     // The notices -- an attack, a flare, a unit trained -- go over the map's
     // own objects and under the players'.
+    dots.Flush();
     Alerts::Draw(sdl_r, well, grid.GetWidth(), grid.GetHeight());
 
     // Then units and buildings, in their owner's colour: a unit a dot, a
@@ -1119,8 +1161,7 @@ void UIRenderer::DrawMinimapIn(ECS::Simulation& sim, Renderer& renderer, SDL_Ren
         // painted with.
         const HAL::PaletteColor colour = graphics.GetPaletteColor(
             static_cast<size_t>(Core::ConfigManager::Get().PlayerMinimapColour(player)));
-        SDL_SetRenderDrawColor(sdl_r, colour.r, colour.g, colour.b, 255);
-        dot_at(owned.get<ECS::Components::Transform>(entity), dot_size(entity));
+        dot_at(colour, owned.get<ECS::Components::Transform>(entity), dot_size(entity));
     }
     // The buildings the viewer keeps pictures of in the fog, in the colour of
     // whose they were.
@@ -1133,10 +1174,10 @@ void UIRenderer::DrawMinimapIn(ECS::Simulation& sim, Renderer& renderer, SDL_Ren
                 static_cast<size_t>(Core::ConfigManager::Get().PlayerMinimapColour(picture.colour)));
             const auto* info = Core::ConfigManager::Get().GetUnitInterface(picture.unit_id);
             const int footprint = info != nullptr && info->footprint > 0 ? info->footprint : 1;
-            SDL_SetRenderDrawColor(sdl_r, colour.r, colour.g, colour.b, 255);
-            dot_at(ECS::Components::Transform{picture.origin, picture.origin}, std::max(3, footprint * 2));
+            dot_at(colour, ECS::Components::Transform{picture.origin, picture.origin}, std::max(3, footprint * 2));
         }
     }
+    dots.Flush();
 
     // What is selected, drawn again in white over everything else, and a
     // selected Town Center's, Dock's or barracks' gather point as a small
@@ -1148,7 +1189,7 @@ void UIRenderer::DrawMinimapIn(ECS::Simulation& sim, Renderer& renderer, SDL_Ren
         auto selected = registry.view<ECS::Components::Transform, ECS::Components::Selectable>();
         for (auto entity : selected) {
             if (!selected.get<ECS::Components::Selectable>(entity).is_selected) continue;
-            dot_at(selected.get<ECS::Components::Transform>(entity), dot_size(entity));
+            dot_at(white, selected.get<ECS::Components::Transform>(entity), dot_size(entity));
             const auto* rally = registry.try_get<ECS::Components::RallyPoint>(entity);
             const auto* identity = registry.try_get<ECS::Components::Identity>(entity);
             if (rally == nullptr || identity == nullptr) continue;
@@ -1161,6 +1202,7 @@ void UIRenderer::DrawMinimapIn(ECS::Simulation& sim, Renderer& renderer, SDL_Ren
             SDL_RenderDrawLine(sdl_r, x - 2, y - 2, x + 2, y + 2);
             SDL_RenderDrawLine(sdl_r, x - 2, y + 2, x + 2, y - 2);
         }
+        dots.Flush();
     }
 
     // Flares the player is shown: a flashing X.
