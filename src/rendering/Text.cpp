@@ -377,43 +377,96 @@ int Width(int font, std::string_view text) {
     return width;
 }
 
-void Draw(SDL_Renderer* renderer, int font, int x, int y, std::string_view text,
-          SDL_Color colour) {
-    Face* face = FaceOf(font);
-    if (face == nullptr || text.empty()) return;
-    SDL_Texture* atlas = S().atlas;
-    SDL_SetTextureColorMod(atlas, colour.r, colour.g, colour.b);
-    SDL_SetTextureAlphaMod(atlas, colour.a);
-    const int baseline = y + face->ascent;
+namespace {
+
+// Glyphs' quads in the atlas, each with its colour, drawn in one call in the
+// order they were added.
+struct Quads {
+    std::vector<SDL_Vertex> vertices;
+    std::vector<int> indices;
+};
+
+Quads& Pending() {
+    static Quads quads;
+    return quads;
+}
+
+void AddGlyphs(Face& face, int x, int y, std::string_view text, SDL_Color colour, Quads& quads) {
+    const State& s = S();
+    const float aw = static_cast<float>(s.atlas_w);
+    const float ah = static_cast<float>(s.atlas_h);
+    const int baseline = y + face.ascent;
     int pen = x;
     for (size_t i = 0; i < text.size();) {
         const uint32_t cp = Next(text, i);
         if (cp == '\n') break;
-        const Glyph& glyph = GlyphOf(*face, cp);
+        const Glyph& glyph = GlyphOf(face, cp);
         if (glyph.rect.w > 0) {
-            const SDL_Rect dest = {pen + glyph.left, baseline - glyph.top,
-                                   glyph.rect.w, glyph.rect.h};
-            SDL_RenderCopy(renderer, atlas, &glyph.rect, &dest);
+            const float x0 = static_cast<float>(pen + glyph.left);
+            const float y0 = static_cast<float>(baseline - glyph.top);
+            const float x1 = x0 + static_cast<float>(glyph.rect.w);
+            const float y1 = y0 + static_cast<float>(glyph.rect.h);
+            const float u0 = static_cast<float>(glyph.rect.x) / aw;
+            const float v0 = static_cast<float>(glyph.rect.y) / ah;
+            const float u1 = static_cast<float>(glyph.rect.x + glyph.rect.w) / aw;
+            const float v1 = static_cast<float>(glyph.rect.y + glyph.rect.h) / ah;
+            const int base = static_cast<int>(quads.vertices.size());
+            quads.vertices.push_back({{x0, y0}, colour, {u0, v0}});
+            quads.vertices.push_back({{x1, y0}, colour, {u1, v0}});
+            quads.vertices.push_back({{x1, y1}, colour, {u1, v1}});
+            quads.vertices.push_back({{x0, y1}, colour, {u0, v1}});
+            for (int k : {0, 1, 2, 0, 2, 3}) quads.indices.push_back(base + k);
         }
         pen += glyph.advance;
     }
 }
 
+void Flush(SDL_Renderer* renderer, Quads& quads) {
+    if (!quads.vertices.empty()) {
+        SDL_Texture* atlas = S().atlas;
+        SDL_SetTextureColorMod(atlas, 255, 255, 255);
+        SDL_SetTextureAlphaMod(atlas, 255);
+        SDL_RenderGeometry(renderer, atlas, quads.vertices.data(), static_cast<int>(quads.vertices.size()),
+                           quads.indices.data(), static_cast<int>(quads.indices.size()));
+    }
+    quads.vertices.clear();
+    quads.indices.clear();
+}
+
+} // namespace
+
+void Draw(SDL_Renderer* renderer, int font, int x, int y, std::string_view text,
+          SDL_Color colour) {
+    Face* face = FaceOf(font);
+    if (face == nullptr || text.empty()) return;
+    Quads& quads = Pending();
+    AddGlyphs(*face, x, y, text, colour, quads);
+    Flush(renderer, quads);
+}
+
 void DrawShadowed(SDL_Renderer* renderer, int font, int x, int y, std::string_view text,
                   SDL_Color colour, SDL_Color shadow) {
+    Face* face = FaceOf(font);
+    if (face == nullptr || text.empty()) return;
+    Quads& quads = Pending();
     // Down and to the left.
-    Draw(renderer, font, x - 1, y + 1, text, shadow);
-    Draw(renderer, font, x, y, text, colour);
+    AddGlyphs(*face, x - 1, y + 1, text, shadow, quads);
+    AddGlyphs(*face, x, y, text, colour, quads);
+    Flush(renderer, quads);
 }
 
 void DrawOutlined(SDL_Renderer* renderer, int font, int x, int y, std::string_view text,
                   SDL_Color colour, SDL_Color outline) {
+    Face* face = FaceOf(font);
+    if (face == nullptr || text.empty()) return;
+    Quads& quads = Pending();
     for (int dy = -1; dy <= 1; ++dy) {
         for (int dx = -1; dx <= 1; ++dx) {
-            if (dx != 0 || dy != 0) Draw(renderer, font, x + dx, y + dy, text, outline);
+            if (dx != 0 || dy != 0) AddGlyphs(*face, x + dx, y + dy, text, outline, quads);
         }
     }
-    Draw(renderer, font, x, y, text, colour);
+    AddGlyphs(*face, x, y, text, colour, quads);
+    Flush(renderer, quads);
 }
 
 void StrikeOut(SDL_Renderer* renderer, int font, int x, int y, int width, SDL_Color colour) {
