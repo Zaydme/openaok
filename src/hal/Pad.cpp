@@ -49,6 +49,7 @@ struct State {
     SDL_Joystick* joystick = nullptr;
     float x = -1.0f;   // the pointer, window pixels; below zero until placed
     float y = -1.0f;
+    bool zl = false;   // held: the right stick zooms
     Uint64 last = 0;   // SDL's performance counter at the last Update
 };
 State g;
@@ -126,6 +127,7 @@ bool Handle(const SDL_Event& event) {
     // On a screen with a name to type, - brings up the keyboard; elsewhere it
     // is Enter, which opens the chat line.
     if (button == kMinus && down && TextInput::ShowForFields()) return true;
+    if (button == kZL) g.zl = down;
     const SDL_Scancode key = KeyOf(button);
     if (key == SDL_SCANCODE_UNKNOWN) return true;
     // Shift is held as long as ZL is; every other key is pressed and let go
@@ -176,7 +178,14 @@ void Update() {
 void Scroll(float& x, float& y) {
     x = 0.0f;
     y = 0.0f;
-    if (g.enabled) Lean(2, 3, x, y);
+    if (g.enabled && !g.zl) Lean(2, 3, x, y);
+}
+
+float Zoom() {
+    if (!g.enabled || !g.zl) return 0.0f;
+    float x = 0.0f, y = 0.0f;
+    Lean(2, 3, x, y);
+    return -y;
 }
 
 void Rumble() {

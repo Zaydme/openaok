@@ -37,8 +37,12 @@ bool Handle(const SDL_Event& event);
 void Update();
 
 // How far the right stick is pushed, -1 to 1 each way, for the map to scroll
-// as it does under the arrow keys.
+// as it does under the arrow keys; nothing while ZL is held.
 void Scroll(float& x, float& y);
+
+// With ZL held, how far the right stick is pushed up (to 1, zooming in) or
+// down (to -1, zooming out); 0 otherwise.
+float Zoom();
 
 // A short buzz of the controller.
 void Rumble();

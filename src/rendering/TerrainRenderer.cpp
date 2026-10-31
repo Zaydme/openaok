@@ -244,11 +244,16 @@ namespace {
 // view when that is more.
 constexpr int kBakesPerFrame = 4;
 constexpr size_t kMaxLiveChunks = 64;
+// Zoomed out further than this, chunks are baked at half their size: a
+// quarter of the memory and the drawing, at no cost to what shows.
+constexpr float kHalfZoom = 0.6f;
 
 uint64_t g_frame = 0;
 
-uint64_t ChunkKey(int cx, int cy) {
-    return (static_cast<uint64_t>(static_cast<uint32_t>(cx)) << 32)
+// A chunk's key: its place, and whether it is the half-size bake.
+uint64_t ChunkKey(int cx, int cy, bool half) {
+    return (static_cast<uint64_t>(half) << 63)
+         | (static_cast<uint64_t>(static_cast<uint32_t>(cx) & 0x7fffffffu) << 32)
          | static_cast<uint32_t>(cy);
 }
 
@@ -268,7 +273,7 @@ void TerrainRenderer::InvalidateChunks() {
 
 // Bakes one chunk's tiles and blend overlays into its own texture.
 static TerrainChunk BakeChunk(SDL_Renderer* sdl_r, const Physics::Grid& grid,
-                              int cx, int cy) {
+                              int cx, int cy, bool half) {
     TerrainChunk chunk;
     chunk.grid_x = cx;
     chunk.grid_y = cy;
@@ -291,13 +296,38 @@ static TerrainChunk BakeChunk(SDL_Renderer* sdl_r, const Physics::Grid& grid,
     const int tex_h = static_cast<int>(std::ceil(max_y - min_y + Core::IsometricMath::TILE_HEIGHT));
 
     chunk.screen_bounds = {min_x, min_y, static_cast<float>(tex_w), static_cast<float>(tex_h)};
-    chunk.texture = SDL_CreateTexture(sdl_r, SDL_PIXELFORMAT_RGBA8888,
-                                      SDL_TEXTUREACCESS_TARGET, tex_w, tex_h);
+    const int shrink = half ? 2 : 1;
+    chunk.texture = SDL_CreateTexture(sdl_r, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET,
+                                      (tex_w + shrink - 1) / shrink, (tex_h + shrink - 1) / shrink);
     if (!chunk.texture) return chunk;
     SDL_SetTextureBlendMode(chunk.texture, SDL_BLENDMODE_BLEND);
 
+    // A half-size chunk is baked whole at full size into a scratch, then
+    // shrunk into its own texture, so it is as seamless as a full one.
+    SDL_Texture* bake = chunk.texture;
+    if (half) {
+        static SDL_Texture* full = nullptr;
+        static int full_w = 0, full_h = 0;
+        if (full == nullptr || full_w != tex_w || full_h != tex_h) {
+            if (full != nullptr) SDL_DestroyTexture(full);
+            full = SDL_CreateTexture(sdl_r, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, tex_w, tex_h);
+            full_w = tex_w;
+            full_h = tex_h;
+        }
+        if (full == nullptr) {
+            SDL_DestroyTexture(chunk.texture);
+            chunk.texture = nullptr;
+            return chunk;
+        }
+        bake = full;
+    }
+
+    // Baked at the scale of its own pixels, whatever the view's zoom.
+    float zoom = 1.0f, unused = 1.0f;
+    SDL_RenderGetScale(sdl_r, &zoom, &unused);
     SDL_Texture* prev_target = SDL_GetRenderTarget(sdl_r);
-    SDL_SetRenderTarget(sdl_r, chunk.texture);
+    SDL_SetRenderTarget(sdl_r, bake);
+    SetZoom(sdl_r, 1.0f);
     SDL_SetRenderDrawColor(sdl_r, 0, 0, 0, 0);
     SDL_RenderClear(sdl_r);
 
@@ -424,7 +454,19 @@ static TerrainChunk BakeChunk(SDL_Renderer* sdl_r, const Physics::Grid& grid,
         }
     }
 
+    if (half) {
+        SDL_SetRenderTarget(sdl_r, chunk.texture);
+        SetZoom(sdl_r, 1.0f);
+        SDL_SetRenderDrawBlendMode(sdl_r, SDL_BLENDMODE_NONE);
+        SDL_SetRenderDrawColor(sdl_r, 0, 0, 0, 0);
+        SDL_RenderClear(sdl_r);
+        SDL_SetTextureBlendMode(bake, SDL_BLENDMODE_NONE);
+        SDL_RenderCopy(sdl_r, bake, nullptr, nullptr);
+        SDL_SetTextureBlendMode(bake, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawBlendMode(sdl_r, SDL_BLENDMODE_BLEND);
+    }
     SDL_SetRenderTarget(sdl_r, prev_target);
+    SetZoom(sdl_r, zoom);
     return chunk;
 }
 
@@ -453,10 +495,12 @@ void TerrainRenderer::DrawTerrain(ECS::Simulation& sim, Renderer& renderer, SDL_
                         const int tx = change.x + dx;
                         const int ty = change.y + dy;
                         if (tx < 0 || ty < 0) continue;
-                        auto stale = chunks.find(ChunkKey(tx / CHUNK_SIZE, ty / CHUNK_SIZE));
-                        if (stale == chunks.end()) continue;
-                        if (stale->second.texture) SDL_DestroyTexture(stale->second.texture);
-                        chunks.erase(stale);
+                        for (const bool half : {false, true}) {
+                            auto stale = chunks.find(ChunkKey(tx / CHUNK_SIZE, ty / CHUNK_SIZE, half));
+                            if (stale == chunks.end()) continue;
+                            if (stale->second.texture) SDL_DestroyTexture(stale->second.texture);
+                            chunks.erase(stale);
+                        }
                     }
                 }
             }
@@ -500,6 +544,9 @@ void TerrainRenderer::DrawTerrain(ECS::Simulation& sim, Renderer& renderer, SDL_
         return SDL_FRect{x0, y0, x1 - x0, y1 - y0};
     };
 
+    // Zoomed far out, the half-size bakes; a chunk not yet baked at the size
+    // wanted is drawn at the other meanwhile, if it has one.
+    const bool half = renderer.camera_zoom < kHalfZoom;
     int baked = 0;
     size_t in_view = 0;
     for (int cy = 0; cy < chunks_y; ++cy) {
@@ -509,17 +556,19 @@ void TerrainRenderer::DrawTerrain(ECS::Simulation& sim, Renderer& renderer, SDL_
                 continue;
             }
 
-            const uint64_t key = ChunkKey(cx, cy);
+            const uint64_t key = ChunkKey(cx, cy, half);
             auto it = chunks.find(key);
-            if (it == chunks.end()) {
+            if (it == chunks.end() && baked < kBakesPerFrame) {
                 // Spread the cost: a few chunks per frame, nearest first by
                 // virtue of the scan order, so scrolling never stalls.
-                if (baked >= kBakesPerFrame) continue;
-                TerrainChunk chunk = BakeChunk(sdl_r, grid, cx, cy);
-                if (!chunk.texture) continue;
-                ++baked;
-                it = chunks.emplace(key, chunk).first;
+                TerrainChunk chunk = BakeChunk(sdl_r, grid, cx, cy, half);
+                if (chunk.texture) {
+                    ++baked;
+                    it = chunks.emplace(key, chunk).first;
+                }
             }
+            if (it == chunks.end()) it = chunks.find(ChunkKey(cx, cy, !half));
+            if (it == chunks.end()) continue;
             it->second.last_used = g_frame;
             ++in_view;
 

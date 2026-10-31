@@ -54,6 +54,9 @@ struct State {
     float pan_y = 0.0f;
     float pan_dx = 0.0f;    // the drag waiting for TakePan, frame pixels
     float pan_dy = 0.0f;
+    float spread = 0.0f;    // the fingers' distance from their middle, last seen
+    float zoom = 1.0f;      // the pinch waiting for TakeZoom
+
     SDL_Haptic* haptic = nullptr;
     bool haptic_tried = false;
 };
@@ -109,6 +112,16 @@ void Middle(float& x, float& y) {
         x /= g.count;
         y /= g.count;
     }
+}
+
+// How far, on average, the fingers are from their middle; 0 for one finger.
+float Spread() {
+    if (g.count < 2) return 0.0f;
+    float mx = 0.0f, my = 0.0f;
+    Middle(mx, my);
+    float sum = 0.0f;
+    for (int i = 0; i < g.count; ++i) sum += std::hypot(g.fingers[i].x - mx, g.fingers[i].y - my);
+    return sum / static_cast<float>(g.count);
 }
 
 // A short tick of the phone's vibrator, or the controller's, so a hold is
@@ -167,9 +180,11 @@ void Down(SDL_FingerID id, float x, float y) {
     if (g.mode != Mode::Panning) {
         g.pan_dx = 0.0f;
         g.pan_dy = 0.0f;
+        g.zoom = 1.0f;
     }
     g.mode = Mode::Panning;
     Middle(g.pan_x, g.pan_y);
+    g.spread = Spread();
 }
 
 void Motion(SDL_FingerID id, float x, float y, int window_h) {
@@ -198,6 +213,10 @@ void Motion(SDL_FingerID id, float x, float y, int window_h) {
         g.pan_dy += (my - g.pan_y) / scale;
         g.pan_x = mx;
         g.pan_y = my;
+        // Spread apart, in; drawn together, out.
+        const float spread = Spread();
+        if (g.spread > 0.0f && spread > 0.0f) g.zoom *= spread / g.spread;
+        g.spread = spread;
         return;
     }
     default:
@@ -227,6 +246,7 @@ void Up(SDL_FingerID id, float x, float y) {
         // The fingers still down go on moving the map, from where they are.
         if (g.count > 0) {
             Middle(g.pan_x, g.pan_y);
+            g.spread = Spread();
             return;
         }
         break;
@@ -250,6 +270,13 @@ void Enable() {
 bool Enabled() { return g.enabled; }
 
 bool MouseAttached() { return g_mouse || !Pointer::ByFinger(); }
+
+void TakeZoom(float& factor, float& x, float& y) {
+    factor = g.zoom;
+    x = g.pan_x;
+    y = g.pan_y;
+    g.zoom = 1.0f;
+}
 
 void SetAiming(bool aiming) { g.aiming = aiming; }
 

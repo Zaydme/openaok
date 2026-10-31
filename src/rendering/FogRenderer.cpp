@@ -371,7 +371,7 @@ void FogRenderer::Draw(ECS::Simulation& sim, Renderer& renderer, SDL_Renderer* s
 
     SDL_Texture* frame = SDL_GetRenderTarget(sdl_r);
     SDL_SetRenderTarget(sdl_r, g.layer);
-    SDL_RenderSetScale(sdl_r, 1.0f, 1.0f);
+    SetZoom(sdl_r, 1.0f);
     SDL_SetRenderDrawBlendMode(sdl_r, SDL_BLENDMODE_NONE);
     SDL_SetRenderDrawColor(sdl_r, 0, 0, 0, 0);
     SDL_RenderClear(sdl_r);
@@ -388,9 +388,9 @@ void FogRenderer::Draw(ECS::Simulation& sim, Renderer& renderer, SDL_Renderer* s
                            static_cast<int>(g.black_indices.size()));
     }
     SDL_SetRenderTarget(sdl_r, frame);
-    SDL_RenderSetScale(sdl_r, 1.0f, 1.0f);
+    SetZoom(sdl_r, 1.0f);
     SDL_RenderCopy(sdl_r, g.layer, nullptr, nullptr);
-    SDL_RenderSetScale(sdl_r, zoom, zoom);
+    SetZoom(sdl_r, zoom);
     SDL_SetRenderDrawBlendMode(sdl_r, SDL_BLENDMODE_BLEND);
 }
 
@@ -404,22 +404,22 @@ bool FogRenderer::BeginObjects(Renderer& renderer, SDL_Renderer* sdl_r) {
     }
     g_objects_frame = SDL_GetRenderTarget(sdl_r);
     SDL_SetRenderTarget(sdl_r, g.layer);
-    SDL_RenderSetScale(sdl_r, 1.0f, 1.0f);
+    SetZoom(sdl_r, 1.0f);
     SDL_SetRenderDrawBlendMode(sdl_r, SDL_BLENDMODE_NONE);
     SDL_SetRenderDrawColor(sdl_r, 0, 0, 0, 0);
     SDL_RenderClear(sdl_r);
     SDL_SetRenderDrawBlendMode(sdl_r, SDL_BLENDMODE_BLEND);
-    SDL_RenderSetScale(sdl_r, renderer.camera_zoom, renderer.camera_zoom);
+    SetZoom(sdl_r, renderer.camera_zoom);
     return true;
 }
 
 void FogRenderer::EndObjects(Renderer& renderer, SDL_Renderer* sdl_r) {
-    SDL_RenderSetScale(sdl_r, 1.0f, 1.0f);
+    SetZoom(sdl_r, 1.0f);
     SDL_RenderCopy(sdl_r, g.checker, nullptr, nullptr);
     SDL_SetRenderTarget(sdl_r, g_objects_frame);
-    SDL_RenderSetScale(sdl_r, 1.0f, 1.0f);
+    SetZoom(sdl_r, 1.0f);
     SDL_RenderCopy(sdl_r, g.layer, nullptr, nullptr);
-    SDL_RenderSetScale(sdl_r, renderer.camera_zoom, renderer.camera_zoom);
+    SetZoom(sdl_r, renderer.camera_zoom);
     g_objects_frame = nullptr;
 }
 

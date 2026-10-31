@@ -81,6 +81,7 @@ NAVY="$(echo "$OUTPUT" | grep '^navy=')"
 BOATS="$(echo "$OUTPUT" | grep '^boats=')"
 ATTACKGROUPS="$(echo "$OUTPUT" | grep '^attackgroups=')"
 TARGETS="$(echo "$OUTPUT" | grep '^targets=')"
+ZOOM="$(echo "$OUTPUT" | grep '^zoom=')"
 LANDING="$(echo "$OUTPUT" | grep '^landing=')"
 MARKET="$(echo "$OUTPUT" | grep '^market=')"
 TRADE="$(echo "$OUTPUT" | grep '^trade=')"
@@ -588,6 +589,15 @@ if [ "$TARGETS" = "targets=ok" ]; then
 else
     echo "TARGETS FAILED" >&2
     echo "  $TARGETS" >&2
+    STATUS=1
+fi
+
+# The view's zoom: steps about the pointer, within its limits.
+if [ "$ZOOM" = "zoom=ok" ]; then
+    echo "zoom OK"
+else
+    echo "ZOOM FAILED" >&2
+    echo "  $ZOOM" >&2
     STATUS=1
 fi
 

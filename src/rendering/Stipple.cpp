@@ -78,17 +78,17 @@ bool Begin(Renderer& renderer, SDL_Renderer* sdl_r) {
     SDL_RenderGetScale(sdl_r, &g.scale_x, &g.scale_y);
     g.frame = SDL_GetRenderTarget(sdl_r);
     SDL_SetRenderTarget(sdl_r, g.layer);
-    SDL_RenderSetScale(sdl_r, 1.0f, 1.0f);
+    SetZoom(sdl_r, 1.0f);
     SDL_SetRenderDrawBlendMode(sdl_r, SDL_BLENDMODE_NONE);
     SDL_SetRenderDrawColor(sdl_r, 0, 0, 0, 0);
     SDL_RenderClear(sdl_r);
     SDL_SetRenderDrawBlendMode(sdl_r, SDL_BLENDMODE_BLEND);
-    SDL_RenderSetScale(sdl_r, g.scale_x, g.scale_y);
+    SetZoom(sdl_r, g.scale_x);
     return true;
 }
 
 void End(SDL_Renderer* sdl_r, Pattern pattern, SDL_Color colour) {
-    SDL_RenderSetScale(sdl_r, 1.0f, 1.0f);
+    SetZoom(sdl_r, 1.0f);
     // The silhouettes' colour becomes the one given, their coverage kept.
     static const SDL_BlendMode tint = SDL_ComposeCustomBlendMode(
         SDL_BLENDFACTOR_DST_ALPHA, SDL_BLENDFACTOR_ZERO, SDL_BLENDOPERATION_ADD,
@@ -99,9 +99,9 @@ void End(SDL_Renderer* sdl_r, Pattern pattern, SDL_Color colour) {
     SDL_SetRenderDrawBlendMode(sdl_r, SDL_BLENDMODE_BLEND);
     SDL_RenderCopy(sdl_r, g.patterns[static_cast<int>(pattern)], nullptr, nullptr);
     SDL_SetRenderTarget(sdl_r, g.frame);
-    SDL_RenderSetScale(sdl_r, 1.0f, 1.0f);
+    SetZoom(sdl_r, 1.0f);
     SDL_RenderCopy(sdl_r, g.layer, nullptr, nullptr);
-    SDL_RenderSetScale(sdl_r, g.scale_x, g.scale_y);
+    SetZoom(sdl_r, g.scale_x);
     g.frame = nullptr;
 }
 

@@ -100,6 +100,9 @@ private:
     bool pan_right = false;
     bool pan_up = false;
     bool pan_down = false;
+    // The zoom key held, its repeats zooming on; none when the key pressed is
+    // a hotkey's.
+    SDL_Keycode zoom_key = SDLK_UNKNOWN;
 
     // Building placement: the build button's dat unit id.
     bool placing_building = false;

@@ -249,6 +249,11 @@ bool CheckAttackGroups();
 // a Monastery before them with sn-special-attack-type1. Prints "targets=".
 bool CheckTargets();
 
+// The view's zoom (ours, not the original's): a step keeps the point under
+// the pointer where it is, the zoom stays within its limits, and a pinch
+// zooms the view at once. Prints "zoom=".
+bool CheckZoom();
+
 // A landing on Islands: a transport takes on a war party under the dat's
 // garrison rules, sails it to the other island and puts it ashore, and the
 // party's assault ends the game in conquest; a transport sunk with a soldier

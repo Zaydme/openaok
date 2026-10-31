@@ -60,6 +60,7 @@ choose it, or play on with the data already there.
 | Hold still for a moment | Right click (the phone vibrates) |
 | Drag one finger | Left drag: box-select units, lay a wall |
 | Drag two fingers | Scroll the map |
+| Pinch | Zoom in and out |
 | Back | Escape |
 
 While a building is being placed, the finger slides it and lifting places it.

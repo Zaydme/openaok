@@ -24,7 +24,8 @@ and campaigns, the computer players' finer play, and polish.
   pictures, Custom Campaign; the scenario editor with Map Copy, garrisons and
   the personalities, and the Campaign Editor; the multiplayer menu and lobby, with games
   found on the local network or joined by address, chat and ready checks;
-  locked formations and Disband Formation.
+  locked formations and Disband Formation. Beyond the original, the view zooms
+  out and in: the mouse wheel, a pinch, or ZL with the right stick.
 - **Linux**: built and checked on Debian 13 (GCC 14).
 - **Android**: touch controls, larger interface options, widescreen.
 - **Nintendo Switch**: homebrew, with the touch controls and the controller

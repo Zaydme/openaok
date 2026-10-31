@@ -50,6 +50,7 @@ that the script reads.
 | `boats` | A computer player's boats: fishing ships keep near a Dock as the rules ask, a spare warship explores the water, boat attack groups attack a known enemy or explore |
 | `attackgroups` | A computer player's attack groups: made, filled, gathered and sent on their own once the enemy is known, as the game does; blows answered by a share of the idle soldiers near, none for explorers; allied computer players sharing what they find and answering calls for help; idle soldiers gathered at the Town Center as sn-gather-defense-units asks; attack-soldier-count counting the soldiers of every attack group, out or not |
 | `targets` | The game's target evaluation, which an attack group goes for first: each known enemy thing scored out of 100 for how soon the group would destroy it and how near it is, taken in tiers, the economic buildings after the rest and walls last; a Monastery first with sn-special-attack-type1 |
+| `zoom` | The view's zoom, which the original does not have: a step keeps the point under the pointer, the limits hold, and a pinch zooms at once |
 | `net` | A host and a client in lockstep over loopback, and a desync caught |
 | `lobby` | The multiplayer lobby over loopback: the game found, joined, rows, ready checks and chat, a refused start, the game started from the table |
 | `victory`, `modes` | Conquest, Wonders, relics; Regicide, Death Match, starting options |

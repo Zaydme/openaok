@@ -58,13 +58,13 @@ movies and campaigns, on macOS, Linux, Android phones and the Nintendo Switch.
 
 On a touch screen the game is played as with a mouse, and the controls are
 surprisingly comfortable: tap to click, hold to right-click, drag one finger to
-select, two fingers to scroll the map. The top
+select, two fingers to scroll the map, pinch to zoom. The top
 bar, the panel and the text can each be drawn larger (Options → Top Bar Size,
 Panel Size, Text Size), and in widescreen the interface reaches the screen's
 edges.
 
 <p align="center">
-  <img src="docs/images/switch-controls.svg" width="900" alt="The Switch's controls: the left stick moves the pointer, the right stick scrolls the map, A and B are the left and right mouse buttons, plus is the game menu, minus is chat, and the other buttons are the game's hotkeys">
+  <img src="docs/images/switch-controls.svg" width="900" alt="The Switch's controls: the left stick moves the pointer, the right stick scrolls the map and with ZL held zooms, A and B are the left and right mouse buttons, plus is the game menu, minus is chat, and the other buttons are the game's hotkeys">
 </p>
 
 ## What works
@@ -248,7 +248,10 @@ Start from the main menu, or straight into a game from the command line:
 
 The controls are the original's: left-click and drag to select, right-click to
 order, the command panel and hotkeys for the rest, the arrow keys, the screen's
-edges and the minimap to move the view.
+edges and the minimap to move the view. One thing the original did not have:
+the mouse wheel zooms the view in and out, as do `=` and `-`. The original's
+wheel hotkeys (the Town Center, the next idle villager) are on Ctrl and the
+wheel.
 
 ## Checking changes
 

@@ -30,6 +30,11 @@ bool Handle(const SDL_Event& event);
 // pixels.
 void TakePan(float& dx, float& dy);
 
+// How far two fingers have pinched since the last call, as a zoom factor
+// (above 1 spread apart, below drawn together; 1 for none), and the window
+// point between them.
+void TakeZoom(float& factor, float& x, float& y);
+
 // Set once a frame by the game: whether the next touch aims.
 void SetAiming(bool aiming);
 

@@ -16,6 +16,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <algorithm>
+#include <cmath>
 #include <chrono>
 
 namespace Rendering {
@@ -59,6 +60,33 @@ void Renderer::Warm(ECS::Simulation& sim) {
               << " MB" << std::endl;
 }
 
+void SetZoom(SDL_Renderer* sdl_r, float zoom) {
+    SDL_RenderSetScale(sdl_r, zoom, zoom);
+    int w = 0, h = 0;
+    if (SDL_Texture* target = SDL_GetRenderTarget(sdl_r)) {
+        SDL_QueryTexture(target, nullptr, nullptr, &w, &h);
+    } else {
+        SDL_GetRendererOutputSize(sdl_r, &w, &h);
+    }
+    const SDL_Rect whole{0, 0, static_cast<int>(std::ceil(w / zoom)), static_cast<int>(std::ceil(h / zoom))};
+    SDL_RenderSetViewport(sdl_r, &whole);
+}
+
+void Renderer::ZoomBy(float factor, float x, float y, bool at_once) {
+    const float from = target_camera_zoom;
+    const float to = std::clamp(from * factor, kZoomOut, kZoomIn);
+    if (to == from) return;
+    // The world point under (x, y) stays under it.
+    target_camera_x += x / from - x / to;
+    target_camera_y += y / from - y / to;
+    target_camera_zoom = to;
+    if (at_once) {
+        camera_x += x / camera_zoom - x / to;
+        camera_y += y / camera_zoom - y / to;
+        camera_zoom = to;
+    }
+}
+
 void Renderer::Render(ECS::Simulation& sim, HAL::Window& window, float alpha) {
     SDL_Renderer* sdl_r = window.GetSDLRenderer();
     int win_w = window.GetWidth();
@@ -100,8 +128,8 @@ void Renderer::Render(ECS::Simulation& sim, HAL::Window& window, float alpha) {
     window.BeginFrame();
     window.Clear(0, 0, 0);   // black beyond the map's edge
     
-    SDL_RenderSetScale(sdl_r, camera_zoom, camera_zoom);
-    
+    SetZoom(sdl_r, camera_zoom);
+
     using Clock = std::chrono::steady_clock;
     auto since = [](Clock::time_point& mark) {
         const Clock::time_point now = Clock::now();
@@ -142,7 +170,7 @@ void Renderer::Render(ECS::Simulation& sim, HAL::Window& window, float alpha) {
         }
     }
     
-    SDL_RenderSetScale(sdl_r, 1.0f, 1.0f);
+    SetZoom(sdl_r, 1.0f);
     Messages::Draw(sdl_r, win_w, win_h);
     UIRenderer::DrawTimePanels(sim, sdl_r, win_w, win_h);
     UIRenderer::DrawScores(sim, sdl_r, win_w, win_h);

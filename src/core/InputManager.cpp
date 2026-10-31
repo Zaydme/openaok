@@ -592,6 +592,21 @@ bool InputManager::HandleHotkey(const SDL_KeyboardEvent& key, ECS::Simulation& s
     return item >= 0 && GameCommand(item, sim, renderer);
 }
 
+namespace {
+
+// How fast the right stick zooms pushed all the way, as a factor a second.
+constexpr float kStickZoomPerSecond = 2.5f;
+
+// A zoom key: +1 for = (or +), -1 for -, 0 for any other or with Ctrl or Alt.
+int ZoomKey(const SDL_KeyboardEvent& key) {
+    if ((key.keysym.mod & (KMOD_CTRL | KMOD_ALT)) != 0) return 0;
+    if (key.keysym.sym == SDLK_EQUALS || key.keysym.sym == SDLK_PLUS) return 1;
+    if (key.keysym.sym == SDLK_MINUS) return -1;
+    return 0;
+}
+
+} // namespace
+
 bool InputManager::HandleMouseKey(int mouse_key, ECS::Simulation& sim,
                                   Rendering::Renderer& renderer) {
     for (int item : {Hotkeys::kIdleVillagerMouse, Hotkeys::kLastNotificationMouse,
@@ -946,6 +961,22 @@ void InputManager::UpdateIntent(ECS::Simulation& sim, Rendering::Renderer& rende
 void InputManager::Update(Rendering::Renderer& renderer, float dt_seconds, int win_w, int win_h) {
     last_win_w = win_w;
     last_win_h = win_h;
+
+    // Two fingers pinching zoom about the point between them; the right stick
+    // with ZL held zooms about the middle of the view, the further it leans
+    // the faster. Both at once, as the fingers and the stick move.
+    float pinch = 1.0f, pinch_x = 0.0f, pinch_y = 0.0f;
+    HAL::Touch::TakeZoom(pinch, pinch_x, pinch_y);
+    if (pinch != 1.0f) {
+        int gx = win_w / 2, gy = win_h / 2;
+        if (const HAL::Window* window = HAL::MainWindow()) {
+            window->ToGame(static_cast<int>(pinch_x), static_cast<int>(pinch_y), gx, gy);
+        }
+        renderer.ZoomBy(pinch, static_cast<float>(gx), static_cast<float>(gy), true);
+    }
+    if (const float lean = HAL::Pad::Zoom(); lean != 0.0f) {
+        renderer.ZoomBy(std::pow(kStickZoomPerSecond, lean * dt_seconds), win_w / 2.0f, win_h / 2.0f, true);
+    }
     
     // Pan speed is in screen pixels per second, so panning feels the same at
     // any zoom; dividing by zoom converts it to world units.
@@ -1271,7 +1302,17 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
             }
             return;
         }
-        if (event.key.repeat == 0) HandleHotkey(event.key, sim, renderer);
+        // = and - zoom in and out about the middle of the view, unless the
+        // hotkeys have them; held, they go on zooming.
+        if (event.key.repeat == 0) {
+            const bool bound = HandleHotkey(event.key, sim, renderer);
+            zoom_key = !bound && ZoomKey(event.key) != 0 ? key : SDLK_UNKNOWN;
+        }
+        if (key == zoom_key) {
+            const float step = ZoomKey(event.key) > 0 ? Rendering::Renderer::kZoomStep
+                                                      : 1.0f / Rendering::Renderer::kZoomStep;
+            renderer.ZoomBy(step, last_win_w / 2.0f, last_win_h / 2.0f, false);
+        }
     }
     else if (event.type == SDL_KEYUP) {
         auto key = event.key.keysym.sym;
@@ -1280,10 +1321,21 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
         if (key == SDLK_UP) pan_up = false;
         if (key == SDLK_DOWN) pan_down = false;
     }
-    else if (event.type == SDL_MOUSEWHEEL) {
-        // The wheel acts as two keys: up and down.
-        if (event.wheel.y > 0) HandleMouseKey(Hotkeys::kWheelUp, sim, renderer);
-        if (event.wheel.y < 0) HandleMouseKey(Hotkeys::kWheelDown, sim, renderer);
+    else if (event.type == SDL_MOUSEWHEEL && event.wheel.y != 0) {
+        // The wheel zooms, about the pointer over the map, else about the
+        // middle of the view. With Ctrl held it acts as two keys, up and
+        // down, as the hotkeys bind them (by default the Town Center and the
+        // next idle villager).
+        const bool up = event.wheel.y > 0;
+        if ((SDL_GetModState() & KMOD_CTRL) != 0) {
+            HandleMouseKey(up ? Hotkeys::kWheelUp : Hotkeys::kWheelDown, sim, renderer);
+        } else {
+            const bool over_map = mouse_in_window && !Rendering::UIRenderer::OverInterface(
+                                                         last_win_w, last_win_h, current_mouse_x, current_mouse_y);
+            const float step = up ? Rendering::Renderer::kZoomStep : 1.0f / Rendering::Renderer::kZoomStep;
+            renderer.ZoomBy(step, over_map ? static_cast<float>(current_mouse_x) : last_win_w / 2.0f,
+                            over_map ? static_cast<float>(current_mouse_y) : last_win_h / 2.0f, false);
+        }
     }
     else if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_MIDDLE) {
         HandleMouseKey(Hotkeys::kMiddleButton, sim, renderer);

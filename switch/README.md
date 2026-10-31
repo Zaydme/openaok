@@ -96,13 +96,14 @@ In handheld mode the touch screen plays as on a phone:
 | Hold still for a moment | Right click (the controller buzzes) |
 | Drag one finger | Left drag: box-select units, lay a wall |
 | Drag two fingers | Scroll the map |
+| Pinch | Zoom in and out |
 
 The controller plays as a mouse and the game's own hotkeys:
 
 | Control | Does |
 |---|---|
 | Left stick | Moves the pointer, the faster the further it is pushed |
-| Right stick | Scrolls the map |
+| Right stick | Scrolls the map; with ZL held, zooms in (up) and out (down) |
 | A | Left mouse button; held while the pointer moves, a drag |
 | B | Right click |
 | X | Next idle villager |
