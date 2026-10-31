@@ -24,33 +24,45 @@ struct Buckets {
     std::vector<uint32_t> start;       // per bucket, where its entities begin; one past the last
     std::vector<entt::entity> entities;
     std::vector<uint32_t> bucket_of;   // scratch: each entity's bucket, in the view's order
+    std::vector<entt::entity> taken;   // scratch: the entities taken, in the view's order
+    std::vector<uint32_t> next;        // scratch: where each bucket's next entity goes
 };
 
 inline int BucketCoordinate(Core::Fixed32 at, int count) {
     return std::clamp(Physics::TileOf(at) / Buckets::kTiles, 0, count - 1);
 }
 
-// Sorts the entities of `view`, which has a Transform, into `buckets` for a map
-// of `width` by `height` tiles.
-template <typename View>
-void Build(Buckets& buckets, const View& view, int width, int height) {
+// Sorts the entities of `view`, which has a Transform, that `take(entity)`
+// takes into `buckets` for a map of `width` by `height` tiles.
+template <typename View, typename Take>
+void Build(Buckets& buckets, const View& view, int width, int height, Take&& take) {
     buckets.columns = std::max(1, (width + Buckets::kTiles - 1) / Buckets::kTiles);
     buckets.rows = std::max(1, (height + Buckets::kTiles - 1) / Buckets::kTiles);
     const size_t count = static_cast<size_t>(buckets.columns) * static_cast<size_t>(buckets.rows);
     buckets.start.assign(count + 1, 0);
     buckets.bucket_of.clear();
+    buckets.taken.clear();
     for (auto e : view) {
+        if (!take(e)) continue;
         const auto& at = view.template get<const Components::Transform>(e).position;
         const uint32_t b = static_cast<uint32_t>(BucketCoordinate(at.y, buckets.rows) * buckets.columns +
                                                  BucketCoordinate(at.x, buckets.columns));
         buckets.bucket_of.push_back(b);
+        buckets.taken.push_back(e);
         ++buckets.start[b + 1];
     }
     for (size_t b = 0; b < count; ++b) buckets.start[b + 1] += buckets.start[b];
-    buckets.entities.resize(buckets.bucket_of.size());
-    std::vector<uint32_t> next(buckets.start.begin(), buckets.start.end() - 1);
-    size_t i = 0;
-    for (auto e : view) buckets.entities[next[buckets.bucket_of[i++]]++] = e;
+    buckets.entities.resize(buckets.taken.size());
+    buckets.next.assign(buckets.start.begin(), buckets.start.end() - 1);
+    for (size_t i = 0; i < buckets.taken.size(); ++i) {
+        buckets.entities[buckets.next[buckets.bucket_of[i]]++] = buckets.taken[i];
+    }
+}
+
+// The same with every entity of the view.
+template <typename View>
+void Build(Buckets& buckets, const View& view, int width, int height) {
+    Build(buckets, view, width, height, [](entt::entity) { return true; });
 }
 
 // Calls `visit(entity)` for every entity in the buckets that overlap the

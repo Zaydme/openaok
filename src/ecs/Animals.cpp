@@ -128,7 +128,11 @@ void Herd(entt::registry& registry, const Physics::Grid& grid, uint64_t tick) {
         const Core::PlayerId owner = herd.get<Components::Owner>(animal).player_id;
 
         if (!built) {
-            Nearby::Build(near, units, grid.GetWidth(), grid.GetHeight());
+            // Only another player's unit, never a building, claims one.
+            const auto& buildings = registry.storage<Components::Building>();
+            Nearby::Build(near, units, grid.GetWidth(), grid.GetHeight(), [&](entt::entity e) {
+                return units.get<Components::Owner>(e).player_id != Core::PLAYER_GAIA && !buildings.contains(e);
+            });
             built = true;
         }
         bool kept = false;
