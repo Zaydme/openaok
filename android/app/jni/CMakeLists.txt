@@ -41,3 +41,12 @@ target_include_directories(main SYSTEM PRIVATE ${REPO}/third_party ${CMAKE_BINAR
 # one the code is kept warning-clean against.
 target_compile_options(main PRIVATE -O3 -Wall -Wextra -Wno-missing-designated-field-initializers)
 target_link_libraries(main PRIVATE SDL2 freetype android log m)
+# Link-time optimisation, as the desktop build has, where the NDK's toolchain
+# supports it.
+include(CheckIPOSupported)
+check_ipo_supported(RESULT IPO_SUPPORTED OUTPUT IPO_ERROR)
+if(IPO_SUPPORTED)
+    set_property(TARGET main PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+else()
+    message(STATUS "LTO disabled: ${IPO_ERROR}")
+endif()
