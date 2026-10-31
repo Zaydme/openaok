@@ -128,11 +128,28 @@ void Herd(entt::registry& registry, const Physics::Grid& grid, uint64_t tick) {
         const Core::PlayerId owner = herd.get<Components::Owner>(animal).player_id;
 
         if (!built) {
-            // Only another player's unit, never a building, claims one.
+            // Only a player's unit that fights or works, never a building,
+            // claims one (Claims).
+            static std::vector<entt::entity> claimants;
+            claimants.clear();
             const auto& buildings = registry.storage<Components::Building>();
-            Nearby::Build(near, units, grid.GetWidth(), grid.GetHeight(), [&](entt::entity e) {
-                return units.get<Components::Owner>(e).player_id != Core::PLAYER_GAIA && !buildings.contains(e);
-            });
+            auto take = [&](entt::entity e) {
+                if (units.get<Components::Owner>(e).player_id != Core::PLAYER_GAIA && !buildings.contains(e)) {
+                    claimants.push_back(e);
+                }
+            };
+            for (auto e : registry.view<const Components::Combat, const Components::Transform, const Components::Owner>()) {
+                take(e);
+            }
+            for (auto e : registry.view<const Components::Worker, const Components::Transform, const Components::Owner>(
+                     entt::exclude<Components::Combat>)) {
+                take(e);
+            }
+            Nearby::BuildFrom(near, claimants,
+                              [&](entt::entity e) -> const Components::Vector2D& {
+                                  return units.get<const Components::Transform>(e).position;
+                              },
+                              grid.GetWidth(), grid.GetHeight());
             built = true;
         }
         bool kept = false;

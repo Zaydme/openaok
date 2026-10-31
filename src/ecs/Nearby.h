@@ -65,6 +65,28 @@ void Build(Buckets& buckets, const View& view, int width, int height) {
     Build(buckets, view, width, height, [](entt::entity) { return true; });
 }
 
+// The same with `entities`, each standing where `position(entity)` says.
+template <typename Position>
+void BuildFrom(Buckets& buckets, const std::vector<entt::entity>& entities, Position&& position, int width,
+               int height) {
+    buckets.columns = std::max(1, (width + Buckets::kTiles - 1) / Buckets::kTiles);
+    buckets.rows = std::max(1, (height + Buckets::kTiles - 1) / Buckets::kTiles);
+    const size_t count = static_cast<size_t>(buckets.columns) * static_cast<size_t>(buckets.rows);
+    buckets.start.assign(count + 1, 0);
+    buckets.bucket_of.clear();
+    for (entt::entity e : entities) {
+        const Components::Vector2D& at = position(e);
+        const uint32_t b = static_cast<uint32_t>(BucketCoordinate(at.y, buckets.rows) * buckets.columns +
+                                                 BucketCoordinate(at.x, buckets.columns));
+        buckets.bucket_of.push_back(b);
+        ++buckets.start[b + 1];
+    }
+    for (size_t b = 0; b < count; ++b) buckets.start[b + 1] += buckets.start[b];
+    buckets.entities.resize(entities.size());
+    buckets.next.assign(buckets.start.begin(), buckets.start.end() - 1);
+    for (size_t i = 0; i < entities.size(); ++i) buckets.entities[buckets.next[buckets.bucket_of[i]]++] = entities[i];
+}
+
 // Calls `visit(entity)` for every entity in the buckets that overlap the
 // square of half-side `reach` around `at`: a superset of those within it.
 template <typename Visit>
