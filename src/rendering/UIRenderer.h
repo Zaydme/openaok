@@ -183,6 +183,10 @@ public:
     // player's leader name from LANGUAGE.DLL.
     static std::string PlayerName(const entt::registry& registry, Core::PlayerId id);
 
+    // Whether the info panel tells how many shelter inside `selected`: only
+    // for one of the viewer's own that holds any, not an ally's or enemy's.
+    static bool ShowsGarrison(const entt::registry& registry, entt::entity selected);
+
     // Fills `out` with the commands the current selection offers, and returns
     // how many. Drawing and clicking both go through this, so a button is
     // always where it looks like it is.

@@ -1875,6 +1875,12 @@ int UIRenderer::Refusal(ECS::Simulation& sim, const Command& command) {
     return -1;
 }
 
+bool UIRenderer::ShowsGarrison(const entt::registry& registry, entt::entity selected) {
+    const auto* owner = registry.try_get<ECS::Components::Owner>(selected);
+    return owner != nullptr && owner->player_id == LocalViewer() &&
+           ECS::Garrisons::Capacity(registry, selected) > 0;
+}
+
 std::string UIRenderer::PlayerName(const entt::registry& registry, Core::PlayerId id) {
     return Rendering::PlayerName(registry, id);
 }
@@ -2101,7 +2107,8 @@ void DrawUnitPanel(SDL_Renderer* sdl_r, ECS::Simulation& sim, int win_w, int win
     }
 
     // Who is sheltering inside, of how many it holds.
-    if (const int room = ECS::Garrisons::Capacity(registry, selected); room > 0) {
+    if (UIRenderer::ShowsGarrison(registry, selected)) {
+        const int room = ECS::Garrisons::Capacity(registry, selected);
         const int inside = ECS::Garrisons::Count(registry, selected);
         StatLine(sdl_r, layout, row++, kStatGarrison,
                  std::to_string(inside) + "/" + std::to_string(room));

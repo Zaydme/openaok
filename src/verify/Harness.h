@@ -120,8 +120,9 @@ bool CheckCombat();
 bool CheckVision();
 
 // Sheltering in buildings: going in, refusals by kind and room, garrison
-// arrows, healing, turning out, the town bell, and a garrison outliving its
-// building. Prints "garrison=".
+// arrows, healing, turning out, the town bell, a garrison outliving its
+// building, and the info panel telling the count inside for our own only.
+// Prints "garrison=".
 bool CheckGarrison();
 
 // Animals by their task lists: herdables changing hands, prey fleeing, the

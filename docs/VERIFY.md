@@ -41,7 +41,7 @@ that the script reads.
 | `wolves` | A computer player's scout and two wolves in its town: every swing it begins lands |
 | `answer` | What a struck unit does: a villager fights off a wolf and runs from a soldier, idle ones near come to help, a soldier at a wall turns on its striker unless a person sent it at the wall, and a computer player's units answer ranged attackers and back off as its difficulty parameters say |
 | `vision` | Fog per player, explored ground, buildings remembered in the fog |
-| `garrison` | Entering and leaving, refusals, garrison arrows, healing, the town bell |
+| `garrison` | Entering and leaving, refusals, garrison arrows, healing, the town bell; the count inside told for our own only |
 | `animals`, `duties`, `monks` | Herding, fleeing, grazing; patrol, follow, guard; conversion, facing whom they convert, healing, relics |
 | `maps` | Islands, continents, beaches, cliffs and fish across several map scripts |
 | `script` | The computer players' rule language: reading, rule passes, every original script loading for every civilisation, difficulty and map, strategic numbers scaled for the difficulty and kept in bounds, civilian explorers, retasking, mining camps and forward builders as the game reckons them, the Hardest's gift of resources, an ally turned on after too many blows, explore groups of one soldier, the scout sent on as sn-consecutive-idle-unit-limit says, Monks fetching relics |

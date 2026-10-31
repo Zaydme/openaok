@@ -29,6 +29,7 @@
 #include "ecs/components/Resource.h"
 #include "ecs/components/Transform.h"
 #include "ecs/components/Worker.h"
+#include "rendering/UIRenderer.h"
 
 namespace Verify {
 
@@ -108,6 +109,14 @@ bool CheckGarrison() {
         reg.get<ECS::Components::Transform>(tc).position, tc_id);
     const ECS::Components::Vector2D middle{(ground.min_x + ground.max_x) / Core::Fixed32(2),
                                            (ground.min_y + ground.max_y) / Core::Fixed32(2)};
+
+    // The info panel tells how many are inside our own Town Center only.
+    const entt::entity theirs = TownCenterOf(reg, kThem, tc_id);
+    if (!Rendering::UIRenderer::ShowsGarrison(reg, tc)) {
+        verdict = "the info panel did not tell what is inside our own Town Center";
+    } else if (theirs == entt::null || Rendering::UIRenderer::ShowsGarrison(reg, theirs)) {
+        verdict = "the info panel told what is inside an enemy's Town Center";
+    }
 
     // Nobody of ours but the Town Center may hurt the target: the starting
     // scout would ride out and do it.
