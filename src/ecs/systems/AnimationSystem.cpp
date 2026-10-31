@@ -91,6 +91,11 @@ void AnimationSystem::Update(entt::registry& registry, int32_t dt_ms) {
 
     // 1. Choose the animation each entity should be playing.
     auto anim_view = registry.view<Components::Animation, Components::Sprite>();
+    const auto& dying_pool = registry.storage<Components::Dying>();
+    const auto& combat_pool = registry.storage<Components::Combat>();
+    const auto& monk_pool = registry.storage<Components::Monk>();
+    const auto& path_pool = registry.storage<Components::Path>();
+    const auto& worker_pool = registry.storage<Components::Worker>();
     for (auto entity : anim_view) {
         auto& anim = anim_view.get<Components::Animation>(entity);
         auto& sprite = anim_view.get<Components::Sprite>(entity);
@@ -103,35 +108,37 @@ void AnimationSystem::Update(entt::registry& registry, int32_t dt_ms) {
         };
 
         Components::AnimState wanted = Components::AnimState::Idle;
-        if (registry.all_of<Components::Dying>(entity) &&
+        if (dying_pool.contains(entity) &&
             available(Components::AnimState::Die)) {
             wanted = Components::AnimState::Die;
         }
         if (wanted != Components::AnimState::Die) {
             // The attack graphic plays for each swing and only then; between
             // swings, waiting on the reload, a unit stands.
-            if (const auto* combat = registry.try_get<Components::Combat>(entity)) {
-                if (combat->swing_ms > 0 && available(Components::AnimState::Attack)) {
+            if (combat_pool.contains(entity)) {
+                if (combat_pool.get(entity).swing_ms > 0 && available(Components::AnimState::Attack)) {
                     wanted = Components::AnimState::Attack;
                 }
             }
             // A monk at a conversion or a heal shows its chanting graphic,
             // which the dat keeps in its attack slot.
-            if (const auto* monk = registry.try_get<Components::Monk>(entity)) {
-                if (monk->chanting && available(Components::AnimState::Attack)) {
+            if (monk_pool.contains(entity)) {
+                if (monk_pool.get(entity).chanting && available(Components::AnimState::Attack)) {
                     wanted = Components::AnimState::Attack;
                 }
             }
             if (wanted == Components::AnimState::Idle &&
                 available(Components::AnimState::Walk)) {
-                if (const auto* path = registry.try_get<Components::Path>(entity)) {
-                    if (path->current_waypoint_index < path->waypoints.size()) {
+                if (path_pool.contains(entity)) {
+                    const auto& path = path_pool.get(entity);
+                    if (path.current_waypoint_index < path.waypoints.size()) {
                         wanted = Components::AnimState::Walk;
                     }
                 }
             }
             if (wanted != Components::AnimState::Attack) {
-                if (const auto* worker = registry.try_get<Components::Worker>(entity)) {
+                if (worker_pool.contains(entity)) {
+                    const auto* worker = &worker_pool.get(entity);
                     // Walking home with a load is its own graphic: a
                     // lumberjack shoulders the logs rather than walking
                     // empty-handed.
