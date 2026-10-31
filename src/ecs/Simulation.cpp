@@ -297,10 +297,9 @@ void Simulation::Update(int32_t dt_ms) {
     // Whose gates open for whom, as the stances now stand.
     { Core::Costs::Scope cost(Core::Costs::Part::Walls); Walls::SetAllies(registry, grid); }
 
-    // Cache previous positions for render interpolation.
-    auto t_view = registry.view<Components::Transform>();
-    for (auto entity : t_view) {
-        auto& transform = t_view.get<Components::Transform>(entity);
+    // Cache previous positions for render interpolation, straight down the
+    // storage's packed array.
+    for (auto& transform : registry.storage<Components::Transform>()) {
         transform.previous_position = transform.position;
     }
 
