@@ -337,6 +337,78 @@ const char* CheckOriginal() {
     return verdict;
 }
 
+// Strategic numbers as the game takes them: set by a rule at Moderate on a
+// random map, the attack group sizes, numbers of groups, enemy-sighted
+// response and percent of soldiers sent are scaled down and the initial
+// attack delay lengthened, a zero is left alone, and nothing is scaled with
+// sn-do-not-scale-for-difficulty-level; Hard scales only in a scenario game;
+// the percentages, distances and group sizes are kept in bounds; and the
+// defaults are scaled the same way.
+const char* CheckStrategicNumbers() {
+    using SN = AI::Lang::SN;
+    Files files;
+    files["main"] =
+        "(defrule (true) =>"
+        " (set-strategic-number sn-minimum-attack-group-size 10)"
+        " (set-strategic-number sn-number-attack-groups 5)"
+        " (set-strategic-number sn-number-boat-attack-groups 0)"
+        " (set-strategic-number sn-percent-enemy-sighted-response 50)"
+        " (set-strategic-number sn-enemy-sighted-response-distance 100)"
+        " (set-strategic-number sn-percent-attack-soldiers 100)"
+        " (set-strategic-number sn-initial-attack-delay 100)"
+        " (set-strategic-number sn-food-gatherer-percentage 150)"
+        " (set-strategic-number sn-maximum-explore-group-size 3)"
+        " (set-strategic-number sn-minimum-boar-hunt-group-size 10)"
+        " (set-strategic-number sn-group-form-distance 40)"
+        " (disable-self))\n";
+    struct Case {
+        int difficulty;
+        bool scenario, unscaled;
+        int size, groups, response, distance, attack, delay;
+    };
+    const Case cases[] = {
+        {2, false, false, 7, 3, 30, 50, 75, 340},
+        {2, false, true, 10, 5, 50, 50, 100, 100},
+        {1, false, false, 10, 5, 50, 50, 100, 100},
+        {1, true, false, 8, 4, 40, 50, 100, 100},
+        {4, true, false, 2, 1, 10, 20, 25, 1900},
+    };
+    for (const Case& c : cases) {
+        Bench b(CompileFiles(files, {}, 0));
+        if (!b.program.errors.empty()) return "the strategic numbers script did not load";
+        b.setup.difficulty = c.difficulty;
+        if (c.scenario) b.setup.scenario = "test.scn";
+        if (c.unscaled) AI::SetStrategic(b.mind, SN::DoNotScaleForDifficultyLevel, 1, &b.setup);
+        b.Pass(1000);
+        const auto sn = [&](SN n) { return b.mind.sn[static_cast<size_t>(n)]; };
+        if (sn(SN::MinimumAttackGroupSize) != c.size || sn(SN::NumberAttackGroups) != c.groups) {
+            return "the attack group numbers were not scaled for the difficulty as the game scales them";
+        }
+        if (sn(SN::PercentEnemySightedResponse) != c.response || sn(SN::EnemySightedResponseDistance) != c.distance) {
+            return "the enemy-sighted response was not scaled for the difficulty as the game scales it";
+        }
+        if (sn(SN::PercentAttackSoldiers) != c.attack) return "the percent of soldiers sent to attack was not scaled";
+        if (sn(SN::InitialAttackDelay) != c.delay) return "the initial attack delay was not lengthened for the difficulty";
+        if (sn(SN::NumberBoatAttackGroups) != 0) return "a strategic number set to 0 was scaled";
+        if (sn(SN::FoodGathererPercentage) != 100 || sn(SN::MaximumExploreGroupSize) != 1 ||
+            sn(SN::MinimumBoarHuntGroupSize) != 8 || sn(SN::GroupFormDistance) != 30) {
+            return "a strategic number was not kept in the game's bounds";
+        }
+    }
+    // The defaults, at Moderate: 4, 3 and 100 come to 3, 1 and 75.
+    Core::GameSetup setup;
+    setup.difficulty = 2;
+    AI::Mind mind;
+    AI::Reset(mind, 0, &setup);
+    if (mind.sn[static_cast<size_t>(SN::MinimumAttackGroupSize)] != 3 ||
+        mind.sn[static_cast<size_t>(SN::NumberAttackGroups)] != 1 ||
+        mind.sn[static_cast<size_t>(SN::PercentAttackSoldiers)] != 75 ||
+        mind.sn[static_cast<size_t>(SN::MaximumExploreGroupSize)] != 1) {
+        return "the default strategic numbers were not set as the game sets them";
+    }
+    return nullptr;
+}
+
 // The rule language's table of words: each binds to the dat entry its name
 // says.
 const char* CheckSymbols() {
@@ -584,10 +656,10 @@ const char* CheckTrading() {
     return nullptr;
 }
 
-// Explore groups past the scout: sn-number-explore-groups 2 takes up to
-// sn-maximum-explore-group-size idle soldiers into a group, which goes out
-// together while the rest stay home; asked for one group again, the scout's
-// alone, the soldiers are given back.
+// Explore groups past the scout: each is one soldier, whatever
+// sn-maximum-explore-group-size says, so sn-number-explore-groups 3 sends two
+// idle soldiers out and leaves the third at home; asked for one group again,
+// the scout's alone, the soldiers are given back.
 const char* CheckExploring() {
     Core::GameSetup setup = Core::DefaultSetup();
     setup.players[1].computer = true;
@@ -619,8 +691,7 @@ const char* CheckExploring() {
     if (spears.size() != 3) return "no room for three spearmen";
     Files files;
     files["main"] =
-        "(defrule (true) => (set-strategic-number sn-number-explore-groups 2)"
-        " (set-strategic-number sn-minimum-explore-group-size 2)"
+        "(defrule (true) => (set-strategic-number sn-number-explore-groups 3)"
         " (set-strategic-number sn-maximum-explore-group-size 2) (disable-self))\n";
     AI::Brains* brains = reg.ctx().find<AI::Brains>();
     if (brains == nullptr || brains->brains.empty()) return "no brain for the computer seat";
@@ -629,12 +700,14 @@ const char* CheckExploring() {
     if (!brain.program.errors.empty()) return "the exploring script did not load";
     AI::Reset(brain.mind, brain.program.rules.size());
     for (int t = 0; t < 3 * kTicksPerSecond; ++t) sim.Update(16);
-    if (brain.explore_groups.size() != 1) return "sn-number-explore-groups 2 gave no explore group past the scout";
-    const std::vector<entt::entity>& group = brain.explore_groups.front();
-    if (group.size() != 2) return "the explore group did not take sn-maximum-explore-group-size soldiers";
+    if (brain.explore_groups.size() != 2) return "sn-number-explore-groups 3 did not give two explore groups past the scout";
+    for (const auto& group : brain.explore_groups) {
+        if (group.size() != 1) return "an explore group was not one soldier";
+    }
     int out = 0;
     for (entt::entity e : spears) {
-        const bool in = std::find(group.begin(), group.end(), e) != group.end();
+        bool in = false;
+        for (const auto& group : brain.explore_groups) in |= std::find(group.begin(), group.end(), e) != group.end();
         const auto& p = reg.get<ECS::Components::Transform>(e).position;
         const bool moved = p.x != reg.get<ECS::Components::Transform>(e).previous_position.x ||
                            p.y != reg.get<ECS::Components::Transform>(e).previous_position.y;
@@ -642,7 +715,7 @@ const char* CheckExploring() {
         if (!in && moved) return "a soldier left out of the explore group went out";
         out += moved ? 1 : 0;
     }
-    if (out != 2) return "the explore group did not go out";
+    if (out != 2) return "the explore groups did not go out";
     brain.mind.sn[static_cast<size_t>(AI::Lang::SN::NumberExploreGroups)] = 1;
     for (int t = 0; t < kTicksPerSecond; ++t) sim.Update(16);
     if (!brain.explore_groups.empty()) return "the soldiers were kept exploring when only the scout's group was asked for";
@@ -760,6 +833,7 @@ const char* CheckRelics() {
 bool CheckScript() {
     const char* verdict = CheckReader();
     if (verdict == nullptr) verdict = CheckPasses();
+    if (verdict == nullptr) verdict = CheckStrategicNumbers();
     if (verdict == nullptr) verdict = CheckSymbols();
     if (verdict == nullptr) verdict = CheckOriginal();
     if (verdict == nullptr) verdict = CheckWorld();

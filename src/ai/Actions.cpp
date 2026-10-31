@@ -118,7 +118,7 @@ void Run(Turn& turn, const Script::Act& act, bool& disable_self) {
         }
         break;
     case Action::SetStrategicNumber:
-        mind.sn[static_cast<size_t>(a[0])] = a[1];
+        SetStrategic(mind, static_cast<Lang::SN>(a[0]), a[1], turn.setup);
         break;
     case Action::EnableTimer:
         if (a[0] > 0 && a[0] < Lang::kTimers) {

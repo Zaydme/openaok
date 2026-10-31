@@ -236,7 +236,7 @@ void UseScenario(entt::registry& registry, const Core::GameSetup& setup) {
                       << "): " << brain.program.errors.size()
                       << " script errors, the first: " << brain.program.errors.front() << std::endl;
         }
-        Reset(brain.mind, brain.program.rules.size());
+        Reset(brain.mind, brain.program.rules.size(), &setup);
     }
 }
 
@@ -256,7 +256,7 @@ void Setup(entt::registry& registry, const Core::GameSetup& setup) {
             std::cerr << "[AI] Player " << seat << ": " << brain.program.errors.size()
                       << " script errors, the first: " << brain.program.errors.front() << std::endl;
         }
-        Reset(brain.mind, brain.program.rules.size());
+        Reset(brain.mind, brain.program.rules.size(), &setup);
         // Where each player stands at the start: allied to its team, an
         // enemy to the rest. The scripts change it when teams are not locked.
         for (int p = 0; p < Core::kMaxPlayers; ++p) {

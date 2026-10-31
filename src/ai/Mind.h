@@ -62,8 +62,21 @@ struct Mind {
     std::array<std::array<int32_t, 4>, Core::kMaxPlayers> tribute_memory{};
 };
 
+// Sets a strategic number as the game takes one, from set-strategic-number
+// or as its default:
+// - below Hardest, unless sn-do-not-scale-for-difficulty-level is 1, a
+//   positive attack group size, number of attack groups, enemy-sighted
+//   response or percent of soldiers sent to attack is scaled down for the
+//   difficulty (whole numbers, never below 1), and the initial attack delay is
+//   lengthened (Hard scales only in a scenario game);
+// - the gatherer percentages are kept to 0-100, the enemy-sighted response
+//   distance to 50, the group form distance to 30, the boar hunt group to 8;
+// - a positive explore group size is 1.
+// Without a lobby (`setup` null) nothing is scaled.
+void SetStrategic(Mind& mind, Lang::SN sn, int value, const Core::GameSetup* setup);
+
 // Fresh state for a program of `rules` rules: every rule enabled, every
-// strategic number at its default.
-void Reset(Mind& mind, size_t rules);
+// strategic number set to its default.
+void Reset(Mind& mind, size_t rules, const Core::GameSetup* setup = nullptr);
 
 } // namespace AI
