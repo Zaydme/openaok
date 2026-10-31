@@ -51,6 +51,7 @@ that the script reads.
 | `attackgroups` | A computer player's attack groups: made, filled, gathered and sent on their own once the enemy is known, as the game does; blows answered by a share of the idle soldiers near, none for explorers; allied computer players sharing what they find and answering calls for help; idle soldiers gathered at the Town Center as sn-gather-defense-units asks; attack-soldier-count counting the soldiers of every attack group, out or not |
 | `targets` | The game's target evaluation, which an attack group goes for first: each known enemy thing scored out of 100 for how soon the group would destroy it and how near it is, taken in tiers, the economic buildings after the rest and walls last; a Monastery first with sn-special-attack-type1 |
 | `zoom` | The view's zoom, which the original does not have: a step keeps the point under the pointer, the limits hold, and a pinch zooms at once |
+| `stress` | A late game measured: eight computer players on a giant map in the Imperial Age, armies marching and fighting, fleets at sea, towers shooting; what each system costs a tick, on average and at worst, and the routes searched (`core/Costs`) |
 | `net` | A host and a client in lockstep over loopback, and a desync caught |
 | `lobby` | The multiplayer lobby over loopback: the game found, joined, rows, ready checks and chat, a refused start, the game started from the table |
 | `victory`, `modes` | Conquest, Wonders, relics; Regicide, Death Match, starting options |

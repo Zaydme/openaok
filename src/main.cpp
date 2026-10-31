@@ -63,6 +63,7 @@
 #include "ecs/Victory.h"
 #include "ecs/Buildings.h"
 #include "ecs/Walls.h"
+#include "core/Costs.h"
 #include "editor/Editor.h"
 #include "screens/GameDialogs.h"
 #include "screens/Movies.h"
@@ -467,6 +468,7 @@ void ParseFlags(int argc, char* argv[], Launch& launch) {
             launch.report_frames = true;
         } else if (arg == "--perf") {
             launch.perf = true;
+            Core::Costs::Enable(true);
         } else if (arg == "--seats" && i + 1 < argc) {
             // An offline game of this many seats, the computer in the rest.
             launch.seats = std::atoi(argv[++i]);
@@ -1589,6 +1591,29 @@ GameEnd RunGame(HAL::Window& window, Rendering::Renderer& renderer, Core::GameSe
                             perf.drawn.fog / n / 1000.0, perf.drawn.standing / n / 1000.0,
                             perf.drawn.interface / n / 1000.0, perf.drawn.finish / n / 1000.0,
                             static_cast<size_t>(sim->GetRegistry().storage<entt::entity>().size()));
+                // The simulation's parts, dearest first, a tick's average and
+                // worst, and the routes searched.
+                const auto& costs = Core::Costs::Read();
+                if (costs.ticks > 0) {
+                    size_t order[Core::Costs::kParts];
+                    for (size_t i = 0; i < Core::Costs::kParts; ++i) order[i] = i;
+                    std::sort(order, order + Core::Costs::kParts, [&](size_t a, size_t b) {
+                        return costs.us[a] > costs.us[b];
+                    });
+                    int64_t sum = 0;
+                    for (int64_t us : costs.us) sum += us;
+                    std::printf("[Perf] tick %.2f ms, worst %.2f:", sum / static_cast<double>(costs.ticks) / 1000.0,
+                                costs.worst_tick / 1000.0);
+                    for (size_t k = 0; k < 6; ++k) {
+                        const size_t i = order[k];
+                        if (costs.us[i] == 0) break;
+                        std::printf(" %s %.2f (%.2f)", Core::Costs::Name(static_cast<Core::Costs::Part>(i)),
+                                    costs.us[i] / static_cast<double>(costs.ticks) / 1000.0, costs.worst[i] / 1000.0);
+                    }
+                    std::printf("; %lld routes, %lld expansions\n", static_cast<long long>(costs.routes),
+                                static_cast<long long>(costs.expansions));
+                    Core::Costs::Reset();
+                }
                 std::fflush(stdout);
                 perf = PerfReport{};
             }

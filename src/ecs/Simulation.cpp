@@ -5,6 +5,7 @@
 
 #include "ai/Brain.h"
 #include "core/CommandQueue.h"
+#include "core/Costs.h"
 #include "core/ConfigManager.h"
 #include "core/MapGenerator.h"
 #include "core/RMSParser.h"
@@ -271,19 +272,23 @@ void Simulation::Init(const Core::GameSetup& game) {
 }
 
 void Simulation::Update(int32_t dt_ms) {
+    Core::Costs::BeginTick();
     current_tick++;
-    Events::BeginTick(registry);
-    Score::Advance(registry, dt_ms);
+    { Core::Costs::Scope cost(Core::Costs::Part::Other); Events::BeginTick(registry); }
+    { Core::Costs::Scope cost(Core::Costs::Part::Other); Score::Advance(registry, dt_ms); }
     // Where everyone stands, before anything plans a route or takes a step.
-    Navigation::Survey(registry, grid);
+    { Core::Costs::Scope cost(Core::Costs::Part::Navigation); Navigation::Survey(registry, grid); }
 
-    for (const auto& command : Core::CommandQueue::Get().PopAllCommands()) {
-        Orders::Execute(registry, grid, command);
+    {
+        Core::Costs::Scope cost(Core::Costs::Part::Orders);
+        for (const auto& command : Core::CommandQueue::Get().PopAllCommands()) {
+            Orders::Execute(registry, grid, command);
+        }
     }
     // The computer players decide, through the same orders.
-    AI::Update(registry, grid, dt_ms);
+    { Core::Costs::Scope cost(Core::Costs::Part::AI); AI::Update(registry, grid, dt_ms); }
     // Whose gates open for whom, as the stances now stand.
-    Walls::SetAllies(registry, grid);
+    { Core::Costs::Scope cost(Core::Costs::Part::Walls); Walls::SetAllies(registry, grid); }
 
     // Cache previous positions for render interpolation.
     auto t_view = registry.view<Components::Transform>();
@@ -293,39 +298,40 @@ void Simulation::Update(int32_t dt_ms) {
     }
 
     // Units at the end of a walk with waypoints left set off for the next.
-    Orders::WalkOnToWaypoints(registry, grid);
+    { Core::Costs::Scope cost(Core::Costs::Part::Movement); Orders::WalkOnToWaypoints(registry, grid); }
     // Siege engines setting up or packing, and packed ones closing on a
     // target, before anything moves.
-    Packing::Update(registry, grid, dt_ms);
-    Systems::MovementSystem::Update(registry, grid, dt_ms);
-    Systems::WorkerSystem::Update(registry, grid, dt_ms);
-    Trade::Update(registry, grid, dt_ms);
-    Garrisons::Update(registry, grid, dt_ms);
-    Duties::Update(registry, grid, dt_ms);
-    Monks::Update(registry, grid, dt_ms);
-    Relics::Update(registry, grid, dt_ms);
-    Animals::Update(registry, grid, dt_ms);
-    Combat::Update(registry, grid, dt_ms);
-    Missiles::Update(registry, grid, dt_ms);
-    Mortality::Update(registry, grid, dt_ms);
-    Buildings::Update(registry, grid);
-    Walls::Update(registry, grid);
+    { Core::Costs::Scope cost(Core::Costs::Part::Movement); Packing::Update(registry, grid, dt_ms); }
+    { Core::Costs::Scope cost(Core::Costs::Part::Movement); Systems::MovementSystem::Update(registry, grid, dt_ms); }
+    { Core::Costs::Scope cost(Core::Costs::Part::Workers); Systems::WorkerSystem::Update(registry, grid, dt_ms); }
+    { Core::Costs::Scope cost(Core::Costs::Part::Trade); Trade::Update(registry, grid, dt_ms); }
+    { Core::Costs::Scope cost(Core::Costs::Part::Garrisons); Garrisons::Update(registry, grid, dt_ms); }
+    { Core::Costs::Scope cost(Core::Costs::Part::Duties); Duties::Update(registry, grid, dt_ms); }
+    { Core::Costs::Scope cost(Core::Costs::Part::Monks); Monks::Update(registry, grid, dt_ms); }
+    { Core::Costs::Scope cost(Core::Costs::Part::Relics); Relics::Update(registry, grid, dt_ms); }
+    { Core::Costs::Scope cost(Core::Costs::Part::Animals); Animals::Update(registry, grid, dt_ms); }
+    { Core::Costs::Scope cost(Core::Costs::Part::Combat); Combat::Update(registry, grid, dt_ms); }
+    { Core::Costs::Scope cost(Core::Costs::Part::Missiles); Missiles::Update(registry, grid, dt_ms); }
+    { Core::Costs::Scope cost(Core::Costs::Part::Mortality); Mortality::Update(registry, grid, dt_ms); }
+    { Core::Costs::Scope cost(Core::Costs::Part::Buildings); Buildings::Update(registry, grid); }
+    { Core::Costs::Scope cost(Core::Costs::Part::Walls); Walls::Update(registry, grid); }
     // Spies' price follows the villagers it counts, before anything queues.
-    Spies::Update(registry);
-    Production::Update(registry, grid, dt_ms);
-    Systems::AnimationSystem::Update(registry, dt_ms);
+    { Core::Costs::Scope cost(Core::Costs::Part::Other); Spies::Update(registry); }
+    { Core::Costs::Scope cost(Core::Costs::Part::Production); Production::Update(registry, grid, dt_ms); }
+    { Core::Costs::Scope cost(Core::Costs::Part::Animation); Systems::AnimationSystem::Update(registry, dt_ms); }
     // A scenario's triggers, before the victory they can declare is looked at;
     // nothing in a random map game.
-    Triggers::Update(registry, grid, dt_ms);
-    Victory::Update(registry, grid, dt_ms);
+    { Core::Costs::Scope cost(Core::Costs::Part::Triggers); Triggers::Update(registry, grid, dt_ms); }
+    { Core::Costs::Scope cost(Core::Costs::Part::Victory); Victory::Update(registry, grid, dt_ms); }
 
-    CalculateVision();
+    { Core::Costs::Scope cost(Core::Costs::Part::Vision); CalculateVision(); }
     // What each player stops seeing, it remembers as it was.
-    Fog::Update(registry);
+    { Core::Costs::Scope cost(Core::Costs::Part::Fog); Fog::Update(registry); }
     // What of Gaia's the players now see, the first of them takes.
-    Allegiance::Capture(registry, grid);
+    { Core::Costs::Scope cost(Core::Costs::Part::Other); Allegiance::Capture(registry, grid); }
     // Last, after everything else that tick.
-    Score::Update(registry);
+    { Core::Costs::Scope cost(Core::Costs::Part::Other); Score::Update(registry); }
+    Core::Costs::EndTick();
 }
 
 void Simulation::CalculateVision() {

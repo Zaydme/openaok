@@ -254,6 +254,12 @@ bool CheckTargets();
 // zooms the view at once. Prints "zoom=".
 bool CheckZoom();
 
+// A late game measured: eight computer players on a giant map in the
+// Imperial Age, their armies and fleets sent at one another, a minute's
+// ticks timed system by system (core/Costs). Prints "stress=" with the
+// costs: each system's average microseconds a tick and its worst.
+bool CheckStress();
+
 // A landing on Islands: a transport takes on a war party under the dat's
 // garrison rules, sails it to the other island and puts it ashore, and the
 // party's assault ends the game in conquest; a transport sunk with a soldier

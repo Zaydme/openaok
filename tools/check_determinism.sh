@@ -82,6 +82,7 @@ BOATS="$(echo "$OUTPUT" | grep '^boats=')"
 ATTACKGROUPS="$(echo "$OUTPUT" | grep '^attackgroups=')"
 TARGETS="$(echo "$OUTPUT" | grep '^targets=')"
 ZOOM="$(echo "$OUTPUT" | grep '^zoom=')"
+STRESS="$(echo "$OUTPUT" | grep '^stress=')"
 LANDING="$(echo "$OUTPUT" | grep '^landing=')"
 MARKET="$(echo "$OUTPUT" | grep '^market=')"
 TRADE="$(echo "$OUTPUT" | grep '^trade=')"
@@ -600,6 +601,17 @@ else
     echo "  $ZOOM" >&2
     STATUS=1
 fi
+
+# The stress scenario: a late game run and its costs measured, system by
+# system; it fails only if it did not run.
+case "$STRESS" in
+    stress=ok*) echo "stress OK: ${STRESS#stress=ok }" ;;
+    *)
+        echo "STRESS FAILED" >&2
+        echo "  $STRESS" >&2
+        STATUS=1
+        ;;
+esac
 
 # A landing on Islands: a transport boarded under the dat's garrison rules,
 # its load put ashore on the other island, and conquest.

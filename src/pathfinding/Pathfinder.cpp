@@ -6,6 +6,7 @@
 #include <queue>
 #include <vector>
 
+#include "core/Costs.h"
 #include "core/FixedMath.h"
 
 namespace Pathfinding {
@@ -301,6 +302,7 @@ ECS::Components::Path AStar::FindPath(const Physics::Grid& grid,
         }
     }
 
+    Core::Costs::Route(expansions);
     if (!found) return path;
 
     // Walk the parent chain back to the start.
@@ -673,6 +675,7 @@ ECS::Components::Path AStar::FindRoute(const Physics::Grid& grid, Vector2D from,
             open.push({neighbour, tentative, Heuristic(nx, ny, end_x, end_y)});
         }
     }
+    Core::Costs::Route(expansions);
     const int32_t end = reached >= 0 ? reached : nearest;
     if (end == start_index) return path;
 
