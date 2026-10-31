@@ -19,6 +19,7 @@
 #include <SDL2/SDL.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <ctime>
 #include <filesystem>
@@ -472,6 +473,13 @@ void OptionsEvent(const SDL_Event& e) {
 // chosen on the right, from the CD's History text files, which list their
 // own topics in history.txt.
 
+// A piece of a line of the chosen topic, in one font, `x` pixels in.
+struct HistoryRun {
+    int font = 0;
+    int x = 0;
+    std::string text;
+};
+
 struct HistoryScreen {
     Theme theme;
     std::vector<std::string> titles;
@@ -479,8 +487,15 @@ struct HistoryScreen {
     int selected = 0;
     int scroll = 0;            // topic list
     int text_scroll = 0;       // lines of the chosen topic
-    std::string text;
+    std::vector<std::vector<HistoryRun>> lines;   // the chosen topic, laid out
     Button back;
+    // A press held and dragged up or down the list or the page scrolls it, as
+    // a finger does on a touch screen; one that moved is no click.
+    bool pressed = false;
+    bool dragged = false;
+    bool on_list = false;
+    int press_y = 0;
+    int press_scroll = 0;
 };
 
 HistoryScreen& HistoryState() {
@@ -506,12 +521,90 @@ std::string ReadFile(const std::string& path) {
 }
 
 constexpr const char* kHistoryDir = "../assets/original/History/";
+// The right page's text: its width, where it starts, and how many lines show.
+constexpr int kHistoryTextW = 400;
+constexpr int kHistoryTextX = 330;
+constexpr int kHistoryTextY = 80;
+constexpr int kHistoryShown = 30;
+
+std::string Lower(std::string text) {
+    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) { return std::tolower(c); });
+    return text;
+}
+
+// The file in `dir` named `name` in any case: history.txt names its files in
+// lower case, the CD in mixed, and a phone's file system tells them apart.
+std::string FileInAnyCase(const std::string& dir, const std::string& name) {
+    const std::string want = Lower(name);
+    std::error_code ec;
+    for (const auto& entry : std::filesystem::directory_iterator(dir, ec)) {
+        if (Lower(entry.path().filename().string()) == want) return entry.path().string();
+    }
+    return dir + name;
+}
+
+// Lays a topic's text out on the right page: paragraphs on their own lines,
+// words wrapped to the page, and <b> and <i> (in either case) each turning
+// bold or italic on and, the next time, off again.
+void LayOutHistory(const std::string& text, std::vector<std::vector<HistoryRun>>& lines) {
+    lines.clear();
+    lines.emplace_back();
+    bool bold = false, italic = false;
+    auto font = [&]() {
+        return bold ? (italic ? Text::kGeorgia9BI : Text::kGeorgia9B) : (italic ? Text::kGeorgia9I : Text::kGeorgia9);
+    };
+    int x = 0;
+    // A word's pieces, each in the style it was written in, placed whole.
+    std::vector<HistoryRun> word;
+    int word_w = 0;
+    int space_w = 0;   // the space before the word, in the style it came in
+    auto place = [&]() {
+        if (word.empty()) return;
+        if (x > 0 && x + space_w + word_w > kHistoryTextW) {
+            lines.emplace_back();
+            x = 0;
+        } else if (x > 0) {
+            x += space_w;
+        }
+        for (HistoryRun& run : word) {
+            run.x = x;
+            x += Text::Width(run.font, run.text);
+            lines.back().push_back(std::move(run));
+        }
+        word.clear();
+        word_w = 0;
+    };
+    for (size_t i = 0; i < text.size(); ++i) {
+        const char c = text[i];
+        if (c == '<' && i + 2 < text.size() && text[i + 2] == '>' &&
+            (text[i + 1] == 'b' || text[i + 1] == 'B' || text[i + 1] == 'i' || text[i + 1] == 'I')) {
+            if (text[i + 1] == 'b' || text[i + 1] == 'B') bold = !bold;
+            else italic = !italic;
+            i += 2;
+            continue;
+        }
+        if (c == '\n' || c == ' ' || c == '\t') {
+            place();
+            if (c == '\n') {
+                lines.emplace_back();
+                x = 0;
+            }
+            space_w = Text::Width(font(), " ");
+            continue;
+        }
+        if (word.empty() || word.back().font != font()) word.push_back(HistoryRun{font(), 0, {}});
+        word.back().text += c;
+        word_w = 0;
+        for (const HistoryRun& run : word) word_w += Text::Width(run.font, run.text);
+    }
+    place();
+}
 
 void LoadHistoryTopic(HistoryScreen& h) {
-    h.text.clear();
+    h.lines.clear();
     h.text_scroll = 0;
     if (h.selected < 0 || h.selected >= static_cast<int>(h.files.size())) return;
-    h.text = ReadFile(std::string(kHistoryDir) + h.files[h.selected]);
+    LayOutHistory(ReadFile(FileInAnyCase(kHistoryDir, h.files[h.selected])), h.lines);
 }
 
 void OpenHistory() {
@@ -520,7 +613,7 @@ void OpenHistory() {
     h.files.clear();
     // history.txt: an RC string table -- 20311 on the titles, 20411 on the
     // files, in step.
-    std::istringstream in(ReadFile(std::string(kHistoryDir) + "history.txt"));
+    std::istringstream in(ReadFile(FileInAnyCase(kHistoryDir, "history.txt")));
     std::string line;
     std::vector<std::pair<int, std::string>> titles, files;
     while (std::getline(in, line)) {
@@ -569,31 +662,47 @@ void DrawHistory(SDL_Renderer* r) {
         Text::Draw(r, Text::kBlackletter12B, row.x, row.y, h.titles[index],
                    index == h.selected ? lit : over ? theme.text : ink);
     }
-    // The chosen topic: its text on the right page, its first line in bold.
-    std::vector<std::string_view> lines;
-    std::string body = h.text;
-    // <b>..<b> titles: shown bold, the markup dropped.
-    std::string clean;
-    bool bold_line = false;
-    for (size_t i = 0; i < body.size(); ++i) {
-        if (body.compare(i, 3, "<b>") == 0) { i += 2; bold_line = true; continue; }
-        clean += body[i];
-    }
-    (void)bold_line;
-    Text::Wrap(Text::kGeorgia9, clean, 400, lines);
+    // The chosen topic, laid out when it was chosen.
     const int line_h = Text::Height(Text::kGeorgia9);
-    const int shown = 30;
-    for (int i = 0; i < shown && h.text_scroll + i < static_cast<int>(lines.size()); ++i) {
-        const int index = h.text_scroll + i;
-        Text::Draw(r, index == 0 ? Text::kGeorgia9B : Text::kGeorgia9, 330,
-                   80 + i * line_h, lines[index], ink);
+    for (int i = 0; i < kHistoryShown && h.text_scroll + i < static_cast<int>(h.lines.size()); ++i) {
+        for (const HistoryRun& run : h.lines[static_cast<size_t>(h.text_scroll + i)]) {
+            Text::Draw(r, run.font, kHistoryTextX + run.x, kHistoryTextY + i * line_h, run.text, ink);
+        }
     }
     DrawButton(r, theme, h.back, StateOf(h.back, S().mx, S().my, S().held));
 }
 
+// How far a press moves before it is a drag rather than a click, in pixels.
+constexpr int kHistoryDragSlack = 6;
+
 void HistoryEvent(const SDL_Event& e) {
     HistoryScreen& h = HistoryState();
+    const int list_most = std::max(0, static_cast<int>(h.titles.size()) - kHistoryList.h / kHistoryRowH);
+    const int text_most = std::max(0, static_cast<int>(h.lines.size()) - kHistoryShown);
+    if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
+        h.pressed = true;
+        h.dragged = false;
+        h.on_list = e.button.x < 300;
+        h.press_y = e.button.y;
+        h.press_scroll = h.on_list ? h.scroll : h.text_scroll;
+        return;
+    }
+    if (e.type == SDL_MOUSEMOTION && h.pressed) {
+        const int dy = e.motion.y - h.press_y;
+        if (std::abs(dy) > kHistoryDragSlack) h.dragged = true;
+        if (!h.dragged) return;
+        if (h.on_list) {
+            h.scroll = std::clamp(h.press_scroll - dy / kHistoryRowH, 0, list_most);
+        } else {
+            h.text_scroll = std::clamp(h.press_scroll - dy / Text::Height(Text::kGeorgia9), 0, text_most);
+        }
+        return;
+    }
     if (e.type == SDL_MOUSEBUTTONUP && e.button.button == SDL_BUTTON_LEFT) {
+        const bool dragged = h.dragged;
+        h.pressed = false;
+        h.dragged = false;
+        if (dragged) return;
         if (Hit(h.back.rect, e.button.x, e.button.y)) { Click(); Open(Id::MainMenu); return; }
         if (Hit(kHistoryList, e.button.x, e.button.y)) {
             const int index = h.scroll + (e.button.y - kHistoryList.y) / kHistoryRowH;
@@ -605,10 +714,9 @@ void HistoryEvent(const SDL_Event& e) {
         }
     } else if (e.type == SDL_MOUSEWHEEL) {
         if (S().mx < 300) {
-            h.scroll = std::clamp(h.scroll - e.wheel.y, 0,
-                                  std::max(0, static_cast<int>(h.titles.size()) - 21));
+            h.scroll = std::clamp(h.scroll - e.wheel.y, 0, list_most);
         } else {
-            h.text_scroll = std::max(0, h.text_scroll - e.wheel.y * 3);
+            h.text_scroll = std::clamp(h.text_scroll - e.wheel.y * 3, 0, text_most);
         }
     } else if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) {
         Open(Id::MainMenu);
