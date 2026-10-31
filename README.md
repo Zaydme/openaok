@@ -252,7 +252,9 @@ edges and the minimap to move the view. One thing the original did not have:
 the mouse wheel zooms the view in and out, in the game and the scenario
 editor, as do `=` and `-`. The original's
 wheel hotkeys (the Town Center, the next idle villager) are on Ctrl and the
-wheel.
+wheel. Everything OpenAoK adds to the original, zoom, the minimap's fog of
+war, no selection limit, populations up to 1000 and the rest, is listed in
+[docs/IMPROVEMENTS.md](docs/IMPROVEMENTS.md).
 
 ## Checking changes
 
