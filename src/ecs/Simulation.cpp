@@ -6,6 +6,7 @@
 #include "ai/Brain.h"
 #include "core/CommandQueue.h"
 #include "core/Costs.h"
+#include "pathfinding/Pathfinder.h"
 #include "core/ConfigManager.h"
 #include "core/MapGenerator.h"
 #include "core/RMSParser.h"
@@ -268,6 +269,8 @@ void Simulation::Init(const Core::GameSetup& game) {
     CalculateVision();
     // The history's first reading, of the starting units (ecs/Timeline).
     Score::Start(registry);
+    // The route search's landmarks, before the first tick.
+    Pathfinding::Prepare(grid);
     std::cout << "[Simulation] World initialized." << std::endl;
 }
 
@@ -277,7 +280,11 @@ void Simulation::Update(int32_t dt_ms) {
     { Core::Costs::Scope cost(Core::Costs::Part::Other); Events::BeginTick(registry); }
     { Core::Costs::Scope cost(Core::Costs::Part::Other); Score::Advance(registry, dt_ms); }
     // Where everyone stands, before anything plans a route or takes a step.
-    { Core::Costs::Scope cost(Core::Costs::Part::Navigation); Navigation::Survey(registry, grid); }
+    {
+        Core::Costs::Scope cost(Core::Costs::Part::Navigation);
+        Pathfinding::Prepare(grid);
+        Navigation::Survey(registry, grid);
+    }
 
     {
         Core::Costs::Scope cost(Core::Costs::Part::Orders);

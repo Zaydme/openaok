@@ -190,6 +190,151 @@ inline int32_t Heuristic(int x1, int y1, int x2, int y2) {
     return kStraight * (dx + dy) + (kDiagonal - 2 * kStraight) * std::min(dx, dy);
 }
 
+// Landmarks for the route search's estimate: for each of a few tiles round
+// the map's edge, how far every tile is from it over the layer's terrain
+// alone, at the search's own step costs. Buildings, trees and crowds only
+// make a route longer, so the difference between a tile's and the goal's
+// distances from a landmark never overestimates the way between them, while
+// knowing of the water and cliffs a straight line crosses.
+constexpr int kLandmarks = 8;
+constexpr int kLandmarksUsed = 3;    // the best of them for a search
+constexpr uint16_t kFar = 0xFFFF;          // a tile the landmark cannot reach
+constexpr uint16_t kFarthest = kFar - 1;    // distances held at most this
+
+struct Landmarks {
+    uint32_t serial = 0;
+    uint32_t revision = 0;          // the terrain revision last looked at
+    int width = 0;
+    int height = 0;
+    std::vector<uint8_t> passes;    // per tile, whether its terrain is the layer's
+    std::vector<uint16_t> distance; // per tile, its distance from each landmark
+};
+
+bool TerrainPasses(const Physics::Grid& grid, Physics::Layer layer, int x, int y) {
+    return grid.GroundPasses(layer, grid.GetTile(x, y).terrain);
+}
+
+void Measure(const Physics::Grid& grid, Physics::Layer layer, Landmarks& lm) {
+    const int w = grid.GetWidth();
+    const int h = grid.GetHeight();
+    const size_t n = static_cast<size_t>(w) * h;
+    lm.width = w;
+    lm.height = h;
+    lm.passes.assign(n, 0);
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) lm.passes[static_cast<size_t>(y) * w + x] = TerrainPasses(grid, layer, x, y) ? 1 : 0;
+    }
+    lm.distance.assign(n * kLandmarks, kFar);
+    // The corners and the middles of the edges, each moved to the nearest
+    // tile of the layer's terrain.
+    const int points[kLandmarks][2] = {{0, 0}, {w - 1, 0}, {0, h - 1}, {w - 1, h - 1},
+                                       {w / 2, 0}, {0, h / 2}, {w - 1, h / 2}, {w / 2, h - 1}};
+    static std::vector<int32_t> dist;
+    static std::vector<uint64_t> open;
+    static const int dx[8] = {0, 0, 1, -1, 1, -1, 1, -1};
+    static const int dy[8] = {-1, 1, 0, 0, -1, -1, 1, 1};
+    auto passes = [&](int x, int y) {
+        return x >= 0 && y >= 0 && x < w && y < h && lm.passes[static_cast<size_t>(y) * w + x] != 0;
+    };
+    for (int k = 0; k < kLandmarks; ++k) {
+        int sx = -1, sy = -1;
+        for (int r = 0; r < std::max(w, h) && sx < 0; ++r) {
+            for (int oy = -r; oy <= r && sx < 0; ++oy) {
+                for (int ox = -r; ox <= r; ++ox) {
+                    if (std::abs(ox) != r && std::abs(oy) != r) continue;
+                    if (passes(points[k][0] + ox, points[k][1] + oy)) {
+                        sx = points[k][0] + ox;
+                        sy = points[k][1] + oy;
+                        break;
+                    }
+                }
+            }
+        }
+        if (sx < 0) continue;
+        dist.assign(n, INT32_MAX);
+        open.clear();
+        const int32_t start = sy * w + sx;
+        dist[static_cast<size_t>(start)] = 0;
+        open.push_back(static_cast<uint64_t>(start));
+        while (!open.empty()) {
+            std::pop_heap(open.begin(), open.end(), std::greater<uint64_t>());
+            const uint64_t key = open.back();
+            open.pop_back();
+            const auto at = static_cast<int32_t>(key & kKeyField);
+            const auto d = static_cast<int32_t>(key >> 20);
+            if (d != dist[static_cast<size_t>(at)]) continue;
+            const int cx = at % w, cy = at / w;
+            for (int i = 0; i < 8; ++i) {
+                const int nx = cx + dx[i], ny = cy + dy[i];
+                if (!passes(nx, ny)) continue;
+                if (i >= 4 && (!passes(cx, ny) || !passes(nx, cy))) continue;
+                const int32_t next = ny * w + nx;
+                const int32_t nd = d + (i < 4 ? kStraight : kDiagonal);
+                if (nd >= dist[static_cast<size_t>(next)]) continue;
+                dist[static_cast<size_t>(next)] = nd;
+                open.push_back((static_cast<uint64_t>(nd) << 20) | static_cast<uint64_t>(next));
+                std::push_heap(open.begin(), open.end(), std::greater<uint64_t>());
+            }
+        }
+        for (size_t t = 0; t < n; ++t) {
+            if (dist[t] != INT32_MAX) {
+                lm.distance[t * kLandmarks + k] = static_cast<uint16_t>(std::min<int32_t>(dist[t], kFarthest));
+            }
+        }
+    }
+}
+
+// The layer's landmarks, measured again only when a tile's terrain has
+// changed whether the layer may cross it -- as good as never in play. A few
+// grids' worth, as the regions keep.
+const Landmarks& LandmarksOf(const Physics::Grid& grid, Physics::Layer layer) {
+    static Landmarks all[Physics::kMaxLayers][kGridsCached];
+    static uint32_t used[Physics::kMaxLayers][kGridsCached] = {};
+    static uint32_t clock = 0;
+    layer = Physics::BaseLayer(layer);
+    ++clock;
+    int slot = 0;
+    for (int i = 0; i < kGridsCached; ++i) {
+        if (all[layer][i].serial == grid.Serial()) {
+            slot = i;
+            break;
+        }
+        if (used[layer][i] < used[layer][slot]) slot = i;
+    }
+    used[layer][slot] = clock;
+    Landmarks& lm = all[layer][slot];
+    const int w = grid.GetWidth();
+    if (lm.serial != grid.Serial() || lm.width != w || lm.height != grid.GetHeight()) {
+        lm.serial = grid.Serial();
+        lm.revision = grid.TerrainRevision();
+        Measure(grid, layer, lm);
+        return lm;
+    }
+    if (lm.revision != grid.TerrainRevision()) {
+        const auto& log = grid.TerrainLog();
+        bool changed = false;
+        if (log.empty() || log.front().revision > lm.revision + 1) {
+            for (int y = 0; y < lm.height && !changed; ++y) {
+                for (int x = 0; x < w && !changed; ++x) {
+                    changed = (TerrainPasses(grid, layer, x, y) ? 1 : 0) != lm.passes[static_cast<size_t>(y) * w + x];
+                }
+            }
+        } else {
+            for (const auto& change : log) {
+                if (change.revision <= lm.revision || !grid.InBounds(change.x, change.y)) continue;
+                const size_t t = static_cast<size_t>(change.y) * w + change.x;
+                if ((TerrainPasses(grid, layer, change.x, change.y) ? 1 : 0) != lm.passes[t]) {
+                    changed = true;
+                    break;
+                }
+            }
+        }
+        lm.revision = grid.TerrainRevision();
+        if (changed) Measure(grid, layer, lm);
+    }
+    return lm;
+}
+
 // Whether a straight line between two tiles is clear, for dropping waypoints
 // the unit can simply walk past. Integer Bresenham, so it is deterministic.
 bool LineIsClear(const Physics::Grid& grid, int x0, int y0, int x1, int y1,
@@ -218,6 +363,10 @@ bool LineIsClear(const Physics::Grid& grid, int x0, int y0, int x1, int y1,
 }
 
 } // namespace
+
+void Prepare(const Physics::Grid& grid) {
+    for (int layer = 0; layer < grid.LayerCount(); ++layer) LandmarksOf(grid, static_cast<Physics::Layer>(layer));
+}
 
 int RegionAt(const Physics::Grid& grid, int x, int y, Physics::Layer layer) {
     if (!grid.InBounds(x, y)) return -1;
@@ -666,15 +815,50 @@ ECS::Components::Path AStar::FindRoute(const Physics::Grid& grid, Vector2D from,
                        static_cast<uint64_t>(index));
         std::push_heap(open.begin(), open.end(), std::greater<uint64_t>());
     };
+    // The estimate: the straight way's cost, or the landmarks' bound where
+    // terrain stands in the way, whichever is more -- from the few landmarks
+    // whose bound is best at the start.
+    const Landmarks& landmarks = LandmarksOf(grid, layer);
+    const uint16_t* goal_from = &landmarks.distance[static_cast<size_t>(goal_index) * kLandmarks];
+    int chosen[kLandmarksUsed];
+    int chosen_count = 0;
+    {
+        const uint16_t* start_from = &landmarks.distance[static_cast<size_t>(start_index) * kLandmarks];
+        int32_t bound[kLandmarks];
+        for (int k = 0; k < kLandmarks; ++k) {
+            bound[k] = start_from[k] == kFar || goal_from[k] == kFar
+                           ? -1
+                           : std::abs(static_cast<int32_t>(start_from[k]) - static_cast<int32_t>(goal_from[k]));
+        }
+        for (; chosen_count < kLandmarksUsed; ++chosen_count) {
+            int best = -1;
+            for (int k = 0; k < kLandmarks; ++k) {
+                if (bound[k] >= 0 && (best < 0 || bound[k] > bound[best])) best = k;
+            }
+            if (best < 0) break;
+            chosen[chosen_count] = best;
+            bound[best] = -1;
+        }
+    }
+    auto estimate = [&](int x, int y, int32_t index) {
+        int32_t best = Heuristic(x, y, end_x, end_y);
+        const uint16_t* from_here = &landmarks.distance[static_cast<size_t>(index) * kLandmarks];
+        for (int c = 0; c < chosen_count; ++c) {
+            const int k = chosen[c];
+            if (from_here[k] == kFar) continue;
+            best = std::max(best, std::abs(static_cast<int32_t>(from_here[k]) - static_cast<int32_t>(goal_from[k])));
+        }
+        return best;
+    };
     sc.Touch(start_index);
     sc.cells[start_index].g_score = 0;
-    push(0, Heuristic(start_x, start_y, end_x, end_y), start_index);
+    push(0, estimate(start_x, start_y, start_index), start_index);
     static const int dx[8] = { 0,  0,  1, -1,  1, -1,  1, -1};
     static const int dy[8] = {-1,  1,  0,  0, -1, -1,  1,  1};
     int expansions = 0;
     int32_t reached = -1;
     int32_t nearest = start_index;
-    int32_t nearest_h = Heuristic(start_x, start_y, end_x, end_y);
+    int32_t nearest_h = estimate(start_x, start_y, start_index);
     while (!open.empty()) {
         std::pop_heap(open.begin(), open.end(), std::greater<uint64_t>());
         const uint64_t key = open.back();
@@ -711,7 +895,7 @@ ECS::Components::Path AStar::FindRoute(const Physics::Grid& grid, Vector2D from,
             if (tentative >= sc.cells[neighbour].g_score) continue;
             sc.cells[neighbour].g_score = tentative;
             sc.cells[neighbour].came_from = index;
-            push(tentative, Heuristic(nx, ny, end_x, end_y), neighbour);
+            push(tentative, estimate(nx, ny, neighbour), neighbour);
         }
     }
     Core::Costs::Route(expansions);

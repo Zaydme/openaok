@@ -14,6 +14,12 @@ namespace Pathfinding {
 // Which connected stretch of passable ground a tile is in, -1 for a tile none
 // of the layer's movers can stand on. Two tiles in different regions have no
 // route between them.
+// Readies what the route search keeps of the map for every layer -- its
+// terrain landmarks -- so that none is worked out in the middle of a busy
+// tick: at once on a new map, then only when terrain changes what a layer may
+// cross. Cheap when nothing has changed.
+void Prepare(const Physics::Grid& grid);
+
 int RegionAt(const Physics::Grid& grid, int x, int y,
              Physics::Layer layer = Physics::kLand);
 

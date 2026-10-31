@@ -148,7 +148,9 @@ void Grid::Refresh(int x, int y) {
 bool Grid::RestoreTiles(const std::vector<Tile>& saved) {
     if (saved.size() != tiles.size()) return false;
     tiles = saved;
+    // Everything that keeps something of the ground looks at it again.
     terrain_log.clear();
+    ++terrain_revision;
     WalkabilityChanged();
     return true;
 }
