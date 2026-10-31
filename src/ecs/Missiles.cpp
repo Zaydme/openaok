@@ -123,6 +123,10 @@ struct Landing {
 // The dat's blast levels.
 constexpr int kBlastFellsTrees = 1;   // this level and below fell trees too
 constexpr int kBlastTargetOnly = 3;
+// Farther than any body or footprint reaches from its middle, in tiles: what
+// stands further than this past a reach from where a missile lands is not
+// looked at more closely.
+const Core::Fixed32 kFarthestBody(5);
 
 // Who a missile coming down at its point hits: its target, if it is still
 // there -- aimed true or a near miss alike -- or else the first enemy of its
@@ -145,10 +149,16 @@ void Victims(const entt::registry& registry, const Components::Projectile& fligh
         }
         return Core::FixedMath::Distance(p.x - at.x, p.y - at.y) <= body(e) + reach;
     };
+    auto far = [&](entt::entity e, Core::Fixed32 reach) {
+        const auto& p = registry.get<Components::Transform>(e).position;
+        const Core::Fixed32 out = reach + kFarthestBody;
+        return Core::FixedMath::Abs(p.x - at.x) > out || Core::FixedMath::Abs(p.y - at.y) > out;
+    };
 
     if (flight.blast_width.value > 0 && flight.blast_level < kBlastTargetOnly) {
         auto all = registry.view<const Components::Transform, const Components::Health>();
         for (auto e : all) {
+            if (far(e, flight.blast_width)) continue;
             if (e == flight.shooter || !Combat::Alive(registry, e)) continue;
             if (near(e, flight.blast_width)) out.emplace_back(e, false);
         }
@@ -174,6 +184,7 @@ void Victims(const entt::registry& registry, const Components::Projectile& fligh
     auto all = registry.view<const Components::Transform, const Components::Health,
                              const Components::Owner>();
     for (auto e : all) {
+        if (far(e, Core::Fixed32(0))) continue;
         if (e == arrow || !Combat::Alive(registry, e)) continue;
         if (registry.get<Components::Owner>(e).player_id == flight.owner) continue;
         if (registry.all_of<Components::Building>(e)) continue;
