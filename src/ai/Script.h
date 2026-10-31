@@ -79,6 +79,13 @@ struct Environment {
     std::function<bool(const std::string& name, std::string& text)> read;
     // A die for load-random: 0..99.
     std::function<int()> percent;
+    // Constants a script defines in proportion to the population limit, and
+    // the factor its own values for them are scaled by (scale_by over
+    // scale_over): a script written for limits up to 200 played at a larger
+    // one.
+    std::vector<std::string> scaled;
+    int scale_by = 1;
+    int scale_over = 1;
 };
 
 // Loads `file` and everything it loads.

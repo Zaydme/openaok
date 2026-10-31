@@ -29,7 +29,10 @@ out of the way of the original's own look and rules.
   checked by default.
 - **Larger populations.** Besides the original's limits of 25 to 200, a game
   can be set up with a population limit of 250 to 500 in steps of 50, and of
-  600 to 1000 in steps of 100.
+  600 to 1000 in steps of 100. The computer players' scripts, written for
+  limits up to 200, play such a game by their plan for 200, with the figures
+  that plan sets by population (the limit, the most soldiers it keeps, its
+  shares of the population) scaled to the game's limit.
 
 ## Fights
 

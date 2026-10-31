@@ -172,8 +172,9 @@ void Give(entt::registry& registry, Physics::Grid& grid, const Core::Command& co
 void UseScenario(entt::registry& registry, const Core::GameSetup& setup);
 
 // The system-defined symbols a seat's scripts are loaded under: the lobby's
-// difficulty, map, size, population cap, starting age and resources, victory,
-// game type, team lock -- and the seat's own civilisation.
+// difficulty, map, size, population cap (a limit past the scripts' 200 as
+// 200, their population constants scaled to it), starting age and resources,
+// victory, game type, team lock -- and the seat's own civilisation.
 std::vector<std::string> Symbols(const Core::GameSetup& setup, Core::PlayerId seat);
 
 // Loads the scripts for `seat`, from "randomgame" (the random map game's
