@@ -84,6 +84,7 @@ TARGETS="$(echo "$OUTPUT" | grep '^targets=')"
 ZOOM="$(echo "$OUTPUT" | grep '^zoom=')"
 SELECTION="$(echo "$OUTPUT" | grep '^selection=')"
 MARCH="$(echo "$OUTPUT" | grep '^march=')"
+AGGRESSION="$(echo "$OUTPUT" | grep '^aggression=')"
 POPULATION="$(echo "$OUTPUT" | grep '^population=')"
 STRESS="$(echo "$OUTPUT" | grep '^stress=')"
 LANDING="$(echo "$OUTPUT" | grep '^landing=')"
@@ -609,6 +610,13 @@ fi
 case "$MARCH" in
     march=ok*) echo "march OK" ;;
     *) echo "MARCH FAILED" >&2; echo "  $MARCH" >&2; STATUS=1 ;;
+esac
+
+# The fight: archers loosing over a spread of ticks, aggressive units helping
+# within their sight.
+case "$AGGRESSION" in
+    aggression=ok*) echo "aggression OK" ;;
+    *) echo "AGGRESSION FAILED" >&2; echo "  $AGGRESSION" >&2; STATUS=1 ;;
 esac
 
 # The selection limit: none by default, the original's forty when on.

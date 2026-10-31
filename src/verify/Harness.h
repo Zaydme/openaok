@@ -264,6 +264,12 @@ bool CheckSelection();
 // one enemy stand round it. Prints "march=".
 bool CheckMarch();
 
+// The fight as it feels: archers set at one enemy together loose over a
+// spread of ticks, and an aggressive unit helps one of its side struck within
+// its sight, where a defensive one helps only within three tiles. Prints
+// "aggression=".
+bool CheckAggression();
+
 // The population limits the game setup offers, from 25 to 1000: the
 // original's among them, and a game at the largest supporting more than 200.
 // Prints "population=".

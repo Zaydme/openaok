@@ -19,6 +19,7 @@
 #include "ecs/components/Combat.h"
 #include "ecs/components/Identity.h"
 #include "ecs/components/Owner.h"
+#include "ecs/components/Path.h"
 #include "ecs/components/Transform.h"
 
 namespace Verify {
@@ -167,6 +168,13 @@ const char* Answered(bool scout, int& answered) {
                 reg.get<ECS::Components::Identity>(e).unit_id == cfg.GetUnitIdByName("SCOUT")) {
                 victim = e;
             }
+        }
+        // Struck where the villager would be, out of town, beyond any idle
+        // soldier's help.
+        if (victim != entt::null) {
+            auto& t = reg.get<ECS::Components::Transform>(victim);
+            t.position = t.previous_position = at(vx, vy);
+            reg.remove<ECS::Components::Path>(victim);
         }
     } else {
         victim = ECS::ScenarioWorld::Place(reg, grid, cfg.GetUnitIdByName("VMBAS"), kComputer, at(vx, vy), {}, 0);

@@ -295,6 +295,9 @@ struct Warnings {
 // How near the struck one those who come to its help stand, edge to edge, in
 // tiles.
 const Core::Fixed32 kHelpReach = Core::Fixed32(3);
+// The farthest an aggressive unit comes to help from: its line of sight, up
+// to this many tiles.
+const Core::Fixed32 kAggressiveHelpMost = Core::Fixed32(12);
 // A relic, and the relic cart: nothing a villager takes on.
 constexpr int kArtifactClass = 1;
 constexpr int kRelicClass = 42;
@@ -315,7 +318,7 @@ void CallForHelp(entt::registry& registry, const Physics::Grid& grid, entt::enti
     if (struck_by == nullptr) return;
     const bool gaia = OwnerOf(registry, attacker) == Core::PLAYER_GAIA;
     const auto& here = registry.get<Components::Transform>(victim).position;
-    const Core::Fixed32 near = kHelpReach + kFarthestExtents;
+    const Core::Fixed32 near = kAggressiveHelpMost + kFarthestExtents;
     std::vector<entt::entity> helpers;
     auto fighters = registry.view<Combat, Components::Transform, Components::Owner>();
     for (auto e : fighters) {
@@ -341,7 +344,11 @@ void CallForHelp(entt::registry& registry, const Physics::Grid& grid, entt::enti
                         : !Search::Holds(Search::Sought(registry, e), struck_by->cls)) {
             continue;
         }
-        if (Gap(registry, e, victim) > kHelpReach) continue;
+        // An aggressive one comes from as far as it sees.
+        const Core::Fixed32 reach = combat.stance == Components::Stance::Aggressive
+                                        ? Core::FixedMath::Max(kHelpReach, Core::FixedMath::Min(rules->los, kAggressiveHelpMost))
+                                        : kHelpReach;
+        if (Gap(registry, e, victim) > reach) continue;
         const R::UnitRules* own = FightingRules(registry, e);
         if (own == nullptr || !CanReach(registry, grid, e, attacker, *own)) continue;
         helpers.push_back(e);
@@ -726,6 +733,25 @@ Core::Fixed32 Gap(const entt::registry& registry, entt::entity from, entt::entit
     return Core::FixedMath::Distance(across, down);
 }
 
+namespace {
+
+// The longest a fresh fight's first blow or shot waits, in milliseconds, so
+// those that come into reach together do not all strike in one tick.
+constexpr int32_t kFirstSwingSpreadMs = 600;
+
+// `attacker`'s wait before its first blow at a new target: its own share of
+// kFirstSwingSpreadMs, from who it is and when, the same on every machine.
+int32_t FirstSwingWait(const entt::registry& registry, entt::entity attacker) {
+    const Events::Log* log = Events::Read(registry);
+    const uint64_t tick = log != nullptr ? log->tick : 0;
+    uint64_t h = static_cast<uint64_t>(entt::to_integral(attacker)) * 0x9E3779B97F4A7C15ull;
+    h ^= tick * 0xC2B2AE3D27D4EB4Full;
+    h ^= h >> 29;
+    return static_cast<int32_t>(h % static_cast<uint64_t>(kFirstSwingSpreadMs));
+}
+
+} // namespace
+
 void Engage(entt::registry& registry, entt::entity attacker, entt::entity target,
             bool ordered) {
     auto* combat = registry.try_get<Combat>(attacker);
@@ -734,6 +760,7 @@ void Engage(entt::registry& registry, entt::entity attacker, entt::entity target
         combat->post = registry.get<Components::Transform>(attacker).position;
         combat->has_post = true;
     }
+    if (combat->target != target) combat->reload_ms = std::max(combat->reload_ms, FirstSwingWait(registry, attacker));
     combat->target = target;
     combat->ordered = ordered;
     combat->chase_ms = 0;
