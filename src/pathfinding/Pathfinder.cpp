@@ -21,6 +21,11 @@ constexpr int kDiagonal = 14;
 // Caps the work per request; a unit that cannot find a path within it does
 // not move.
 constexpr int kMaxExpansions = 20000;
+// A route shorter than kShortRoute tiles is searched within kShortBudget
+// expansions and kShortBudgetPerTile more for each tile of it.
+constexpr int kShortRoute = 16;
+constexpr int kShortBudget = 256;
+constexpr int kShortBudgetPerTile = 64;
 
 // The route search's open-list keys: index and h in 20 bits each, f above
 // them (Node's order in one integer); maps are far smaller than 2^20 tiles.
@@ -855,6 +860,11 @@ ECS::Components::Path AStar::FindRoute(const Physics::Grid& grid, Vector2D from,
     push(0, estimate(start_x, start_y, start_index), start_index);
     static const int dx[8] = { 0,  0,  1, -1,  1, -1,  1, -1};
     static const int dy[8] = {-1,  1,  0,  0, -1, -1,  1,  1};
+    // A short way is searched within a budget of its length: one blocked by
+    // a crowd is walked as far as the search got, and planned again on the
+    // way.
+    const int span = std::max(std::abs(end_x - start_x), std::abs(end_y - start_y));
+    const int budget = span < kShortRoute ? kShortBudget + kShortBudgetPerTile * span : kMaxExpansions;
     int expansions = 0;
     int32_t reached = -1;
     int32_t nearest = start_index;
@@ -876,7 +886,7 @@ ECS::Components::Path AStar::FindRoute(const Physics::Grid& grid, Vector2D from,
             nearest_h = heuristic;
             nearest = index;
         }
-        if (++expansions > kMaxExpansions) break;
+        if (++expansions > budget) break;
         const int cx = index % w;
         const int cy = index / w;
         for (int i = 0; i < 8; ++i) {
