@@ -48,6 +48,65 @@ Core::Fixed32 RadiusOf(const entt::registry& registry, entt::entity entity) {
     return rules != nullptr ? rules->size_x : Core::Fixed32(0);
 }
 
+namespace {
+
+// Puts the survey's keys in order, each a key and its body. The keys are
+// all different, so there is one order whatever the means: here, last
+// tick's order with this tick's keys, put right by insertion as the few
+// that changed tile move along, and those new since sorted and merged in.
+void SortKeys(std::vector<std::pair<uint64_t, uint32_t>>& keys, const std::vector<Body>& bodies) {
+    static std::vector<entt::entity> previous;   // last tick's bodies, in order
+    static std::vector<uint32_t> body_of;        // by entity index: its body, + 1
+    static std::vector<uint32_t> seen;           // by entity index: the pass that set body_of
+    static std::vector<uint8_t> placed;          // by body
+    static std::vector<std::pair<uint64_t, uint32_t>> head, tail;
+    static uint32_t pass = 0;
+    if (++pass == 0) pass = 1;
+    for (size_t i = 0; i < bodies.size(); ++i) {
+        const auto index = static_cast<size_t>(entt::to_entity(bodies[i].entity));
+        if (index >= body_of.size()) {
+            body_of.resize(index + 1, 0);
+            seen.resize(index + 1, 0);
+        }
+        body_of[index] = static_cast<uint32_t>(i) + 1;
+        seen[index] = pass;
+    }
+    placed.assign(bodies.size(), 0);
+    head.clear();
+    for (entt::entity e : previous) {
+        const auto index = static_cast<size_t>(entt::to_entity(e));
+        if (index >= seen.size() || seen[index] != pass) continue;
+        const uint32_t body = body_of[index] - 1;
+        if (bodies[body].entity != e) continue;
+        head.push_back(keys[body]);
+        placed[body] = 1;
+    }
+    tail.clear();
+    for (size_t i = 0; i < bodies.size(); ++i) {
+        if (placed[i] == 0) tail.push_back(keys[i]);
+    }
+    // Insertion, given up for a full sort if the order has changed a lot.
+    const size_t budget = head.size() * 8 + 1024;
+    size_t moves = 0;
+    for (size_t i = 1; i < head.size() && moves <= budget; ++i) {
+        const auto key = head[i];
+        size_t j = i;
+        while (j > 0 && key < head[j - 1]) {
+            head[j] = head[j - 1];
+            --j;
+            ++moves;
+        }
+        head[j] = key;
+    }
+    if (moves > budget) std::sort(head.begin(), head.end());
+    std::sort(tail.begin(), tail.end());
+    std::merge(head.begin(), head.end(), tail.begin(), tail.end(), keys.begin());
+    previous.resize(keys.size());
+    for (size_t i = 0; i < keys.size(); ++i) previous[i] = bodies[keys[i].second].entity;
+}
+
+} // namespace
+
 void Survey(entt::registry& registry, const Physics::Grid& grid) {
     auto& traffic = registry.ctx().emplace<Traffic>();
     traffic.width = grid.GetWidth();
@@ -89,7 +148,7 @@ void Survey(entt::registry& registry, const Physics::Grid& grid) {
         const auto tile = static_cast<uint32_t>(Physics::TileOf(b.y) * w + Physics::TileOf(b.x));
         keys[i] = {(static_cast<uint64_t>(tile) << 32) | entt::to_integral(b.entity), static_cast<uint32_t>(i)};
     }
-    std::sort(keys.begin(), keys.end());
+    SortKeys(keys, traffic.bodies);
     unsorted.swap(traffic.bodies);
     traffic.bodies.resize(unsorted.size());
     for (size_t i = 0; i < keys.size(); ++i) traffic.bodies[i] = unsorted[keys[i].second];
