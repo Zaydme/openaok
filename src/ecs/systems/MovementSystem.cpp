@@ -4,6 +4,7 @@
 #include <cstdlib>
 
 #include "core/FixedMath.h"
+#include "ecs/Combat.h"
 #include "ecs/Navigation.h"
 #include "ecs/Players.h"
 #include "ecs/components/Identity.h"
@@ -44,27 +45,13 @@ constexpr int8_t kMostMovesOn = 4;
 // How far a unit walks in one tick: its speed in the owner's rules -- the
 // dat's tiles per second, raised by technologies such as Wheelbarrow -- over
 // the tick's share of a second.
-Core::Fixed32 StepLength(const entt::registry& registry, entt::entity entity,
-                         int32_t dt_ms) {
+// A tick's step for a unit whose rules are `rules` (null: none found); one
+// without an identity or an owner walks at the fallback speed.
+Core::Fixed32 StepLength(bool identified, const Core::Rules::UnitRules* rules, int32_t dt_ms) {
     Core::Fixed32 speed = kFallbackSpeed;
-    const auto* identity = registry.try_get<Components::Identity>(entity);
-    const auto* owner = registry.try_get<Components::Owner>(entity);
-    if (identity != nullptr && owner != nullptr) {
-        if (const auto* rules = Players::UnitOf(registry, Players::RulesPlayer(registry, entity),
-                                                identity->unit_id)) {
-            // No speed in its rules, no step: a trebuchet set up stays put.
-            speed = rules->speed.value > 0 ? rules->speed : Core::Fixed32(0);
-        }
-    }
+    // No speed in its rules, no step: a trebuchet set up stays put.
+    if (identified && rules != nullptr) speed = rules->speed.value > 0 ? rules->speed : Core::Fixed32(0);
     return speed * Core::Fixed32(dt_ms) / Core::Fixed32(1000);
-}
-
-// Whether a unit at `at` is within its walk's range of the walk's target:
-// inside it by a little, or touching it.
-bool InRange(const entt::registry& registry, entt::entity entity, Components::Vector2D at,
-             const Components::Path& path) {
-    const Core::Fixed32 gap = Navigation::GapAt(registry, entity, at, path.target);
-    return gap.value == 0 || gap + kInside <= path.range;
 }
 
 void FinishOrder(Components::Path& path) {
@@ -188,8 +175,18 @@ void MovementSystem::Update(entt::registry& registry, const Physics::Grid& grid,
             path.goal = path.waypoints.back();
             path.has_goal = true;
         }
-        const Physics::Layer layer = Navigation::LayerOf(registry, grid, entity);
-        const Core::Fixed32 radius = Navigation::RadiusOf(registry, entity);
+        // Its rules, once: the layer it moves on, its body and its pace, as
+        // Navigation::LayerOf, RadiusOf and StepLength find them.
+        const auto* identity = registry.try_get<Components::Identity>(entity);
+        const auto* owner = registry.try_get<Components::Owner>(entity);
+        const Core::Rules::UnitRules* rules =
+            identity != nullptr ? Players::UnitOf(registry, Players::RulesPlayer(registry, entity), identity->unit_id)
+                                : nullptr;
+        const Physics::Layer layer =
+            identity == nullptr ? Physics::kLand
+                                : Physics::Keyed(rules != nullptr ? grid.LayerOf(rules->terrain_restriction) : Physics::kLand,
+                                                 owner != nullptr ? owner->player_id : Core::PLAYER_GAIA);
+        const Core::Fixed32 radius = rules != nullptr ? rules->size_x : Core::Fixed32(0);
 
         // Near a corner with the next one in sight, the corner is cut.
         if (path.current_waypoint_index + 1 < path.waypoints.size()) {
@@ -203,7 +200,7 @@ void MovementSystem::Update(entt::registry& registry, const Physics::Grid& grid,
             }
         }
 
-        Core::Fixed32 step = StepLength(registry, entity, fixed_dt_ms);
+        Core::Fixed32 step = StepLength(identity != nullptr && owner != nullptr, rules, fixed_dt_ms);
         if (path.speed_cap.value > 0) {
             step = Core::FixedMath::Min(
                 step, path.speed_cap * Core::Fixed32(fixed_dt_ms) / Core::Fixed32(1000));
@@ -214,6 +211,17 @@ void MovementSystem::Update(entt::registry& registry, const Physics::Grid& grid,
         // there, or, someone already standing on it, up against them.
         const bool aimed = path.target != entt::null && registry.valid(path.target) &&
                            registry.all_of<Components::Transform>(path.target);
+        // Within range of its target, as InRange: the target's box grown by
+        // its body, worked out once.
+        Buildings::Bounds reach{};
+        if (aimed) {
+            const Buildings::Bounds box = Combat::BoxOf(registry, path.target);
+            reach = {box.min_x - radius, box.min_y - radius, box.max_x + radius, box.max_y + radius};
+        }
+        auto in_range = [&](Components::Vector2D point) {
+            const Core::Fixed32 gap = reach.DistanceFrom(point);
+            return gap.value == 0 || gap + kInside <= path.range;
+        };
         const Navigation::Body* occupant =
             !aimed && traffic != nullptr ? OnTheGoal(*traffic, entity, path.goal, radius) : nullptr;
 
@@ -223,7 +231,7 @@ void MovementSystem::Update(entt::registry& registry, const Physics::Grid& grid,
         bool blocked = false;   // up against whoever stands on the goal
         bool closed = false;
         while (step.value > 0 && path.current_waypoint_index < path.waypoints.size()) {
-            if (aimed && InRange(registry, entity, at, path)) {
+            if (aimed && in_range(at)) {
                 arrived = true;
                 break;
             }
@@ -262,7 +270,7 @@ void MovementSystem::Update(entt::registry& registry, const Physics::Grid& grid,
         if (heading.x.value != 0 || heading.y.value != 0) {
             sprite.heading = Core::FixedMath::WorldVectorToHeading(heading.x, heading.y);
         }
-        if (aimed && InRange(registry, entity, at, path)) {
+        if (aimed && in_range(at)) {
             arrived = true;
         }
         if (closed && !arrived && !Replan(registry, grid, entity, path, transform)) arrived = true;
