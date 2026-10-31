@@ -295,7 +295,13 @@ std::vector<Prospect> Weigh(const Turn& turn, const Group& group, bool sea, Core
     middle.y = middle.y / Core::Fixed32(placed);
 
     std::vector<Prospect> out;
-    std::vector<entt::entity> defenders;
+    // What could shoot at a spot: each known enemy thing, its box and reach.
+    struct Defender {
+        entt::entity e;
+        ECS::Buildings::Bounds box;
+        Core::Fixed32 range;
+    };
+    std::vector<Defender> defenders;
     auto all = registry.view<const ECS::Components::Transform, const ECS::Components::Owner>();
     for (auto e : all) {
         if (!Hostile(turn, e) || !ECS::Combat::Alive(registry, e)) continue;
@@ -305,7 +311,9 @@ std::vector<Prospect> Weigh(const Turn& turn, const Group& group, bool sea, Core
         const Vector2D& at = all.get<const ECS::Components::Transform>(e).position;
         const int x = Physics::TileOf(at.x), y = Physics::TileOf(at.y);
         if (building ? !Knowledge::Explored(turn, x, y) : !Knowledge::Sees(turn, e)) continue;
-        defenders.push_back(e);
+        if (const auto* fights = ECS::Combat::FightingRules(registry, e)) {
+            defenders.push_back({e, ECS::Combat::BoxOf(registry, e), fights->max_range});
+        }
         if (only != 0 && owner != only) continue;
         const auto* rules = ECS::Combat::DefendingRules(registry, e);
         const int cls = rules != nullptr ? rules->cls : -1;
@@ -339,12 +347,16 @@ std::vector<Prospect> Weigh(const Turn& turn, const Group& group, bool sea, Core
 
     // How long what could shoot at each prospect's spot would take to kill
     // the group, one soldier after another.
+    const Core::Fixed32 zero{};
+    std::vector<entt::entity> near;
     for (Prospect& p : out) {
         const Vector2D& at = Where(registry, p.e);
-        std::vector<entt::entity> near;
-        for (entt::entity d : defenders) {
-            const auto* rules = ECS::Combat::FightingRules(registry, d);
-            if (rules != nullptr && ECS::Combat::BoxOf(registry, d).DistanceFrom(at) <= rules->max_range) near.push_back(d);
+        near.clear();
+        for (const Defender& d : defenders) {
+            const Core::Fixed32 dx = std::max(zero, std::max(d.box.min_x - at.x, at.x - d.box.max_x));
+            const Core::Fixed32 dy = std::max(zero, std::max(d.box.min_y - at.y, at.y - d.box.max_y));
+            if (dx > d.range || dy > d.range) continue;
+            if (dx * dx + dy * dy <= d.range * d.range) near.push_back(d.e);
         }
         if (near.empty()) {
             p.defence = kNever;
