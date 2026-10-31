@@ -91,7 +91,18 @@ std::string DatName(Components::VillagerJob job, bool female) {
 }
 
 int UnitId(Components::VillagerJob job, bool female) {
-    return Core::ConfigManager::Get().GetUnitIdByName(DatName(job, female));
+    // Looked up by name once for each job, then kept: this is asked for every
+    // villager every tick.
+    constexpr size_t kJobs = static_cast<size_t>(Components::VillagerJob::Repair) + 1;
+    static int ids[kJobs][2];
+    static bool known[kJobs][2] = {};
+    const size_t j = static_cast<size_t>(job);
+    if (j >= kJobs) return Core::ConfigManager::Get().GetUnitIdByName(DatName(job, female));
+    if (!known[j][female]) {
+        ids[j][female] = Core::ConfigManager::Get().GetUnitIdByName(DatName(job, female));
+        known[j][female] = true;
+    }
+    return ids[j][female];
 }
 
 int DisplayUnit(const entt::registry& registry, entt::entity entity) {
