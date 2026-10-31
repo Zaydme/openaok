@@ -31,6 +31,15 @@ out of the way of the original's own look and rules.
   can be set up with a population limit of 250 to 500 in steps of 50, and of
   600 to 1000 in steps of 100.
 
+## Fights
+
+- **Aggressive soldiers join in.** An idle unit on the Aggressive stance
+  comes to help one of its side struck anywhere within its own sight, not
+  only within three tiles. Defensive units keep the original's three.
+- **Volleys spread out.** Soldiers set on an enemy in the same moment begin
+  their first blow or shot up to six tenths of a second apart, so a line of
+  archers does not loose every arrow on the same instant.
+
 ## Where it runs
 
 - **Windows 10 and 11, macOS and Linux**, from the player's own CD.
