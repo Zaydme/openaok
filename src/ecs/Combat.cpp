@@ -466,9 +466,9 @@ const Core::Fixed32 kSurroundNear = Core::Fixed32(3);
 // a place round the target's body clear of those striking it and of where
 // those coming at it are headed, or, every place taken, standing by a body's
 // width further out. False when there is no such place.
-bool SurroundSpot(const entt::registry& registry, const Physics::Grid& grid, entt::entity self,
-                  entt::entity target, const R::UnitRules& rules, Components::Vector2D& spot) {
-    static std::vector<Components::Vector2D> taken;
+// Where those also set on `target` stand, or, on their way, are headed.
+void SetOnIt(const entt::registry& registry, entt::entity self, entt::entity target,
+             std::vector<Components::Vector2D>& taken) {
     taken.clear();
     auto fighters = registry.view<const Combat, const Components::Transform>();
     for (auto e : fighters) {
@@ -483,6 +483,12 @@ bool SurroundSpot(const entt::registry& registry, const Physics::Grid& grid, ent
             taken.push_back(fighters.get<const Components::Transform>(e).position);
         }
     }
+}
+
+bool SurroundSpot(const entt::registry& registry, const Physics::Grid& grid, entt::entity self,
+                  entt::entity target, const R::UnitRules& rules, Components::Vector2D& spot) {
+    static std::vector<Components::Vector2D> taken;
+    SetOnIt(registry, self, target, taken);
     const Core::Fixed32 radius = Radius(registry, self);
     Pathfinding::ApproachRequest ask;
     ask.target = BoxOf(registry, target);
@@ -533,10 +539,22 @@ bool PlanChase(entt::registry& registry, const Physics::Grid& grid, entt::entity
                               : Buildings::TileBounds(at);
         ask.from = from;
         const Core::Fixed32 reach = Reach(rules);
-        ask.standoff = Radius(registry, self) + reach / Core::Fixed32(2);
-        ask.clearance = Core::Fixed32(1) / Core::Fixed32(2);
+        const Core::Fixed32 radius = Radius(registry, self);
+        ask.standoff = radius + reach / Core::Fixed32(2);
+        ask.clearance = Core::FixedMath::Max(Core::Fixed32(1) / Core::Fixed32(2), radius + radius);
         ask.layer = layer;
-        const auto spot = Pathfinding::FindStandingSpot(grid, ask);
+        // Clear of the others at it, near it: a crowd at a wall spreads
+        // along it rather than all making for the one nearest spot.
+        static std::vector<Components::Vector2D> taken;
+        taken.clear();
+        if (Gap(registry, self, target) <= kSurroundNear + reach) SetOnIt(registry, self, target, taken);
+        ask.taken = taken.empty() ? nullptr : taken.data();
+        ask.taken_count = taken.size();
+        auto spot = Pathfinding::FindStandingSpot(grid, ask);
+        if (!spot.found && spot.full) {
+            ask.standoff = ask.standoff + ask.clearance;
+            spot = Pathfinding::FindStandingSpot(grid, ask);
+        }
         if (spot.found) goal = spot.spot;
     }
     // The walk ends once the target is within reach, wherever it has got to.
