@@ -29,8 +29,6 @@ constexpr int kFewestVillagers = 1;
 constexpr int kMostVillagers = 150;
 // The dat's research rate: the share of a technology's price a player pays.
 constexpr int kResearchRate = 85;
-// Treason's price in gold, each time.
-constexpr int kTreasonGold = 400;
 
 uint16_t Bit(Core::PlayerId player) { return static_cast<uint16_t>(1u << player); }
 

@@ -53,6 +53,11 @@ bool Affords(const Census& census, const Mind& mind, const Core::Rules::Cost* co
 // A finished building of `unit_id` with nothing queued, or null.
 entt::entity IdleAt(const Census& census, int unit_id);
 
+// A finished Castle of the player's to do Treason at -- a Regicide game, and
+// 400 gold over the escrow unless `with_escrow` -- or null.
+entt::entity SpyAt(const entt::registry& registry, const Census& census, const Mind& mind,
+                   Core::PlayerId player, bool with_escrow);
+
 // The player's price for a technology.
 const Core::Rules::Cost* TechCosts(const entt::registry& registry, Core::PlayerId player,
                                    int tech, int& count);

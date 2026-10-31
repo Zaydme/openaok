@@ -4,6 +4,9 @@
 #include <cstdio>
 #include <string>
 
+#include "ai/Brain.h"
+#include "ai/Mind.h"
+#include "ai/Script.h"
 #include "core/ConfigManager.h"
 #include "core/GameSetup.h"
 #include "core/Rules.h"
@@ -59,6 +62,42 @@ entt::entity Owned(entt::registry& reg, Core::PlayerId player, int unit_id) {
         }
     }
     return entt::null;
+}
+
+// A Regicide game with us a computer player at its Castle, `gold` in hand
+// and `escrow` of it held back, running `rules`: how many times it does
+// Treason in a few seconds, and its goal 1.
+const char* ComputerSpy(const char* rules, int gold, int escrow, int& treasons, int& goal) {
+    Core::GameSetup setup = Core::DefaultSetup();
+    setup.regicide = true;
+    setup.players[kUs].computer = true;
+    ECS::Simulation sim;
+    sim.Init(setup);
+    auto& reg = sim.GetRegistry();
+    AI::Brains* brains = reg.ctx().find<AI::Brains>();
+    if (brains == nullptr || brains->brains.empty()) return "no brain for the computer seat";
+    AI::Brain& brain = brains->brains.front();
+    const std::string text = rules;
+    AI::Script::Environment env;
+    env.read = [&](const std::string&, std::string& out) {
+        out = text;
+        return true;
+    };
+    env.percent = [] { return 0; };
+    brain.program = AI::Script::Compile("main", env);
+    AI::Reset(brain.mind, brain.program.rules.size(), &setup);
+    brain.mind.escrow[static_cast<size_t>(Core::ResourceType::Gold)] = escrow;
+    ECS::Players::SetResource(*ECS::Players::Find(reg, kUs), R::Res::Gold, Core::Fixed32(gold));
+    treasons = 0;
+    for (int t = 0; t < 3 * kTicksPerSecond; ++t) {
+        sim.Update(16);
+        const auto* log = ECS::Events::Read(reg);
+        for (const auto& e : log->events) {
+            treasons += e.tick == log->tick && e.kind == ECS::Events::Kind::Treason && e.player == kUs;
+        }
+    }
+    goal = brain.mind.goals[1];
+    return nullptr;
 }
 
 } // namespace
@@ -197,6 +236,23 @@ bool CheckSpies() {
             else if (seen_before || !seen) verdict = "Treason did not show us an enemy King's ground";
             else if (still) verdict = "Treason's mark outlasted ten seconds";
         }
+    }
+
+    // A computer player's spy: can-spy with 400 gold over the escrow, and
+    // spy doing Treason once; with the escrow cutting into it, only
+    // can-spy-with-escrow.
+    if (verdict == "ok") {
+        const char* spying = "(defrule (can-spy) => (spy) (disable-self))\n";
+        const char* asking =
+            "(defrule (can-spy-with-escrow) (not (can-spy)) => (set-goal 1 1) (disable-self))\n";
+        int treasons = 0, goal = 0;
+        const char* failed = ComputerSpy(spying, 1000, 0, treasons, goal);
+        if (failed == nullptr && treasons != 1) failed = "a computer player that could spy did not do Treason once";
+        if (failed == nullptr) failed = ComputerSpy(spying, 500, 200, treasons, goal);
+        if (failed == nullptr && treasons != 0) failed = "a computer player did Treason with its escrowed gold";
+        if (failed == nullptr) failed = ComputerSpy(asking, 500, 200, treasons, goal);
+        if (failed == nullptr && goal != 1) failed = "can-spy-with-escrow did not count the escrowed gold";
+        if (failed != nullptr) verdict = failed;
     }
 
     std::printf("spies=%s\n", verdict.c_str());

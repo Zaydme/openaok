@@ -298,8 +298,15 @@ void Run(Turn& turn, const Script::Act& act, bool& disable_self) {
     case Action::EnableWallPlacement:
         Walls::Reserve(turn, a[0]);
         break;
-    // The spy: not carried out.
+    // The spy: Treason at a Castle, with the gold over the escrow.
     case Action::Spy:
+        if (turn.registry != nullptr) {
+            const entt::entity castle = Things::SpyAt(*turn.registry, *turn.census, mind, turn.player, false);
+            if (castle != entt::null) {
+                Give(*turn.registry, *turn.grid, Core::TreasonCommand{castle, turn.player});
+                Executor::Refresh(turn);
+            }
+        }
         break;
 
     case Action::COUNT:

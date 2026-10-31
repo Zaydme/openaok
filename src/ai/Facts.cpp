@@ -581,9 +581,11 @@ bool Test(Turn& turn, const Script::Expr& e) {
         return Owned(turn) && Compare(Walls::CompletedPercent(turn, a[0]), a[1], a[2]);
     case Fact::WallInvisiblePercentage:
         return Owned(turn) && Compare(Walls::InvisiblePercent(turn, a[0]), a[1], a[2]);
-    // The spy is never available.
+    // The spy: Treason at a Castle (ai/Things).
     case Fact::CanSpy:
-    case Fact::CanSpyWithEscrow:      return false;
+        return Owned(turn) && Things::SpyAt(*turn.registry, *turn.census, *turn.mind, turn.player, false) != entt::null;
+    case Fact::CanSpyWithEscrow:
+        return Owned(turn) && Things::SpyAt(*turn.registry, *turn.census, *turn.mind, turn.player, true) != entt::null;
 
     case Fact::COUNT: break;
     }

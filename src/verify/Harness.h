@@ -80,7 +80,8 @@ bool CheckFog();
 bool CheckFlag();
 
 // Spies' price for each enemy villager and the enemy sight it gives; none in a
-// Death Match or Regicide game, where Treason marks the enemy Kings instead.
+// Death Match or Regicide game, where Treason marks the enemy Kings instead;
+// and a computer player's spy, Treason when it has 400 gold over its escrow.
 // Prints "spies=".
 bool CheckSpies();
 

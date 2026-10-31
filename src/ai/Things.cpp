@@ -1,7 +1,10 @@
 #include "ai/Things.h"
 
 #include "ai/Catalog.h"
+#include "core/ConfigManager.h"
+#include "core/GameSetup.h"
 #include "ecs/Players.h"
+#include "ecs/Spies.h"
 #include "ecs/Techs.h"
 
 namespace AI::Things {
@@ -133,6 +136,20 @@ bool Affords(const Census& census, const Mind& mind, const R::Cost* costs, int c
 entt::entity IdleAt(const Census& census, int unit_id) {
     for (const Census::Site& site : census.buildings) {
         if (site.unit_id == unit_id && site.complete && site.idle) return site.entity;
+    }
+    return entt::null;
+}
+
+entt::entity SpyAt(const entt::registry& registry, const Census& census, const Mind& mind,
+                   Core::PlayerId player, bool with_escrow) {
+    if (!ECS::Spies::CanTreason(registry, player)) return entt::null;
+    const int gold = static_cast<int>(Core::ResourceType::Gold);
+    const int have = census.stock[gold] - (with_escrow ? 0 : mind.escrow[static_cast<size_t>(gold)]);
+    if (have < ECS::Spies::kTreasonGold) return entt::null;
+    const auto* setup = registry.ctx().find<Core::GameSetup>();
+    const int castle = Core::ConfigManager::Get().GetUnitIdByName(setup->regicide_castle);
+    for (const Census::Site& site : census.buildings) {
+        if (site.unit_id == castle && site.complete) return site.entity;
     }
     return entt::null;
 }

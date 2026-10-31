@@ -20,6 +20,9 @@
 // round the King, ten seconds. Death Match has neither.
 namespace ECS::Spies {
 
+// Treason's price in gold, each time.
+constexpr int kTreasonGold = 400;
+
 // Takes Spies away from every player where the game does not have it:
 // Regicide and Death Match.
 void Setup(entt::registry& registry, const Core::GameSetup& setup);
