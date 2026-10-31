@@ -103,15 +103,14 @@ void At(const SDL_Rect& field) {
 
 void Pressed(int window_x, int window_y) {
 #ifdef __ANDROID__
-    // Put away with Back, the keyboard ends text input; put away otherwise,
-    // it leaves it on but hidden. Either way it is started again.
+    // Put away with Back, the keyboard ends text input; put away by its own
+    // button or a swipe, it leaves it on but hidden, and SDL still counts it
+    // shown. A press on the field shows it again either way: showing a
+    // keyboard already up changes nothing.
     if (g.wanted == Kind::None) return;
     const SDL_Point at{window_x, window_y};
     if (SDL_PointInRect(&at, &g.field) != SDL_TRUE) return;
-    const bool on = SDL_IsTextInputActive() == SDL_TRUE;
-    if (on && SDL_IsScreenKeyboardShown(SDL_GetKeyboardFocus()) == SDL_TRUE) return;
     SDL_SetTextInputRect(&g.field);
-    if (on) SDL_StopTextInput();
     SDL_StartTextInput();
 #else
     (void)window_x;
