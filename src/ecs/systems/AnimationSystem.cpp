@@ -232,10 +232,9 @@ void AnimationSystem::Update(entt::registry& registry, int32_t dt_ms) {
         if (site != nullptr) sprite.slp_frame = site->slp_frame;
     }
 
-    // 3. Advance every animating sprite.
-    auto view = registry.view<Components::Sprite>();
-    for (auto entity : view) {
-        auto& sprite = view.get<Components::Sprite>(entity);
+    // 3. Advance every animating sprite, straight down the storage's packed
+    //    array: each on its own.
+    for (auto& sprite : registry.storage<Components::Sprite>()) {
         if (sprite.construction_frames > 0 || sprite.site_layer) continue;
 
         if (!sprite.still && sprite.frames_per_angle > 1 && sprite.animation_speed > 0) {
