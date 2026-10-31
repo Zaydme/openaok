@@ -139,10 +139,7 @@ bool ResearchCheck(Turn& turn, int32_t thing, Check check, bool with_escrow) {
 
 int Escrowed(const Turn& turn, int r) { return turn.mind->escrow[static_cast<size_t>(r)]; }
 
-// How far, at least, one of the player's gatherers of a resource walks from
-// its work to the nearest place that takes it, in whole tiles; -1 while
-// nobody gathers it.
-int DropsiteMinDistance(const Turn& turn, int resource) {
+int MinDropWalk(const Turn& turn, int resource) {
     if (!Owned(turn)) return -1;
     const entt::registry& registry = *turn.registry;
     const auto type = static_cast<Core::ResourceType>(resource);
@@ -289,6 +286,8 @@ int StartingResources(const Core::GameSetup& setup) {
 }
 
 } // namespace
+
+int DropsiteMinDistance(const Turn& turn, int resource) { return MinDropWalk(turn, resource); }
 
 Lang::Stance StanceToward(const Turn& turn, int other) {
     if (turn.mind == nullptr || other < 0 || other >= Core::kMaxPlayers) return Lang::Stance::Enemy;
@@ -541,7 +540,7 @@ bool Test(Turn& turn, const Script::Expr& e) {
         return tech >= 0 && ECS::Techs::Researched(*turn.registry, turn.player, tech);
     }
 
-    case Fact::DropsiteMinDistance:  return Compare(DropsiteMinDistance(turn, a[0]), a[1], a[2]);
+    case Fact::DropsiteMinDistance:  return Compare(MinDropWalk(turn, a[0]), a[1], a[2]);
     case Fact::SheepAndForageTooFar: return SheepAndForageTooFar(turn);
     case Fact::ResourceFound:        return ResourceFound(turn, a[0]);
     case Fact::EnemyBuildingsInTown: return EnemyBuildingsInTown(turn);

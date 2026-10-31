@@ -4,6 +4,7 @@
 #include <cstdlib>
 
 #include "ai/Catalog.h"
+#include "ai/Facts.h"
 #include "ai/Walls.h"
 #include "core/FixedMath.h"
 #include "core/Rules.h"
@@ -433,10 +434,20 @@ bool Site(Turn& turn, int slot, bool forward, int& x, int& y) {
         return false;
     }
     if (gold || stone) {
-        const entt::entity g = gold ? Nearest(turn, kGoldClass, Core::ResourceType::Gold, camp_reach, false) : entt::null;
-        if (Beside(turn, slot, g, camp_reach, x, y)) return true;
-        const entt::entity s = stone ? Nearest(turn, kStoneClass, Core::ResourceType::Stone, camp_reach, false) : entt::null;
-        return Beside(turn, slot, s, camp_reach, x, y);
+        // For whichever the miners walk further than the rules like to
+        // (sn-gold-dropsite-distance, then sn-stone-); else gold, then stone.
+        const auto far = [&](Core::ResourceType type, Lang::SN like) {
+            const int walk = Facts::DropsiteMinDistance(turn, static_cast<int>(type));
+            return walk >= 0 && walk > Sn(turn, like);
+        };
+        const bool for_stone = stone && !(gold && far(Core::ResourceType::Gold, Lang::SN::GoldDropsiteDistance)) &&
+                               far(Core::ResourceType::Stone, Lang::SN::StoneDropsiteDistance);
+        const auto near = [&](bool takes, int cls, Core::ResourceType type) {
+            return takes && Beside(turn, slot, Nearest(turn, cls, type, camp_reach, false), camp_reach, x, y);
+        };
+        if (for_stone && near(true, kStoneClass, Core::ResourceType::Stone)) return true;
+        return near(gold, kGoldClass, Core::ResourceType::Gold) ||
+               near(stone && !for_stone, kStoneClass, Core::ResourceType::Stone);
     }
     if (food) {
         const int mill_reach = Sn(turn, Lang::SN::MillMaxDistance);

@@ -40,6 +40,11 @@ void ForEach(Turn& turn, int encoded, F&& each) {
     }
 }
 
+// How far, at least, one of the player's gatherers of a resource
+// (Core::ResourceType) walks from its work to the nearest place that takes
+// it, in whole tiles; -1 while nobody gathers it (dropsite-min-distance).
+int DropsiteMinDistance(const Turn& turn, int resource);
+
 // The player's stance toward `other`, and `other`'s toward the player.
 Lang::Stance StanceToward(const Turn& turn, int other);
 Lang::Stance StanceOf(const Turn& turn, int other);

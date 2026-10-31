@@ -10,12 +10,16 @@
 
 #include "ai/Brain.h"
 #include "ai/Census.h"
+#include "ai/Facts.h"
 #include "ai/Interpreter.h"
 #include "ai/Language.h"
 #include "ai/Mind.h"
+#include "ai/Placement.h"
 #include "ai/Script.h"
+#include "ai/Things.h"
 #include "ai/World.h"
 #include "core/ConfigManager.h"
+#include "core/FixedMath.h"
 #include "core/GameSetup.h"
 #include "core/Rules.h"
 #include "ecs/Buildings.h"
@@ -31,6 +35,7 @@
 #include "ecs/components/Owner.h"
 #include "ecs/components/ProductionQueue.h"
 #include "ecs/components/Relic.h"
+#include "ecs/components/Resource.h"
 #include "ecs/components/Transform.h"
 #include "ecs/components/Worker.h"
 #include "hal/GraphicCache.h"
@@ -829,6 +834,81 @@ const char* CheckRelics() {
     return nullptr;
 }
 
+// Where a mining camp goes: with a villager mining stone further from a drop
+// site than sn-stone-dropsite-distance, beside the stone; with that distance
+// longer than the walk, at the gold as before.
+const char* CheckCamps() {
+    using SN = AI::Lang::SN;
+    Core::GameSetup setup = Core::DefaultSetup();
+    setup.players[1].computer = true;
+    ECS::Simulation sim;
+    sim.Init(setup);
+    auto& reg = sim.GetRegistry();
+    auto& grid = sim.GetGrid();
+    AI::Brains* brains = reg.ctx().find<AI::Brains>();
+    if (brains == nullptr || brains->brains.empty()) return "no brain for the computer seat";
+    AI::Brain& brain = brains->brains.front();
+    Files files;
+    files["main"] = "(defrule (true) => (do-nothing))\n";
+    brain.program = CompileFiles(files, {}, 0);
+    AI::Reset(brain.mind, brain.program.rules.size(), &setup);
+    AI::Census census = AI::Take(reg, 1);
+    const auto& home = census.home;
+    // The nearest stone and gold to home, and a villager sent to the stone.
+    auto nearest = [&](Core::ResourceType type) {
+        entt::entity best = entt::null;
+        Core::Fixed32 best_d{};
+        for (auto e : reg.view<ECS::Components::Resource, ECS::Components::Transform>()) {
+            if (reg.get<ECS::Components::Resource>(e).type != type) continue;
+            const auto& at = reg.get<ECS::Components::Transform>(e).position;
+            const Core::Fixed32 d = Core::FixedMath::Distance(at.x - home.x, at.y - home.y);
+            if (best == entt::null || d < best_d) {
+                best = e;
+                best_d = d;
+            }
+        }
+        return best;
+    };
+    const entt::entity stone = nearest(Core::ResourceType::Stone);
+    const entt::entity gold = nearest(Core::ResourceType::Gold);
+    if (stone == entt::null || gold == entt::null || census.villagers.empty()) return "no stone, gold or villager";
+    ECS::Orders::Execute(reg, grid, Core::GatherCommand{census.villagers.front(), stone, 1});
+    // Run with the brain idle so nothing else is ordered.
+    brain.think_ms = 1 << 30;
+    for (int t = 0; t < 40 * kTicksPerSecond; ++t) sim.Update(16);
+    census = AI::Take(reg, 1);
+    AI::Take(reg, 1, nullptr, nullptr, brains->world);
+    AI::Turn turn;
+    turn.registry = &reg;
+    turn.grid = &grid;
+    turn.brains = brains;
+    turn.brain = &brain;
+    turn.program = &brain.program;
+    turn.mind = &brain.mind;
+    turn.world = &brains->world;
+    turn.census = &census;
+    turn.setup = &setup;
+    turn.player = 1;
+    if (AI::Facts::DropsiteMinDistance(turn, static_cast<int>(Core::ResourceType::Stone)) <= 3) {
+        return "the stone was not far enough from a drop site to tell";
+    }
+    const int camp = AI::Things::Slot(reg, brains->world, 1, AI::Lang::Things()[AI::Lang::FindThing("mining-camp")],
+                                      setup.players[1].civ);
+    const auto gap = [&](int x, int y, entt::entity e) {
+        const auto& at = reg.get<ECS::Components::Transform>(e).position;
+        return Core::FixedMath::Distance(Core::Fixed32(x) - at.x, Core::Fixed32(y) - at.y);
+    };
+    for (const bool far : {true, false}) {
+        AI::SetStrategic(brain.mind, SN::StoneDropsiteDistance, far ? 3 : 100, &setup);
+        int x = 0, y = 0;
+        if (!AI::Placement::Site(turn, camp, false, x, y)) return "no site for a mining camp";
+        const bool at_stone = gap(x, y, stone) < gap(x, y, gold);
+        if (far && !at_stone) return "a mining camp was not put by the stone its miners walk far from";
+        if (!far && at_stone) return "a mining camp was put by the stone with its miners walking no further than the rules like";
+    }
+    return nullptr;
+}
+
 // Civilian explorers as the game counts them: of the three villagers at the
 // start, sn-percent-civilian-explorers 34 rounded up and capped at 2 sends
 // two; with sn-percent-half-exploration reached, one; and a lone villager
@@ -932,6 +1012,7 @@ bool CheckScript() {
     if (verdict == nullptr) verdict = CheckRelics();
     if (verdict == nullptr) verdict = CheckRetask();
     if (verdict == nullptr) verdict = CheckExplorers();
+    if (verdict == nullptr) verdict = CheckCamps();
     std::printf("script=%s\n", verdict == nullptr ? "ok" : verdict);
     return verdict == nullptr;
 }
