@@ -824,17 +824,30 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
                   registry.view<const Components::Transform, const Components::Health, const Components::Owner>(),
                   grid.GetWidth(), grid.GetHeight());
 
+    // What each fighter's own checks read, found once for the pass.
+    const auto& dying = registry.storage<Components::Dying>();
+    const auto& healths = registry.storage<Components::Health>();
+    const auto& buildings = registry.storage<Components::Building>();
+    const auto& makers = registry.storage<Components::RulesOf>();
+    const auto& owners = registry.storage<Components::Owner>();
+    const Players::Table* table = Players::TableOf(registry);
+
     int plans = 0;
     auto fighters = registry.view<Combat, Components::Transform>();
     for (auto self : fighters) {
         auto& combat = fighters.get<Combat>(self);
-        if (!Alive(registry, self)) continue;
+        // Alive: the view has its Transform.
+        if (dying.contains(self) || !healths.contains(self) || healths.get(self).current_hp <= 0) continue;
         combat.reload_ms = std::max<int32_t>(0, combat.reload_ms - dt_ms);
         combat.swing_ms = std::max<int32_t>(0, combat.swing_ms - dt_ms);
 
-        const R::UnitRules* rules = FightingRules(registry, self);
+        // FightingRules, by the table it plays by.
+        const Core::PlayerId rules_player = makers.contains(self)   ? makers.get(self).player
+                                            : owners.contains(self) ? owners.get(self).player_id
+                                                                    : Core::PLAYER_GAIA;
+        const R::UnitRules* rules = Players::UnitOf(table, rules_player, Villagers::DisplayUnit(registry, self));
         if (rules == nullptr || rules->attack_count == 0) continue;
-        const bool building = IsBuilding(registry, self);
+        const bool building = buildings.contains(self);
 
         if (combat.state != CombatState::Idle && !Alive(registry, combat.target)) {
             Disengage(registry, grid, self, combat);

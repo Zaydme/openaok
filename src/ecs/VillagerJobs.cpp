@@ -115,11 +115,25 @@ int DisplayUnit(const entt::registry& registry, entt::entity entity) {
         return own;
     }
 
-    const int job_id = UnitId(anim->job, anim->female);
-    if (job_id < 0) return own;
-    // Only if the interface knows that unit, so a job with no entry does not
-    // blank the panel.
-    return Core::ConfigManager::Get().GetUnitInterface(job_id) ? job_id : own;
+    // The job's unit, only if the interface knows it, so a job with no entry
+    // does not blank the panel: worked out once for each job, as UnitId is.
+    constexpr size_t kJobs = static_cast<size_t>(Components::VillagerJob::Repair) + 1;
+    static int shown[kJobs][2];
+    static bool known[kJobs][2] = {};
+    const size_t j = static_cast<size_t>(anim->job);
+    const bool female = anim->female;
+    int job_id = -1;
+    if (j < kJobs && known[j][female]) {
+        job_id = shown[j][female];
+    } else {
+        job_id = UnitId(anim->job, female);
+        if (job_id >= 0 && Core::ConfigManager::Get().GetUnitInterface(job_id) == nullptr) job_id = -1;
+        if (j < kJobs) {
+            shown[j][female] = job_id;
+            known[j][female] = true;
+        }
+    }
+    return job_id >= 0 ? job_id : own;
 }
 
 } // namespace ECS::Villagers
