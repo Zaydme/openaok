@@ -6,6 +6,7 @@
 #include "ai/Facts.h"
 #include "ai/Military.h"
 #include "ai/Navy.h"
+#include "ai/Relics.h"
 #include "ai/Scouting.h"
 #include "ai/Things.h"
 #include "core/FixedMath.h"
@@ -165,6 +166,7 @@ void Run(Turn& turn) {
     News(turn);
     Economy::Run(turn);
     Scouting::Claim(turn);
+    Relics::Run(turn);
     Military::Run(turn);
     Navy::Run(turn);
     Scouting::Run(turn);

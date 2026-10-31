@@ -4,6 +4,7 @@
 
 #include "ecs/Vision.h"
 #include "ecs/components/Combat.h"
+#include "ecs/components/Monk.h"
 #include "ecs/components/Path.h"
 #include "ecs/components/Worker.h"
 
@@ -109,7 +110,7 @@ void Claim(Turn& turn) {
             const bool taken = std::any_of(brain.explore_groups.begin(), brain.explore_groups.end(), [&](const auto& g) {
                 return std::find(g.begin(), g.end(), e) != g.end();
             });
-            if (taken || registry.all_of<ECS::Components::Worker>(e)) {
+            if (taken || registry.any_of<ECS::Components::Worker, ECS::Components::Monk>(e)) {
                 ++it;
                 continue;
             }

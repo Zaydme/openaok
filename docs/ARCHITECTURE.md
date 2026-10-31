@@ -174,7 +174,8 @@ The computer players are the original rule scripts -- the `.per` files in
 - **The executor** carries out what the rules ask: `ai/Economy` (villagers,
   builders, farms, hunting), `ai/Placement` (where buildings go), `ai/Walls`
   (the two perimeters, walls and gates), `ai/Military` (attack groups,
-  defence), `ai/Navy`, `ai/Scouting`, behind `ai/Executor`.
+  defence), `ai/Navy`, `ai/Scouting` (the scout, explore groups),
+  `ai/Relics` (Monks fetching relics), behind `ai/Executor`.
 
 Computer players act only through `ecs/Orders`, inside the tick, on their own
 random streams, so every machine in a network game runs them identically.

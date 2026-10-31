@@ -35,8 +35,8 @@ and campaigns, the computer players' finer play, and polish.
 1. **Computer players**
    - Defend groups, which only players' own scripts ask for: the game's
      scripts leave sn-number-defend-groups at 0.
-   - Relics, and the difficulty parameters (dodging missiles, reaction
-     distances), which are read but not used.
+   - The difficulty parameters (dodging missiles, keeping distance), which
+     are read but not used.
    - Their economy on water maps: more wood in the Feudal Age, more warships
      and transports.
 2. **Performance**: eight players on a giant map, late game, at a steady

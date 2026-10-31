@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "ai/Relics.h"
 #include "ai/Things.h"
 #include "ai/Walls.h"
 #include "core/FixedMath.h"
@@ -547,8 +548,7 @@ bool Test(Turn& turn, const Script::Expr& e) {
     case Fact::TownUnderAttack:
         return turn.brain != nullptr && turn.brain->town_struck_ms >= 0 &&
                turn.now_ms - turn.brain->town_struck_ms <= kUnderAttackMs;
-    // Relics are not tracked.
-    case Fact::EnemyCapturedRelics:  return false;
+    case Fact::EnemyCapturedRelics:  return Relics::EnemyCaptured(turn);
 
     // The Market: a lot of a commodity bought or sold at the price of the
     // moment, escrow aside.

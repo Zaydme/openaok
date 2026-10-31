@@ -1,6 +1,7 @@
 #include "verify/Harness.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
 #include <map>
@@ -22,12 +23,14 @@
 #include "ecs/Diplomacy.h"
 #include "ecs/Orders.h"
 #include "ecs/Players.h"
+#include "ecs/Relics.h"
 #include "ecs/ScenarioWorld.h"
 #include "ecs/Simulation.h"
 #include "ecs/components/Building.h"
 #include "ecs/components/Identity.h"
 #include "ecs/components/Owner.h"
 #include "ecs/components/ProductionQueue.h"
+#include "ecs/components/Relic.h"
 #include "ecs/components/Transform.h"
 #include "hal/GraphicCache.h"
 
@@ -646,6 +649,112 @@ const char* CheckExploring() {
     return nullptr;
 }
 
+// Relics: a computer player's idle Monk fetches a relic lying where the player
+// has explored and puts it in the player's Monastery; at Easiest the relic is
+// left alone; and enemy-captured-relics holds once the enemy's Monastery has
+// every relic on the map.
+const char* CheckRelics() {
+    auto& cfg = Core::ConfigManager::Get();
+    const int monastery = cfg.GetUnitIdByName("CRCH");
+    const int monk = cfg.GetUnitIdByName("MONKX");
+    const int relic_unit = cfg.GetUnitIdByName("RELIC");
+    if (monastery < 0 || monk < 0 || relic_unit < 0) return "no Monastery, Monk or relic in the data";
+    for (const int difficulty : {1, 4}) {
+        Core::GameSetup setup = Core::DefaultSetup();
+        setup.players[1].computer = true;
+        setup.difficulty = difficulty;
+        ECS::Simulation sim;
+        sim.Init(setup);
+        auto& reg = sim.GetRegistry();
+        auto& grid = sim.GetGrid();
+        auto town_center = [&](Core::PlayerId p) {
+            for (auto e : reg.view<ECS::Components::Building, ECS::Components::Owner>()) {
+                if (reg.get<ECS::Components::Owner>(e).player_id == p) return e;
+            }
+            return entt::entity{entt::null};
+        };
+        // A finished Monastery beside a Town Center, and a free tile near it.
+        auto build = [&](Core::PlayerId p) {
+            const entt::entity tc = town_center(p);
+            if (tc == entt::null) return entt::entity{entt::null};
+            const auto& at = reg.get<ECS::Components::Transform>(tc).position;
+            for (int r = 5; r < 14; ++r) {
+                for (int dx = -r; dx <= r; ++dx) {
+                    const int x = at.x.ToInt() + dx, y = at.y.ToInt() - r;
+                    if (ECS::Buildings::CanPlace(grid, monastery, x, y)) {
+                        return ECS::Buildings::Place(reg, grid, monastery, p, x, y, true);
+                    }
+                }
+            }
+            return entt::entity{entt::null};
+        };
+        // On open ground nobody stands near.
+        auto place = [&](int unit, Core::PlayerId p, int from_x, int from_y) {
+            for (int r = 2; r < 12; ++r) {
+                for (int dx = -r; dx <= r; ++dx) {
+                    const int x = from_x + dx, y = from_y + r;
+                    if (!grid.IsWalkable(x, y)) continue;
+                    bool crowded = false;
+                    for (auto o : reg.view<ECS::Components::Transform>()) {
+                        const auto& q = reg.get<ECS::Components::Transform>(o).position;
+                        crowded |= std::abs(q.x.ToInt() - x) <= 1 && std::abs(q.y.ToInt() - y) <= 1;
+                    }
+                    if (crowded) continue;
+                    const entt::entity e = ECS::ScenarioWorld::Place(
+                        reg, grid, unit, p,
+                        {Core::Fixed32(x) + Core::Fixed32(1) / Core::Fixed32(2), Core::Fixed32(y) + Core::Fixed32(1) / Core::Fixed32(2)},
+                        {}, 0);
+                    if (e != entt::null) return e;
+                }
+            }
+            return entt::entity{entt::null};
+        };
+        const entt::entity ours = build(1);
+        if (ours == entt::null) return "no room for a Monastery";
+        const auto& home = reg.get<ECS::Components::Transform>(town_center(1)).position;
+        const entt::entity relic = place(relic_unit, 0, home.x.ToInt() + 4, home.y.ToInt() + 2);
+        const entt::entity brother = place(monk, 1, home.x.ToInt() - 4, home.y.ToInt() + 2);
+        if (relic == entt::null || brother == entt::null) return "no room for the relic or the Monk";
+        Files files;
+        files["main"] = "(defrule (enemy-captured-relics) => (set-goal 1 1))\n";
+        AI::Brains* brains = reg.ctx().find<AI::Brains>();
+        if (brains == nullptr || brains->brains.empty()) return "no brain for the computer seat";
+        AI::Brain& brain = brains->brains.front();
+        brain.program = CompileFiles(files, {}, 0);
+        if (!brain.program.errors.empty()) return "the relics script did not load";
+        AI::Reset(brain.mind, brain.program.rules.size());
+        brain.mind.stance[2] = static_cast<uint8_t>(AI::Lang::Stance::Enemy);
+        for (int t = 0; t < 60 * kTicksPerSecond && ECS::Relics::Held(reg, ours) == 0; ++t) sim.Update(16);
+        if (difficulty == 4) {
+            if (ECS::Relics::Held(reg, ours) != 0 || !reg.all_of<ECS::Components::Transform>(relic)) {
+                return "a computer player at Easiest fetched a relic";
+            }
+            continue;
+        }
+        const auto* shrine = reg.try_get<ECS::Components::RelicShrine>(ours);
+        if (shrine == nullptr || shrine->relics.size() != 1 || shrine->relics.front() != relic) {
+            return "a computer player's idle Monk did not put the relic it saw in the Monastery";
+        }
+        if (brain.mind.goals[1] != 0) return "enemy-captured-relics held with the relic in the player's own Monastery";
+        // Every relic in the enemy's Monastery.
+        const entt::entity theirs = build(2);
+        if (theirs == entt::null) return "no room for the enemy's Monastery";
+        auto& held = reg.get_or_emplace<ECS::Components::RelicShrine>(theirs).relics;
+        std::vector<entt::entity> all;
+        for (auto e : reg.view<ECS::Components::Identity>()) {
+            if (reg.get<ECS::Components::Identity>(e).unit_id == relic_unit) all.push_back(e);
+        }
+        reg.get<ECS::Components::RelicShrine>(ours).relics.clear();
+        for (entt::entity e : all) {
+            reg.remove<ECS::Components::Transform>(e);
+            held.push_back(e);
+        }
+        for (int t = 0; t < 2 * kTicksPerSecond; ++t) sim.Update(16);
+        if (brain.mind.goals[1] != 1) return "enemy-captured-relics did not hold with every relic in the enemy's Monastery";
+    }
+    return nullptr;
+}
+
 } // namespace
 
 bool CheckScript() {
@@ -658,6 +767,7 @@ bool CheckScript() {
     if (verdict == nullptr) verdict = CheckTalk();
     if (verdict == nullptr) verdict = CheckTrading();
     if (verdict == nullptr) verdict = CheckExploring();
+    if (verdict == nullptr) verdict = CheckRelics();
     std::printf("script=%s\n", verdict == nullptr ? "ok" : verdict);
     return verdict == nullptr;
 }
