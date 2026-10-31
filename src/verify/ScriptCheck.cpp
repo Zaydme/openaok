@@ -5,6 +5,7 @@
 #include <cstring>
 #include <map>
 #include <string>
+#include <vector>
 
 #include "ai/Brain.h"
 #include "ai/Census.h"
@@ -21,6 +22,7 @@
 #include "ecs/Diplomacy.h"
 #include "ecs/Orders.h"
 #include "ecs/Players.h"
+#include "ecs/ScenarioWorld.h"
 #include "ecs/Simulation.h"
 #include "ecs/components/Building.h"
 #include "ecs/components/Identity.h"
@@ -579,6 +581,71 @@ const char* CheckTrading() {
     return nullptr;
 }
 
+// Explore groups past the scout: sn-number-explore-groups 2 takes up to
+// sn-maximum-explore-group-size idle soldiers into a group, which goes out
+// together while the rest stay home; asked for one group again, the scout's
+// alone, the soldiers are given back.
+const char* CheckExploring() {
+    Core::GameSetup setup = Core::DefaultSetup();
+    setup.players[1].computer = true;
+    ECS::Simulation sim;
+    sim.Init(setup);
+    auto& reg = sim.GetRegistry();
+    auto& grid = sim.GetGrid();
+    const entt::entity tc = [&] {
+        for (auto e : reg.view<ECS::Components::Building, ECS::Components::Owner>()) {
+            if (reg.get<ECS::Components::Owner>(e).player_id == 1) return e;
+        }
+        return entt::entity{entt::null};
+    }();
+    if (tc == entt::null) return "no Town Center to stand beside";
+    const auto& at = reg.get<ECS::Components::Transform>(tc).position;
+    const int spearman = Core::ConfigManager::Get().GetUnitIdByName("SPRMN");
+    std::vector<entt::entity> spears;
+    for (int r = 4; r < 12 && spears.size() < 3; ++r) {
+        for (int dx = -r; dx <= r && spears.size() < 3; dx += 2) {
+            const int x = at.x.ToInt() + dx, y = at.y.ToInt() + r;
+            if (!grid.IsWalkable(x, y)) continue;
+            const entt::entity e = ECS::ScenarioWorld::Place(
+                reg, grid, spearman, 1,
+                {Core::Fixed32(x) + Core::Fixed32(1) / Core::Fixed32(2), Core::Fixed32(y) + Core::Fixed32(1) / Core::Fixed32(2)},
+                {}, 0);
+            if (e != entt::null) spears.push_back(e);
+        }
+    }
+    if (spears.size() != 3) return "no room for three spearmen";
+    Files files;
+    files["main"] =
+        "(defrule (true) => (set-strategic-number sn-number-explore-groups 2)"
+        " (set-strategic-number sn-minimum-explore-group-size 2)"
+        " (set-strategic-number sn-maximum-explore-group-size 2) (disable-self))\n";
+    AI::Brains* brains = reg.ctx().find<AI::Brains>();
+    if (brains == nullptr || brains->brains.empty()) return "no brain for the computer seat";
+    AI::Brain& brain = brains->brains.front();
+    brain.program = CompileFiles(files, {}, 0);
+    if (!brain.program.errors.empty()) return "the exploring script did not load";
+    AI::Reset(brain.mind, brain.program.rules.size());
+    for (int t = 0; t < 3 * kTicksPerSecond; ++t) sim.Update(16);
+    if (brain.explore_groups.size() != 1) return "sn-number-explore-groups 2 gave no explore group past the scout";
+    const std::vector<entt::entity>& group = brain.explore_groups.front();
+    if (group.size() != 2) return "the explore group did not take sn-maximum-explore-group-size soldiers";
+    int out = 0;
+    for (entt::entity e : spears) {
+        const bool in = std::find(group.begin(), group.end(), e) != group.end();
+        const auto& p = reg.get<ECS::Components::Transform>(e).position;
+        const bool moved = p.x != reg.get<ECS::Components::Transform>(e).previous_position.x ||
+                           p.y != reg.get<ECS::Components::Transform>(e).previous_position.y;
+        if (in && !moved) return "a soldier of the explore group did not go out";
+        if (!in && moved) return "a soldier left out of the explore group went out";
+        out += moved ? 1 : 0;
+    }
+    if (out != 2) return "the explore group did not go out";
+    brain.mind.sn[static_cast<size_t>(AI::Lang::SN::NumberExploreGroups)] = 1;
+    for (int t = 0; t < kTicksPerSecond; ++t) sim.Update(16);
+    if (!brain.explore_groups.empty()) return "the soldiers were kept exploring when only the scout's group was asked for";
+    return nullptr;
+}
+
 } // namespace
 
 bool CheckScript() {
@@ -590,6 +657,7 @@ bool CheckScript() {
     if (verdict == nullptr) verdict = CheckTownCenter();
     if (verdict == nullptr) verdict = CheckTalk();
     if (verdict == nullptr) verdict = CheckTrading();
+    if (verdict == nullptr) verdict = CheckExploring();
     std::printf("script=%s\n", verdict == nullptr ? "ok" : verdict);
     return verdict == nullptr;
 }

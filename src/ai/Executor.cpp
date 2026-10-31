@@ -164,6 +164,7 @@ void Run(Turn& turn) {
     Prune(*turn.registry, *turn.census);
     News(turn);
     Economy::Run(turn);
+    Scouting::Claim(turn);
     Military::Run(turn);
     Navy::Run(turn);
     Scouting::Run(turn);

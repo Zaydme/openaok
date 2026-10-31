@@ -33,7 +33,8 @@ and campaigns, the computer players' finer play, and polish.
 ## Next
 
 1. **Computer players**
-   - Exploration and defence groups as the scripts' strategic numbers ask.
+   - Defend groups, which only players' own scripts ask for: the game's
+     scripts leave sn-number-defend-groups at 0.
    - Relics, and the difficulty parameters (dodging missiles, reaction
      distances), which are read but not used.
    - Their economy on water maps: more wood in the Feudal Age, more warships

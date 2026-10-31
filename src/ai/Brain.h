@@ -68,6 +68,9 @@ struct Brain {
     Group attack;                 // land attack group
     Group boat_attack;            // boat attack group
     std::vector<entt::entity> explorers;   // villagers sent exploring
+    // Soldiers' explore groups past the scout's, as sn-number-explore-groups
+    // asks (ai/Scouting); out of the army while they explore.
+    std::vector<std::vector<entt::entity>> explore_groups;
     // A boar being hunted, and the party sent after it.
     entt::entity boar = entt::null;
     std::vector<entt::entity> hunters;

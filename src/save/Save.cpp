@@ -459,6 +459,8 @@ void PutBrains(Writer& w, const AI::Brains& table) {
         PutGroup(w, b.attack);
         PutGroup(w, b.boat_attack);
         PutPods(w, b.explorers);
+        w.U32(static_cast<uint32_t>(b.explore_groups.size()));
+        for (const auto& group : b.explore_groups) PutPods(w, group);
         PutPod(w, b.boar);
         PutPods(w, b.hunters);
         w.I32(b.scout_ring);
@@ -501,6 +503,8 @@ void GetBrains(Reader& r, AI::Brains& table) {
         GetGroup(r, b.attack);
         GetGroup(r, b.boat_attack);
         GetPods(r, b.explorers);
+        b.explore_groups.resize(std::min<uint32_t>(r.U32(), 64));
+        for (auto& group : b.explore_groups) GetPods(r, group);
         GetPod(r, b.boar);
         GetPods(r, b.hunters);
         b.scout_ring = r.I32();
