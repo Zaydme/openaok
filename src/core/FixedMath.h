@@ -1,12 +1,15 @@
 #pragma once
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include "core/FixedPoint.h"
 #include "core/Types.h"
 
 /**
  * Fixed-point math utilities.
- * All functions are deterministic and use only integer arithmetic.
- * These are safe for use in the simulation loop.
+ * All functions are deterministic: each result is exact, the same on every
+ * machine (the square root starts from the hardware's and is corrected to the
+ * exact integer floor). These are safe for use in the simulation loop.
  */
 
 namespace Core {
@@ -35,27 +38,17 @@ public:
     // Integer square root, bit by bit, entirely on int64_t.
     static Fixed32 Sqrt(Fixed32 a) {
         if (a.value <= 0) return Fixed32(0);
-        
+
         // In 32.32 fixed point, sqrt(a * 2^32) = sqrt(a) * 2^16: the integer
-        // sqrt of the raw value, shifted left by 16.
-        int64_t val = a.value;
-        
-        // Start from the highest power of four not above the value.
-        int64_t bit = 1LL << 62;
-        while (bit > val) bit >>= 2;
-        
-        int64_t result = 0;
-        while (bit != 0) {
-            int64_t trial = result + bit;
-            if (val >= trial) {
-                val -= trial;
-                result = (result >> 1) + bit;
-            } else {
-                result >>= 1;
-            }
-            bit >>= 2;
-        }
-        
+        // square root of the raw value, shifted left by 16. The hardware's
+        // root comes near it; whole-number steps make it the exact floor, the
+        // same on every machine.
+        constexpr int64_t kLargestRoot = 3037000499;   // of the largest int64_t
+        const int64_t val = a.value;
+        int64_t result = std::min(static_cast<int64_t>(std::sqrt(static_cast<double>(val))), kLargestRoot);
+        while (result * result > val) --result;
+        while (result < kLargestRoot && (result + 1) * (result + 1) <= val) ++result;
+
         // result = sqrt(a_real) * 2^16; shift by 16 more for 32.32.
         return Fixed32(result << 16, true);
     }
