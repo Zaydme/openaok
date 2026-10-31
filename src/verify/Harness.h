@@ -233,6 +233,12 @@ bool CheckWolves();
 // attack groups leave over explores the water. Prints "boats=".
 bool CheckBoats();
 
+// A computer player's attack groups as the game runs them: made, filled,
+// gathered and sent without attack-now once the enemy is known, none while
+// it is not, none with sn-number-attack-groups 0, and none before the initial
+// attack delay. Prints "attackgroups=".
+bool CheckAttackGroups();
+
 // A landing on Islands: a transport takes on a war party under the dat's
 // garrison rules, sails it to the other island and puts it ashore, and the
 // party's assault ends the game in conquest; a transport sunk with a soldier

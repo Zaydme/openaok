@@ -83,6 +83,7 @@ void News(Turn& turn) {
         if (victim == nullptr || attacker == nullptr || victim->player_id != turn.player) continue;
         const Core::PlayerId p = attacker->player_id;
         if (p == turn.player || p == Core::PLAYER_GAIA || p >= Core::kMaxPlayers) continue;
+        brain.struck_by_player = true;
         if (Core::FixedMath::Distance(e.at.x - turn.census->home.x, e.at.y - turn.census->home.y) > town) continue;
         brain.town_struck_ms = turn.now_ms;
         brain.intruder = e.other;

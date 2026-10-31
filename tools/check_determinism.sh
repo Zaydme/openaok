@@ -79,6 +79,7 @@ WATER="$(echo "$OUTPUT" | grep '^water=')"
 FISHING="$(echo "$OUTPUT" | grep '^fishing=')"
 NAVY="$(echo "$OUTPUT" | grep '^navy=')"
 BOATS="$(echo "$OUTPUT" | grep '^boats=')"
+ATTACKGROUPS="$(echo "$OUTPUT" | grep '^attackgroups=')"
 LANDING="$(echo "$OUTPUT" | grep '^landing=')"
 MARKET="$(echo "$OUTPUT" | grep '^market=')"
 TRADE="$(echo "$OUTPUT" | grep '^trade=')"
@@ -567,6 +568,16 @@ if [ "$BOATS" = "boats=ok" ]; then
 else
     echo "BOATS FAILED" >&2
     echo "  $BOATS" >&2
+    STATUS=1
+fi
+
+# A computer player's attack groups set out on their own, as the game sends
+# them, once they have their soldiers and the enemy is known.
+if [ "$ATTACKGROUPS" = "attackgroups=ok" ]; then
+    echo "attackgroups OK"
+else
+    echo "ATTACKGROUPS FAILED" >&2
+    echo "  $ATTACKGROUPS" >&2
     STATUS=1
 fi
 

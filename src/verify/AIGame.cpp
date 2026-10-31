@@ -64,13 +64,15 @@ void Trace(const entt::registry& reg, int minute, Core::PlayerId p) {
         if (b.player != p) continue;
         const auto& g = b.mind.goals;
         const auto sn = [&](AI::Lang::SN s) { return b.mind.sn[static_cast<size_t>(s)]; };
+        size_t attacking = 0;
+        for (const AI::Group& g : b.attack_groups) attacking += g.units.size();
         std::printf("    goals need%d rush%d age-adv%d conflict%d parity%d attack%d | share f%d w%d g%d s%d "
                     "builders %d%% escrow f%d w%d g%d s%d (%d%%) attack group %zu\n",
                     g[5], g[6], g[14], g[16], g[3], g[4],
                     sn(AI::Lang::SN::FoodGathererPercentage), sn(AI::Lang::SN::WoodGathererPercentage),
                     sn(AI::Lang::SN::GoldGathererPercentage), sn(AI::Lang::SN::StoneGathererPercentage),
                     sn(AI::Lang::SN::PercentCivilianBuilders), b.mind.escrow[0], b.mind.escrow[1],
-                    b.mind.escrow[2], b.mind.escrow[3], b.mind.escrow_percent[0], b.attack.units.size());
+                    b.mind.escrow[2], b.mind.escrow[3], b.mind.escrow_percent[0], attacking);
         std::printf("    buildings:");
         for (const auto& site : c.buildings) std::printf(" %d%s", site.unit_id, site.complete ? "" : "*");
         std::printf("\n");

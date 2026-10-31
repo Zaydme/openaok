@@ -184,7 +184,8 @@ void Claim(Turn& turn) {
             const bool taken = std::any_of(brain.explore_groups.begin(), brain.explore_groups.end(), [&](const auto& g) {
                 return std::find(g.begin(), g.end(), e) != g.end();
             });
-            if (taken || registry.any_of<ECS::Components::Worker, ECS::Components::Monk>(e)) {
+            if (taken || registry.any_of<ECS::Components::Worker, ECS::Components::Monk>(e) ||
+                Military::InAttackGroup(turn, e)) {
                 ++it;
                 continue;
             }

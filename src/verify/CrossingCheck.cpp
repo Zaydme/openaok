@@ -17,6 +17,7 @@
 #include "ecs/Navigation.h"
 #include "ecs/Simulation.h"
 #include "ecs/Units.h"
+#include "ecs/Vision.h"
 #include "ecs/components/Building.h"
 #include "ecs/components/Garrison.h"
 #include "ecs/components/Identity.h"
@@ -31,6 +32,8 @@ namespace {
 
 constexpr Core::PlayerId kComputer = 1;
 constexpr Core::PlayerId kHuman = 2;
+// How far round the enemy's start the computer has explored.
+constexpr int kKnownRadius = 10;
 
 entt::entity FirstOf(const entt::registry& reg, int unit_id, Core::PlayerId player) {
     auto all = reg.view<const ECS::Components::Identity, const ECS::Components::Owner>();
@@ -47,8 +50,9 @@ entt::entity FirstOf(const entt::registry& reg, int unit_id, Core::PlayerId play
 
 // An attack across the water by the tactical AI: on Islands, a computer
 // player whose rules say attack-now, with knights at home, a transport at its
-// Dock and nothing of the enemy's to walk to. The knights have to board, be
-// sailed over, step ashore on the enemy's island and strike there.
+// Dock, the enemy's town explored and nothing of the enemy's to walk to. The
+// knights have to board, be sailed over, step ashore on the enemy's island
+// and strike there.
 bool CheckCrossing() {
     const char* verdict = nullptr;
     auto& cfg = Core::ConfigManager::Get();
@@ -101,7 +105,8 @@ bool CheckCrossing() {
         AI::Brain& brain = brains->brains.front();
         AI::Script::Environment env;
         const std::string text =
-            "(defrule (true) => (set-strategic-number sn-percent-attack-soldiers 100) (attack-now) (disable-self))\n";
+            "(defrule (true) => (set-strategic-number sn-group-form-distance 20)"
+            " (set-strategic-number sn-percent-attack-soldiers 100) (attack-now) (disable-self))\n";
         env.read = [&text](const std::string&, std::string& out) {
             out = text;
             return true;
@@ -110,6 +115,8 @@ bool CheckCrossing() {
         AI::Reset(brain.mind, brain.program.rules.size());
         brain.mind.stance[kComputer] = static_cast<uint8_t>(AI::Lang::Stance::Ally);
         brain.mind.stance[kHuman] = static_cast<uint8_t>(AI::Lang::Stance::Enemy);
+        // Where the enemy lives: its town explored, as a scout would have.
+        ECS::Vision::Explore(reg, kComputer, dx, dy, kKnownRadius);
     }
 
     bool boarded = false, landed = false, struck = false;

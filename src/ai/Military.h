@@ -3,12 +3,22 @@
 
 // A computer player's soldiers, run for its rules.
 //
-// The rules decide when to attack -- `attack-now`, which takes
-// sn-percent-attack-soldiers percent of the soldiers at home (and
-// sn-percent-attack-boats of the warships) into an attack group. The group
-// goes at the nearest enemy building the player has seen -- failing that,
-// any, seen or not -- and on from target to target until there is none or
-// nobody is left.
+// Its land soldiers make attack groups, as the game makes them: once the
+// explore groups have theirs, up to sn-number-attack-groups groups, each
+// wanting sn-minimum-attack-group-size soldiers and a random few more, at
+// most sn-maximum-attack-group-size. An idle group takes free soldiers
+// where most stand within sn-group-form-distance of one another, gathers on
+// its leader (within sn-attack-group-gather-spacing), and once it has its
+// soldiers and has gathered, and the player knows its enemy, attacks: the
+// nearest enemy it can see near its leader, else the nearest enemy building
+// the player has seen -- across the water by transport if there is none on
+// its own ground -- going idle to regather when the target falls. With
+// nothing to attack it walks off at random to look. Attacks wait for the
+// initial attack delay (sn-initial-attack-delay and its type).
+//
+// `attack-now` makes groups of its own of sn-percent-attack-soldiers percent
+// of the free soldiers, which go at once (and sn-percent-attack-boats of the
+// warships into the boat attack group).
 //
 // The rest defend: anything hostile that strikes in town or stands in it
 // (within sn-maximum-town-size of home) is met by
@@ -21,7 +31,11 @@ namespace AI::Military {
 void AttackNow(Turn& turn);
 void Run(Turn& turn);
 
-// Whether `unit` is in one of the brain's attack groups.
+// Whether `unit` is in an attack group on its way to fight, or in any.
 bool Attacking(const Turn& turn, entt::entity unit);
+bool InAttackGroup(const Turn& turn, entt::entity unit);
+
+// The land soldiers in attack groups on their way to fight.
+int AttackingSoldiers(const Turn& turn);
 
 } // namespace AI::Military

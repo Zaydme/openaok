@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "ai/Military.h"
 #include "ai/Relics.h"
 #include "ai/Things.h"
 #include "ai/Walls.h"
@@ -255,7 +256,7 @@ int Stock(const Turn& turn, Core::ResourceType type) {
 }
 
 int AttackSoldiers(const Turn& turn) {
-    return turn.brain != nullptr ? static_cast<int>(turn.brain->attack.units.size()) : 0;
+    return turn.brain != nullptr ? Military::AttackingSoldiers(turn) : 0;
 }
 int AttackBoats(const Turn& turn) {
     return turn.brain != nullptr ? static_cast<int>(turn.brain->boat_attack.units.size()) : 0;

@@ -68,7 +68,7 @@ namespace C = ECS::Components;
 
 constexpr char kMagic[8] = {'A', 'O', 'K', 'C', 'S', 'A', 'V', 'E'};
 // The save format's version; a save of any other version is refused.
-constexpr uint32_t kVersion = 7;
+constexpr uint32_t kVersion = 8;
 
 // Plain data goes out as it lies in memory.
 template <typename T>
@@ -440,6 +440,14 @@ void PutGroup(Writer& w, const AI::Group& g) {
     PutPods(w, g.ships);
     w.I32(g.stage);
     w.I32(g.stage_s);
+    w.I32(g.wanted);
+    w.I32(g.task);
+    w.U8(g.now ? 1 : 0);
+    w.I32(g.gathering);
+    w.U8(g.issued ? 1 : 0);
+    w.U64(static_cast<uint64_t>(g.tasked_ms));
+    w.I32(g.to_x);
+    w.I32(g.to_y);
 }
 void GetGroup(Reader& r, AI::Group& g) {
     GetPods(r, g.units);
@@ -448,6 +456,14 @@ void GetGroup(Reader& r, AI::Group& g) {
     GetPods(r, g.ships);
     g.stage = r.I32();
     g.stage_s = r.I32();
+    g.wanted = r.I32();
+    g.task = r.I32();
+    g.now = r.U8() != 0;
+    g.gathering = r.I32();
+    g.issued = r.U8() != 0;
+    g.tasked_ms = static_cast<int64_t>(r.U64());
+    g.to_x = r.I32();
+    g.to_y = r.I32();
 }
 void PutBrains(Writer& w, const AI::Brains& table) {
     w.U32(static_cast<uint32_t>(table.brains.size()));
@@ -456,7 +472,10 @@ void PutBrains(Writer& w, const AI::Brains& table) {
         PutPod(w, b.rng);
         w.I32(b.think_ms);
         PutMind(w, b.mind);
-        PutGroup(w, b.attack);
+        w.U32(static_cast<uint32_t>(b.attack_groups.size()));
+        for (const AI::Group& g : b.attack_groups) PutGroup(w, g);
+        w.U8(b.attacks_allowed ? 1 : 0);
+        w.U8(b.struck_by_player ? 1 : 0);
         PutGroup(w, b.boat_attack);
         PutPods(w, b.explorers);
         PutPods(w, b.gathering);
@@ -505,7 +524,10 @@ void GetBrains(Reader& r, AI::Brains& table) {
         GetPod(r, b.rng);
         b.think_ms = r.I32();
         GetMind(r, b.mind);
-        GetGroup(r, b.attack);
+        b.attack_groups.resize(std::min<uint32_t>(r.U32(), 256));
+        for (AI::Group& g : b.attack_groups) GetGroup(r, g);
+        b.attacks_allowed = r.U8() != 0;
+        b.struck_by_player = r.U8() != 0;
         GetGroup(r, b.boat_attack);
         GetPods(r, b.explorers);
         GetPods(r, b.gathering);

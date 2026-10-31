@@ -45,6 +45,17 @@ struct Group {
     std::vector<entt::entity> ships;
     int stage = 0;
     int stage_s = 0;
+    // A land attack group's own (ai/Military): the soldiers it wants, its
+    // task, whether attack-now made it, the passes it has spent gathering,
+    // whether its task has been set going, when it was last tasked, and
+    // where a random move takes it.
+    int wanted = 0;
+    int task = 0;
+    bool now = false;
+    int gathering = 0;
+    bool issued = false;
+    int64_t tasked_ms = 0;
+    int to_x = -1, to_y = -1;
 };
 
 // A line of the computer players' chat, for whoever shows it.
@@ -65,7 +76,10 @@ struct Brain {
     Mind mind;
 
     // The executor's memory.
-    Group attack;                 // land attack group
+    std::vector<Group> attack_groups;   // land attack groups
+    // Attacks allowed: the initial attack delay is over (ai/Military).
+    bool attacks_allowed = false;
+    bool struck_by_player = false;   // another player has struck its things
     Group boat_attack;            // boat attack group
     std::vector<entt::entity> explorers;   // villagers sent exploring
     // Blows the player's things have taken from each ally: at
