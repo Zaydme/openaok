@@ -47,6 +47,8 @@ const char* Paced(int difficulty, int& feudal) {
     setup.players[1].computer = false;
     setup.players[2].computer = true;
     setup.difficulty = difficulty;
+    // For tuning: another map seed (the gate never sets it).
+    if (const char* seed = std::getenv("AOE_AI_SEED")) setup.seed = static_cast<uint32_t>(std::atoi(seed));
     ECS::Simulation sim;
     sim.Init(setup);
     auto& reg = sim.GetRegistry();

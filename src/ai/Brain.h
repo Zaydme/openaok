@@ -83,6 +83,12 @@ struct Brain {
     uint64_t chat_tick = 0;
     // The player has resigned.
     bool resigned = false;
+    // The walls' rings: the tile they are about, fixed where the first Town
+    // Center stood (-1 until then), and the perimeter enable-wall-placement
+    // keeps other buildings clear of (0 none). See ai/Walls.
+    int wall_x = -1;
+    int wall_y = -1;
+    int wall_perimeter = 0;
 };
 
 struct Brains {

@@ -468,6 +468,9 @@ void PutBrains(Writer& w, const AI::Brains& table) {
         w.U64(b.events_tick);
         w.U64(b.chat_tick);
         w.U8(b.resigned ? 1 : 0);
+        w.I32(b.wall_x);
+        w.I32(b.wall_y);
+        w.I32(b.wall_perimeter);
     }
     w.U64(static_cast<uint64_t>(table.now_ms));
     PutPod(w, table.shared_goals);
@@ -507,6 +510,9 @@ void GetBrains(Reader& r, AI::Brains& table) {
         b.events_tick = r.U64();
         b.chat_tick = r.U64();
         b.resigned = r.U8() != 0;
+        b.wall_x = r.I32();
+        b.wall_y = r.I32();
+        b.wall_perimeter = r.I32();
         if (!r.ok) return;
     }
     table.now_ms = static_cast<int64_t>(r.U64());

@@ -1,16 +1,48 @@
 #include "verify/Harness.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
+#include "ai/Brain.h"
+#include "ai/Walls.h"
 #include "core/GameSetup.h"
 #include "ecs/Simulation.h"
+#include "ecs/Walls.h"
+#include "ecs/components/Building.h"
+#include "ecs/components/Identity.h"
+#include "ecs/components/Owner.h"
+#include "ecs/components/Transform.h"
 #include "verify/AIGame.h"
 
 namespace Verify {
 
 namespace {
+
+// Whether every wall and gate of the computer players stands on the ring the
+// player walls (ai/Walls), and how many gates there are in all.
+bool WallsOnRings(const entt::registry& reg, int& gates) {
+    gates = 0;
+    const AI::Brains* brains = reg.ctx().find<AI::Brains>();
+    if (brains == nullptr) return false;
+    auto view = reg.view<const ECS::Components::Identity, const ECS::Components::Owner,
+                         const ECS::Components::Transform, const ECS::Components::Building>();
+    for (const AI::Brain& b : brains->brains) {
+        const int ring = b.wall_perimeter == 1 ? AI::Walls::kNearRing : AI::Walls::kFarRing;
+        for (auto e : view) {
+            if (view.get<const ECS::Components::Owner>(e).player_id != b.player) continue;
+            const int unit = view.get<const ECS::Components::Identity>(e).unit_id;
+            if (!ECS::Walls::IsWall(unit) && !ECS::Walls::IsGate(unit)) continue;
+            gates += ECS::Walls::IsGate(unit) ? 1 : 0;
+            // A gate is four tiles long: its middle is up to two from the line.
+            const auto& at = view.get<const ECS::Components::Transform>(e).position;
+            const int out = std::max(std::abs(Physics::TileOf(at.x) - b.wall_x), std::abs(Physics::TileOf(at.y) - b.wall_y));
+            if (std::abs(out - ring) > (ECS::Walls::IsGate(unit) ? 2 : 0)) return false;
+        }
+    }
+    return true;
+}
 
 // The latest minute the hardest computer players may reach the Feudal Age. On
 // the default map the Teutons' "castle" plan keeps 25 villagers in the Dark Age
@@ -24,7 +56,8 @@ constexpr int kAIMinutes = 22;
 
 // The computer playing both seats at its hardest: within its first kAIMinutes
 // minutes each must grow its town to 20 villagers, reach the Feudal Age by
-// kFeudalBy, train soldiers and strike the other's town, unattended. Soldiers
+// kFeudalBy, train soldiers and strike the other's town, unattended; and the
+// one whose rules wall its town lays its walls and gates on its perimeter. Soldiers
 // are counted as trained, not as standing. A twin game alongside must come out
 // identical, since in a lockstep game every machine runs its own copy of the
 // computer players.
@@ -36,6 +69,7 @@ bool CheckAI() {
     // For tuning: another difficulty or map (the gate never sets them).
     if (const char* d = std::getenv("AOE_AI_DIFFICULTY")) setup.difficulty = std::atoi(d);
     if (const char* m = std::getenv("AOE_AI_MAP")) setup.map_script = m;
+    if (const char* seed = std::getenv("AOE_AI_SEED")) setup.seed = static_cast<uint32_t>(std::atoi(seed));
     ECS::Simulation sim;
     sim.Init(setup);
     ECS::Simulation twin;
@@ -70,6 +104,12 @@ bool CheckAI() {
     }
     if (std::strcmp(verdict, "ok") == 0 && !progress.struck_enemy) {
         verdict = "neither computer player ever attacked the other's town";
+    }
+    int gates = 0;
+    if (std::strcmp(verdict, "ok") == 0 && !WallsOnRings(sim.GetRegistry(), gates)) {
+        verdict = "a computer player laid a wall off its perimeter";
+    } else if (std::strcmp(verdict, "ok") == 0 && gates == 0) {
+        verdict = "no computer player walled its town with a gate";
     }
     std::printf("ai=%s\n", verdict);
     return std::strcmp(verdict, "ok") == 0;

@@ -29,14 +29,20 @@ namespace AI::Placement {
 // Ground already spoken for: the footprints of the player's own buildings,
 // foundations and farms among them -- which do not block the grid, so the
 // grid alone would let a second farm be laid on the first.
+// And a wall's ring the player keeps clear (ai/Walls): its middle and how far
+// out it runs, 0 for none; no building but a wall or a gate stands on it or
+// beside it.
 struct Taken {
     struct Rect {
         int x0, y0, x1, y1;
     };
     std::vector<Rect> rects;
+    int ring_x = 0, ring_y = 0, ring_h = 0;
     bool Overlaps(int unit_id, int x, int y) const;
 };
 Taken TakenBy(const entt::registry& registry, const Census& census);
+// The ring the player keeps clear, into `taken`.
+void KeepRingClear(const Turn& turn, Taken& taken);
 
 // A tile for `player` to place `unit_id` on, between `near` and `far` tiles
 // from `anchor`, that its build order would take (Buildings::Check: ground it

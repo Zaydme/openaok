@@ -33,7 +33,6 @@ and campaigns, the computer players' finer play, and polish.
 ## Next
 
 1. **Computer players**
-   - Walls and gates laid by the scripts (`build-wall`, `build-gate`).
    - Exploration and defence groups as the scripts' strategic numbers ask.
    - Relics, and the difficulty parameters (dodging missiles, reaction
      distances), which are read but not used.

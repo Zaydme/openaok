@@ -4,6 +4,7 @@
 #include <cstdlib>
 
 #include "ai/Catalog.h"
+#include "ai/Walls.h"
 #include "core/FixedMath.h"
 #include "core/Rules.h"
 #include "ecs/BuildingGeometry.h"
@@ -13,6 +14,7 @@
 #include "ecs/Players.h"
 #include "ecs/VillagerJobs.h"
 #include "ecs/Vision.h"
+#include "ecs/Walls.h"
 #include "ecs/components/Building.h"
 #include "ecs/components/Identity.h"
 #include "ecs/components/Owner.h"
@@ -157,7 +159,8 @@ bool Beside(Turn& turn, int slot, entt::entity resource, int reach, int& x, int&
     const Vector2D& at = Where(*turn.registry, resource);
     const int ax = Physics::TileOf(at.x);
     const int ay = Physics::TileOf(at.y);
-    const Taken taken = TakenBy(*turn.registry, *turn.census);
+    Taken taken = TakenBy(*turn.registry, *turn.census);
+    KeepRingClear(turn, taken);
     for (int breathe = 1; breathe >= 0; --breathe) {
         for (int r = 1; r <= kBesideRings; ++r) {
             bool found = false;
@@ -186,10 +189,18 @@ bool Beside(Turn& turn, int slot, entt::entity resource, int reach, int& x, int&
     return false;
 }
 
+// Ground kept clear for a wall's ring, if the player keeps one; null for none.
+const Taken* Ring(const Turn& turn, Taken& ring) {
+    KeepRingClear(turn, ring);
+    return ring.ring_h > 0 ? &ring : nullptr;
+}
+
 bool InTown(Turn& turn, int slot, int near, int& x, int& y) {
     const int town = TownSize(turn);
-    return Find(*turn.registry, *turn.grid, turn.player, slot, turn.census->home, near, town, x, y, true) ||
-           Find(*turn.registry, *turn.grid, turn.player, slot, turn.census->home, near, town + 10, x, y, true);
+    Taken ring;
+    const Taken* keep = Ring(turn, ring);
+    return Find(*turn.registry, *turn.grid, turn.player, slot, turn.census->home, near, town, x, y, true, keep) ||
+           Find(*turn.registry, *turn.grid, turn.player, slot, turn.census->home, near, town + 10, x, y, true, keep);
 }
 
 bool IsDock(const R::UnitRules& rules) {
@@ -275,7 +286,22 @@ bool Taken::Overlaps(int unit_id, int x, int y) const {
     for (const Rect& r : rects) {
         if (x0 <= r.x1 && r.x0 <= x1 && y0 <= r.y1 && r.y0 <= y1) return true;
     }
+    if (ring_h > 0 && !ECS::Walls::IsWall(unit_id) && !ECS::Walls::IsGate(unit_id)) {
+        // Its footprint and a tile round it, against the ring's square.
+        for (int ty = y0 - 1; ty <= y1 + 1; ++ty) {
+            for (int tx = x0 - 1; tx <= x1 + 1; ++tx) {
+                if (std::max(std::abs(tx - ring_x), std::abs(ty - ring_y)) == ring_h) return true;
+            }
+        }
+    }
     return false;
+}
+
+void KeepRingClear(const Turn& turn, Taken& taken) {
+    if (turn.brain == nullptr || turn.brain->wall_perimeter == 0 || turn.brain->wall_x < 0) return;
+    taken.ring_x = turn.brain->wall_x;
+    taken.ring_y = turn.brain->wall_y;
+    taken.ring_h = turn.brain->wall_perimeter == 1 ? Walls::kNearRing : Walls::kFarRing;
 }
 
 Taken TakenBy(const entt::registry& registry, const Census& census) {
@@ -374,7 +400,8 @@ bool Site(Turn& turn, int slot, bool forward, int& x, int& y) {
     }
     if (IsDock(*rules)) return DockSpot(turn, slot, x, y);
     if (rules->cls == kFarmClass) {
-        const Taken taken = TakenBy(registry, *turn.census);
+        Taken taken = TakenBy(registry, *turn.census);
+        KeepRingClear(turn, taken);
         if (Hug(registry, *turn.grid, turn.player, slot, turn.census->town_center, x, y, &taken)) return true;
         const int mill = Catalog::DropSite(registry, turn.player, Core::ResourceType::Food);
         for (const Census::Site& site : turn.census->buildings) {
@@ -391,7 +418,8 @@ bool Site(Turn& turn, int slot, bool forward, int& x, int& y) {
     const int placed = ECS::Buildings::PlacedUnit(slot);
     if (v != nullptr && v->train_loc == placed) {
         // Another Town Center: away from the first, out among the resources.
-        return Find(*turn.registry, *turn.grid, turn.player, slot, home, 14, 40, x, y, true);
+        Taken ring;
+        return Find(*turn.registry, *turn.grid, turn.player, slot, home, 14, 40, x, y, true, Ring(turn, ring));
     }
     const bool wood = ECS::DropSites::Accepts(placed, Core::ResourceType::Wood);
     const bool gold = ECS::DropSites::Accepts(placed, Core::ResourceType::Gold);
@@ -415,7 +443,8 @@ bool Site(Turn& turn, int slot, bool forward, int& x, int& y) {
         if (Beside(turn, slot, Nearest(turn, kForageClass, Core::ResourceType::Food, mill_reach, false), mill_reach, x, y)) {
             return true;
         }
-        return Find(*turn.registry, *turn.grid, turn.player, slot, home, 5, TownSize(turn), x, y, true);
+        Taken ring;
+        return Find(*turn.registry, *turn.grid, turn.player, slot, home, 5, TownSize(turn), x, y, true, Ring(turn, ring));
     }
     return InTown(turn, slot, Catalog::House(registry, turn.player) == slot ? 3 : 5, x, y);
 }

@@ -172,8 +172,9 @@ The computer players are the original rule scripts -- the `.per` files in
   second; `ai/Facts` and `ai/Actions` evaluate them against the world; `ai/Mind`
   holds goals, strategic numbers, timers and escrow.
 - **The executor** carries out what the rules ask: `ai/Economy` (villagers,
-  builders, farms, hunting), `ai/Placement` (where buildings go), `ai/Military`
-  (attack groups, defence), `ai/Navy`, `ai/Scouting`, behind `ai/Executor`.
+  builders, farms, hunting), `ai/Placement` (where buildings go), `ai/Walls`
+  (the two perimeters, walls and gates), `ai/Military` (attack groups,
+  defence), `ai/Navy`, `ai/Scouting`, behind `ai/Executor`.
 
 Computer players act only through `ecs/Orders`, inside the tick, on their own
 random streams, so every machine in a network game runs them identically.

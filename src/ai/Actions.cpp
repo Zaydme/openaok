@@ -5,6 +5,7 @@
 #include "ai/Executor.h"
 #include "ai/Facts.h"
 #include "ai/Things.h"
+#include "ai/Walls.h"
 #include "core/Strings.h"
 #include "ecs/Chat.h"
 #include "ecs/Triggers.h"
@@ -282,10 +283,17 @@ void Run(Turn& turn, const Script::Act& act, bool& disable_self) {
         }
         break;
 
-    // Walls, gates and the spy: not carried out.
+    // Walls about the town (ai/Walls).
     case Action::BuildGate:
+        if (turn.registry != nullptr && Walls::BuildGate(turn, a[0])) Executor::Refresh(turn);
+        break;
     case Action::BuildWall:
+        if (turn.registry != nullptr && Walls::BuildWall(turn, a[0], a[1])) Executor::Refresh(turn);
+        break;
     case Action::EnableWallPlacement:
+        Walls::Reserve(turn, a[0]);
+        break;
+    // The spy: not carried out.
     case Action::Spy:
         break;
 

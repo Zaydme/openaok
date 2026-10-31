@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include "ai/Things.h"
+#include "ai/Walls.h"
 #include "core/FixedMath.h"
 #include "core/Rules.h"
 #include "ecs/Animals.h"
@@ -570,14 +571,16 @@ bool Test(Turn& turn, const Script::Expr& e) {
                               : ECS::Market::SellPrice(*turn.registry, turn.player, dat);
         return Compare(price, a[1], a[2]);
     }
-    // Walls laid by the rules: none can be built and none stands.
-    case Fact::CanAffordCompleteWall:
-    case Fact::CanBuildGate:
-    case Fact::CanBuildGateWithEscrow:
-    case Fact::CanBuildWall:
-    case Fact::CanBuildWallWithEscrow: return false;
+    // Walls about the town (ai/Walls).
+    case Fact::CanAffordCompleteWall:  return Owned(turn) && Walls::CanAffordComplete(turn, a[0], a[1]);
+    case Fact::CanBuildGate:           return Owned(turn) && Walls::CanBuildGate(turn, a[0], false);
+    case Fact::CanBuildGateWithEscrow: return Owned(turn) && Walls::CanBuildGate(turn, a[0], true);
+    case Fact::CanBuildWall:           return Owned(turn) && Walls::CanBuildWall(turn, a[0], a[1], false);
+    case Fact::CanBuildWallWithEscrow: return Owned(turn) && Walls::CanBuildWall(turn, a[0], a[1], true);
     case Fact::WallCompletedPercentage:
-    case Fact::WallInvisiblePercentage: return Compare(0, a[1], a[2]);
+        return Owned(turn) && Compare(Walls::CompletedPercent(turn, a[0]), a[1], a[2]);
+    case Fact::WallInvisiblePercentage:
+        return Owned(turn) && Compare(Walls::InvisiblePercent(turn, a[0]), a[1], a[2]);
     // The spy is never available.
     case Fact::CanSpy:
     case Fact::CanSpyWithEscrow:      return false;
