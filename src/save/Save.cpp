@@ -340,6 +340,8 @@ void PutPlayers(Writer& w, const ECS::Players::Table& table) {
         PutPods(w, p.units);
         PutPods(w, p.art);
         PutPods(w, p.techs);
+        w.U8(p.dodge);
+        w.U8(p.keep_distance);
     }
     w.I32(table.population_limit);
 }
@@ -353,6 +355,8 @@ void GetPlayers(Reader& r, ECS::Players::Table& table) {
         GetPods(r, p.units);
         GetPods(r, p.art);
         GetPods(r, p.techs);
+        p.dodge = r.U8();
+        p.keep_distance = r.U8();
     }
     table.population_limit = r.I32();
 }

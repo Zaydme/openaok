@@ -40,8 +40,7 @@ and campaigns, the computer players' finer play, and polish.
    - Defend groups and what they guard (the defend priorities), which only
      players' own scripts ask for: the game's scripts leave
      sn-number-defend-groups at 0.
-   - The difficulty parameters (dodging missiles, keeping distance), which
-     are read but not used, and the Regicide spy.
+   - The Regicide spy.
    - Their economy on water maps: more wood in the Feudal Age, more warships
      and transports.
 2. **Performance**: eight players on a giant map, late game, at a steady

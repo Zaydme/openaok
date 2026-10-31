@@ -140,6 +140,8 @@ void Put(Writer& out, const C& c) {
         out.U8(c.other); out.U8(c.stance);
     } else if constexpr (std::is_same_v<T, Core::AlliedVictoryCommand>) {
         out.U8(c.on ? 1 : 0);
+    } else if constexpr (std::is_same_v<T, Core::DifficultyCommand>) {
+        out.U8(c.parameter); out.U8(c.value);
     } else if constexpr (std::is_same_v<T, Core::ChatCommand>) {
         out.U8(c.audience); out.U8(c.to); out.Text(c.text);
     } else if constexpr (std::is_same_v<T, Core::FlareCommand>) {
@@ -234,6 +236,8 @@ T Take(Reader& in) {
         c.other = in.U8(); c.stance = in.U8();
     } else if constexpr (std::is_same_v<T, Core::AlliedVictoryCommand>) {
         c.on = in.U8() != 0;
+    } else if constexpr (std::is_same_v<T, Core::DifficultyCommand>) {
+        c.parameter = in.U8(); c.value = in.U8();
     } else if constexpr (std::is_same_v<T, Core::ChatCommand>) {
         c.audience = in.U8(); c.to = in.U8(); c.text = in.Text();
     } else if constexpr (std::is_same_v<T, Core::FlareCommand>) {

@@ -1,4 +1,6 @@
 #include "verify/Harness.h"
+#include "ecs/components/Path.h"
+#include "ai/Brain.h"
 #include "ecs/Mortality.h"
 #include "ecs/components/Identity.h"
 #include "ecs/Buildings.h"
@@ -164,6 +166,59 @@ entt::entity AtTheWall(bool ordered, bool computer) {
     return combat.target == striker ? striker : combat.target == wall ? wall : entt::null;
 }
 
+// A computer player's (`dodge`, `keep` its difficulty parameters) forager at
+// work, set on by an enemy archer from afar: whether it ran before any arrow
+// came. And its archer, shooting at an enemy villager, set on by an enemy
+// spearman close by: whether it backed off. -1 for no field.
+int SetOn(bool archer_case, int dodge, int keep) {
+    Core::GameSetup setup = Core::DefaultSetup();
+    setup.players[kUs].computer = true;
+    ECS::Simulation sim;
+    sim.Init(setup);
+    auto& reg = sim.GetRegistry();
+    auto& grid = sim.GetGrid();
+    auto& cfg = Core::ConfigManager::Get();
+    // The computer's rules doing nothing, and every computer and wild animal
+    // left alone.
+    if (AI::Brains* brains = reg.ctx().find<AI::Brains>()) brains->brains.clear();
+    int x = grid.GetWidth() / 2, y = grid.GetHeight() / 2;
+    if (!Clearing(grid, x, y, 8)) return -1;
+    std::vector<entt::entity> wild;
+    for (auto e : reg.view<ECS::Components::Combat, ECS::Components::Owner>()) {
+        if (reg.get<ECS::Components::Owner>(e).player_id == Core::PLAYER_GAIA) wild.push_back(e);
+    }
+    for (entt::entity e : wild) ECS::Mortality::Kill(reg, grid, e);
+    ECS::Orders::Execute(reg, grid, Core::DifficultyCommand{0, static_cast<uint8_t>(dodge), kUs});
+    ECS::Orders::Execute(reg, grid, Core::DifficultyCommand{1, static_cast<uint8_t>(keep), kUs});
+    auto place = [&](const char* name, Core::PlayerId owner, int dx, int dy) {
+        return ECS::ScenarioWorld::Place(reg, grid, cfg.GetUnitIdByName(name), owner, At(x + dx, y + dy), {}, 0);
+    };
+    if (!archer_case) {
+        const entt::entity bush = place("FORAG", Core::PLAYER_GAIA, 0, 0);
+        const entt::entity forager = place("VMBAS", kUs, 1, 0);
+        if (bush == entt::null || forager == entt::null) return -1;
+        ECS::Orders::Execute(reg, grid, Core::GatherCommand{forager, bush, kUs});
+        for (int t = 0; t < 4 * kTicksPerSecond; ++t) sim.Update(16);
+        const entt::entity archer = place("ARCHR", kThem, 1, 7);
+        if (archer == entt::null) return -1;
+        ECS::Combat::Engage(reg, archer, forager, true);
+        for (int t = 0; t < 3; ++t) sim.Update(16);
+        return reg.get<ECS::Components::Worker>(forager).state == Core::UnitState::Gathering ? 0 : 1;
+    }
+    const entt::entity ours = place("ARCHR", kUs, 0, 0);
+    const entt::entity mark = place("VMBAS", kThem, 4, 0);
+    if (ours == entt::null || mark == entt::null) return -1;
+    if (auto* m = reg.try_get<ECS::Components::Worker>(mark)) m->state = Core::UnitState::Idle;
+    ECS::Combat::Engage(reg, ours, mark, true);
+    for (int t = 0; t < 4; ++t) sim.Update(16);
+    const entt::entity spear = place("SPRMN", kThem, -1, 1);
+    if (spear == entt::null) return -1;
+    ECS::Combat::Engage(reg, spear, ours, true);
+    for (int t = 0; t < 3; ++t) sim.Update(16);
+    const auto* path = reg.try_get<ECS::Components::Path>(ours);
+    return path != nullptr && path->current_waypoint_index < path->waypoints.size() ? 1 : 0;
+}
+
 } // namespace
 
 // What a villager at work does when struck. By a wolf, it breaks off, fights
@@ -209,6 +264,17 @@ bool CheckAnswer() {
         } else if (computers != unsent) {
             verdict = "a computer player's soldier sent at a wall did not turn on its striker";
         }
+    }
+    // A computer player's units set on: with ability-to-dodge-missiles 0 a
+    // forager runs from an archer before any arrow lands, with 100 it keeps
+    // at work; with ability-to-maintain-distance 0 an archer backs off from a
+    // spearman setting on it, with 100 it stands.
+    if (verdict == nullptr) {
+        const int quick = SetOn(false, 0, 100), slow = SetOn(false, 100, 100);
+        const int backs = SetOn(true, 100, 0), stands = SetOn(true, 100, 100);
+        if (quick < 0 || slow < 0 || backs < 0 || stands < 0) verdict = "no field for the units set on";
+        else if (quick != 1 || slow != 0) verdict = "a computer player's unit did not answer a ranged attacker as ability-to-dodge-missiles says";
+        else if (backs != 1 || stands != 0) verdict = "a computer player's archer did not back off as ability-to-maintain-distance says";
     }
     std::printf("answer=%s\n", verdict == nullptr ? "ok" : verdict);
     return verdict == nullptr;

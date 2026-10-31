@@ -651,6 +651,12 @@ void Execute(entt::registry& registry, Physics::Grid& grid, const Core::Command&
                                  static_cast<Diplomacy::Stance>(cmd.stance));
         } else if constexpr (std::is_same_v<T, Core::AlliedVictoryCommand>) {
             Diplomacy::SetAlliedVictory(registry, cmd.player, cmd.on);
+        } else if constexpr (std::is_same_v<T, Core::DifficultyCommand>) {
+            if (Players::Player* p = Players::Find(registry, cmd.player)) {
+                const uint8_t value = std::min<uint8_t>(cmd.value, 100);
+                if (cmd.parameter == 0) p->dodge = value;
+                else if (cmd.parameter == 1) p->keep_distance = value;
+            }
         } else if constexpr (std::is_same_v<T, Core::ChatCommand>) {
             Chat::Post(registry, cmd.player, static_cast<Chat::Audience>(cmd.audience), cmd.to,
                        cmd.text);

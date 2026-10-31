@@ -277,6 +277,12 @@ bool NeverHelps(int cls) {
     }
 }
 
+// Computer players' units set on since the last pass (Warn): the one set on,
+// and by whom.
+struct Warnings {
+    std::vector<std::pair<entt::entity, entt::entity>> list;
+};
+
 // How near the struck one those who come to its help stand, edge to edge, in
 // tiles.
 const Core::Fixed32 kHelpReach = Core::Fixed32(3);
@@ -661,35 +667,25 @@ void Engage(entt::registry& registry, entt::entity attacker, entt::entity target
                                                 Core::Fixed32(0))
                   ? CombatState::Attacking : CombatState::Chasing;
     if (combat->state == CombatState::Attacking) registry.remove<Components::Path>(attacker);
+    // A computer player's unit is told it has been set on (Warn), in the
+    // next pass.
+    const auto* setup = registry.ctx().find<Core::GameSetup>();
+    const Core::PlayerId own = OwnerOf(registry, target);
+    if (setup != nullptr && own != Core::PLAYER_GAIA && own < Core::kMaxPlayers && setup->players[own].computer &&
+        !Friendly(registry, target, attacker)) {
+        registry.ctx().emplace<Warnings>().list.emplace_back(target, attacker);
+    }
 }
 
-void Hurt(entt::registry& registry, Physics::Grid& grid, entt::entity target,
-          Core::Fixed32 amount, entt::entity attacker, int attacker_player) {
-    if (!Alive(registry, target)) return;
-    auto& health = registry.get<Components::Health>(target);
-    health.wound = health.wound + amount;
-    const int whole = health.wound.ToInt();
-    health.wound = health.wound - Core::Fixed32(whole);
-    health.current_hp -= whole;
-
-    // News of it, for the owner's alarm.
-    if (registry.valid(attacker)) {
-        const auto* owner = registry.try_get<Components::Owner>(target);
-        const auto* at = registry.try_get<Components::Transform>(target);
-        Events::Emit(registry, {.kind = Events::Kind::Struck,
-                                .subject = target,
-                                .other = attacker,
-                                .player = owner != nullptr ? owner->player_id : Core::PLAYER_GAIA,
-                                .at = at != nullptr ? at->position : Components::Vector2D{}});
-    }
-
+// What `target` does about `attacker` setting on it or striking it.
+void Answer(entt::registry& registry, Physics::Grid& grid, entt::entity target, entt::entity attacker) {
     // Answering an attack, never from its own side nor one its owner regards
     // as an ally. A new attacker first brings help from those idle nearby. A
     // villager fights off Gaia's and runs from anyone else's (AnswerAsVillager);
     // anything else armed and not told otherwise turns on whoever hurt it -- a
     // boar on its hunter, a soldier on a neutral's -- unless busy at a job or
     // at a building a person sent it at.
-    if (health.current_hp > 0 && Alive(registry, attacker) &&
+    if (Alive(registry, target) && Alive(registry, attacker) &&
         !Friendly(registry, target, attacker)) {
         if (auto* combat = registry.try_get<Combat>(target);
             combat != nullptr && combat->struck_by != attacker && combat->target != attacker) {
@@ -718,6 +714,64 @@ void Hurt(entt::registry& registry, Physics::Grid& grid, entt::entity target,
             }
         }
     }
+}
+
+// A computer player's unit told an attacker has set on it: with its player's
+// ability-to-dodge-missiles percent it does not answer a ranged one before
+// it is struck, else it answers now -- the news goes to its player as a
+// blow would; and a ranged soldier of its, itself attacking something other
+// than a building, backs off from the attacker to its own range, but for
+// the player's ability-to-maintain-distance percent.
+void Warn(entt::registry& registry, Physics::Grid& grid, entt::entity target, entt::entity attacker) {
+    if (!Alive(registry, target) || !Alive(registry, attacker)) return;
+    const auto* combat = registry.try_get<Combat>(attacker);
+    if (combat == nullptr || combat->target != target) return;
+    const Players::Player* player = Players::Find(registry, OwnerOf(registry, target));
+    const R::UnitRules* own = FightingRules(registry, target);
+    const R::UnitRules* theirs = FightingRules(registry, attacker);
+    if (player == nullptr || own == nullptr || theirs == nullptr) return;
+    auto& rng = registry.ctx().get<Core::Random>();
+    if (theirs->max_range > Core::Fixed32(1) && static_cast<int>(rng.NextInt(100)) >= player->dodge) {
+        const auto& at = registry.get<Components::Transform>(target).position;
+        Events::Emit(registry, {.kind = Events::Kind::Struck, .subject = target, .other = attacker,
+                                .player = OwnerOf(registry, target), .at = at});
+        Answer(registry, grid, target, attacker);
+    }
+    auto* mine = registry.try_get<Combat>(target);
+    if (mine == nullptr || IsVillager(registry, target) || IsBuilding(registry, target)) return;
+    if (own->max_range <= Core::Fixed32(1) || mine->state == CombatState::Idle || IsBuilding(registry, mine->target)) return;
+    if (static_cast<int>(rng.NextInt(100)) < player->keep_distance) return;
+    const auto& here = registry.get<Components::Transform>(target).position;
+    const auto& there = registry.get<Components::Transform>(attacker).position;
+    const Core::Fixed32 dx = here.x - there.x, dy = here.y - there.y;
+    const Core::Fixed32 apart = Core::FixedMath::Distance(dx, dy);
+    if (apart.value <= 0 || apart >= own->max_range) return;
+    const Components::Vector2D to{there.x + dx * own->max_range / apart, there.y + dy * own->max_range / apart};
+    registry.emplace_or_replace<Components::Path>(
+        target, Navigation::Route(registry, grid, target, here, Navigation::Toward(registry, grid, target, to)));
+}
+
+void Hurt(entt::registry& registry, Physics::Grid& grid, entt::entity target,
+          Core::Fixed32 amount, entt::entity attacker, int attacker_player) {
+    if (!Alive(registry, target)) return;
+    auto& health = registry.get<Components::Health>(target);
+    health.wound = health.wound + amount;
+    const int whole = health.wound.ToInt();
+    health.wound = health.wound - Core::Fixed32(whole);
+    health.current_hp -= whole;
+
+    // News of it, for the owner's alarm.
+    if (registry.valid(attacker)) {
+        const auto* owner = registry.try_get<Components::Owner>(target);
+        const auto* at = registry.try_get<Components::Transform>(target);
+        Events::Emit(registry, {.kind = Events::Kind::Struck,
+                                .subject = target,
+                                .other = attacker,
+                                .player = owner != nullptr ? owner->player_id : Core::PLAYER_GAIA,
+                                .at = at != nullptr ? at->position : Components::Vector2D{}});
+    }
+
+    if (health.current_hp > 0) Answer(registry, grid, target, attacker);
     // Prey runs instead.
     if (health.current_hp > 0 && registry.valid(attacker)) {
         Animals::Flee(registry, grid, target, attacker);
@@ -734,6 +788,11 @@ void Hurt(entt::registry& registry, Physics::Grid& grid, entt::entity target,
 }
 
 void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
+    if (auto* warnings = registry.ctx().find<Warnings>(); warnings != nullptr && !warnings->list.empty()) {
+        const auto list = std::move(warnings->list);
+        warnings->list.clear();
+        for (const auto& [target, attacker] : list) Warn(registry, grid, target, attacker);
+    }
     std::vector<Strike> blows;
     std::vector<std::pair<entt::entity, entt::entity>> volleys;   // shooter, target
     std::vector<entt::entity> spent;   // demolition ships that have detonated

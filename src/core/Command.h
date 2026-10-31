@@ -228,6 +228,17 @@ struct DiplomacyCommand {
     PlayerId player;
 };
 
+// A computer player's difficulty parameter, set by its rules
+// (set-difficulty-parameter), in percent: 0 ability-to-dodge-missiles, its
+// units' chance of not answering a ranged attacker until struck; 1
+// ability-to-maintain-distance, its ranged soldiers' chance of not backing
+// off from one who sets on them.
+struct DifficultyCommand {
+    uint8_t parameter;
+    uint8_t value;
+    PlayerId player;
+};
+
 // Choose, or give up, an allied victory: winning with one's allies. Refused
 // while teams are locked.
 struct AlliedVictoryCommand {
@@ -369,6 +380,7 @@ using Command = std::variant<MoveCommand, GatherCommand, AttackCommand,
                              PackCommand, CheatCommand,
                              ComputerResourceCommand, SelectionCommand,
                              WaypointCommand, TreasonCommand, DropOffCommand,
-                             BackToWorkCommand, FormCommand, DisbandCommand>;
+                             BackToWorkCommand, FormCommand, DisbandCommand,
+                             DifficultyCommand>;
 
 } // namespace Core

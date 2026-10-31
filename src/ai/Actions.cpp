@@ -141,6 +141,11 @@ void Run(Turn& turn, const Script::Act& act, bool& disable_self) {
         break;
     case Action::SetDifficultyParameter:
         mind.difficulty_parameters[static_cast<size_t>(a[0])] = std::clamp(a[1], 0, 100);
+        if (turn.registry != nullptr && turn.grid != nullptr) {
+            Give(*turn.registry, *turn.grid,
+                 Core::DifficultyCommand{static_cast<uint8_t>(a[0]), static_cast<uint8_t>(std::clamp(a[1], 0, 100)),
+                                         turn.player});
+        }
         break;
     case Action::SetDoctrine:
         mind.doctrine = a[0];

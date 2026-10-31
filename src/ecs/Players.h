@@ -51,6 +51,11 @@ struct Player {
     // Whose art each slot wears: its own id until an upgrade replaces it.
     std::vector<int> art;
     std::vector<TechStatus> techs;
+    // A computer player's difficulty parameters, in percent
+    // (Core::DifficultyCommand): its units' chance of not answering a ranged
+    // attacker until struck, and its ranged soldiers' of not backing off.
+    uint8_t dodge = 100;
+    uint8_t keep_distance = 100;
 };
 
 struct Table {

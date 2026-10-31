@@ -39,7 +39,7 @@ that the script reads.
 | `techs` | Civilisation bonuses and tech trees, ages, research, upgrades in place |
 | `combat` | Damage, reach between the dat's boxes, a duel, arrows, towers, stances, formations, hunting, splash damage |
 | `wolves` | A computer player's scout and two wolves in its town: every swing it begins lands |
-| `answer` | What a struck unit does: a villager fights off a wolf and runs from a soldier, idle ones near come to help, and a soldier at a wall turns on its striker unless a person sent it at the wall |
+| `answer` | What a struck unit does: a villager fights off a wolf and runs from a soldier, idle ones near come to help, a soldier at a wall turns on its striker unless a person sent it at the wall, and a computer player's units answer ranged attackers and back off as its difficulty parameters say |
 | `vision` | Fog per player, explored ground, buildings remembered in the fog |
 | `garrison` | Entering and leaving, refusals, garrison arrows, healing, the town bell |
 | `animals`, `duties`, `monks` | Herding, fleeing, grazing; patrol, follow, guard; conversion, facing whom they convert, healing, relics |
