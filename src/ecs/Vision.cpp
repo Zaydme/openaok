@@ -319,11 +319,7 @@ bool Visible(const entt::registry& registry, Core::PlayerId player, int x, int y
 }
 
 bool Explored(const entt::registry& registry, Core::PlayerId player, int x, int y) {
-    const auto* map = registry.ctx().find<Map>();
-    if (map == nullptr) return true;
-    if (!InBounds(*map, x, y)) return false;
-    if (player < 16 && ((map->explore_all | map->see_all) & Bit(player)) != 0) return true;
-    return (map->explored[static_cast<size_t>(Index(*map, x, y))] & Bit(player)) != 0;
+    return Explored(MapOf(registry), player, x, y);
 }
 
 bool Shows(const entt::registry& registry, Core::PlayerId viewer, entt::entity entity) {

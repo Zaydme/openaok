@@ -145,7 +145,13 @@ entt::entity NearestEnemy(const Turn& turn, const Vector2D& at, Core::Fixed32 re
     Core::Fixed32 best_d{};
     auto all = registry.view<const ECS::Components::Transform, const ECS::Components::Owner>();
     for (auto e : all) {
-        if (!Hostile(turn, e) || !ECS::Combat::Alive(registry, e)) continue;
+        // Hostile, from the view's owner.
+        const Core::PlayerId p = all.get<const ECS::Components::Owner>(e).player_id;
+        if (p == turn.player || p == Core::PLAYER_GAIA || p >= Core::kMaxPlayers ||
+            turn.mind->stance[p] != static_cast<uint8_t>(Lang::Stance::Enemy)) {
+            continue;
+        }
+        if (!ECS::Combat::Alive(registry, e)) continue;
         if (only != 0 && all.get<const ECS::Components::Owner>(e).player_id != only) continue;
         const bool building = registry.all_of<ECS::Components::Building>(e);
         if (buildings_only && !building) continue;

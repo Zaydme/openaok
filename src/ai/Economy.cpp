@@ -166,6 +166,7 @@ void Survey(const Turn& turn, Sources& out) {
     }
     std::sort(worked.begin(), worked.end());
 
+    const ECS::Vision::Map* map = ECS::Vision::MapOf(registry);
     auto stock = registry.view<const ECS::Components::Resource, const ECS::Components::Identity,
                                const ECS::Components::Transform>();
     for (auto e : stock) {
@@ -179,8 +180,14 @@ void Survey(const Turn& turn, Sources& out) {
         Source s;
         s.entity = e;
         s.at = stock.get<const ECS::Components::Transform>(e).position;
+        const bool building = registry.all_of<ECS::Components::Building>(e);
+        // What the player has not explored it does not know of; its own
+        // farms it does.
+        if (!building && !ECS::Vision::Explored(map, turn.player, Physics::TileOf(s.at.x), Physics::TileOf(s.at.y))) {
+            continue;
+        }
         bool hunt = false;
-        if (registry.all_of<ECS::Components::Building>(e)) {
+        if (building) {
             // A farm: the player's own, finished, and not yet worked.
             const auto* owner = registry.try_get<ECS::Components::Owner>(e);
             if (owner == nullptr || owner->player_id != turn.player || cls != kFarmClass) continue;
@@ -216,11 +223,6 @@ void Survey(const Turn& turn, Sources& out) {
         if (!s.farm) {
             const auto range = std::equal_range(worked.begin(), worked.end(), e);
             s.bias = s.bias + s.crowd * Core::Fixed32(static_cast<int>(range.second - range.first));
-        }
-        if (!s.farm) {
-            const int tx = Physics::TileOf(s.at.x);
-            const int ty = Physics::TileOf(s.at.y);
-            if (!ECS::Vision::Explored(registry, turn.player, tx, ty)) continue;
         }
         Core::Fixed32 drop(1 << 20);
         for (const Drop& d : drops) {

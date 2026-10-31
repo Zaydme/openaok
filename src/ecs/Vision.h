@@ -87,6 +87,13 @@ inline bool Visible(const Map* map, Core::PlayerId player, int x, int y) {
     return (map->visible[static_cast<size_t>(y * map->width + x)] & bit) != 0;
 }
 bool Explored(const entt::registry& registry, Core::PlayerId player, int x, int y);
+inline bool Explored(const Map* map, Core::PlayerId player, int x, int y) {
+    if (map == nullptr) return true;
+    if (x < 0 || y < 0 || x >= map->width || y >= map->height) return false;
+    const auto bit = static_cast<uint16_t>(1u << player);
+    if (player < 16 && ((map->explore_all | map->see_all) & bit) != 0) return true;
+    return (map->explored[static_cast<size_t>(y * map->width + x)] & bit) != 0;
+}
 
 // Whether `viewer` sees `entity` drawn: its own things always; a picture of
 // the fog's (ecs/Fog) if it is the viewer's; a foundation not yet begun only
