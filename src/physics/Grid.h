@@ -186,4 +186,22 @@ private:
     std::vector<TerrainChange> terrain_log;
 };
 
+// The two questions route searches ask of every tile they look at, inline.
+inline bool Grid::IsWalkable(int x, int y) const {
+    if (!InBounds(x, y)) return false;
+    return tiles[static_cast<size_t>(y * width + x)].is_walkable;
+}
+
+inline bool Grid::Passable(Layer layer, int x, int y) const {
+    const Layer base = BaseLayer(layer);
+    if (base == kLand) {
+        if (IsWalkable(x, y)) return true;
+        // A gate is land, open to the key it opens for.
+        const Core::PlayerId key = KeyOf(layer);
+        return key != 0 && GateOpensFor(x, y, key);
+    }
+    if (!InBounds(x, y)) return false;
+    return (tiles[static_cast<size_t>(y * width + x)].passable >> base) & 1u;
+}
+
 } // namespace Physics

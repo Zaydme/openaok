@@ -21,11 +21,6 @@ void Grid::Resize(int w, int h) {
 }
 
 
-bool Grid::IsWalkable(int x, int y) const {
-    if (!InBounds(x, y)) return false;
-    return tiles[static_cast<size_t>(y * width + x)].is_walkable;
-}
-
 void Grid::SetWalkable(int x, int y, bool walkable) {
     if (!InBounds(x, y)) return;
     tiles[static_cast<size_t>(y * width + x)].blocked = !walkable;
@@ -84,18 +79,6 @@ bool Grid::GroundPasses(Layer layer, Core::TerrainType terrain) const {
     const auto& grounds = layer_grounds[layer];
     const size_t index = static_cast<size_t>(terrain);
     return index < grounds.size() && grounds[index];
-}
-
-bool Grid::Passable(Layer layer, int x, int y) const {
-    const Layer base = BaseLayer(layer);
-    if (base == kLand) {
-        if (IsWalkable(x, y)) return true;
-        // A gate is land, open to the key it opens for.
-        const Core::PlayerId key = KeyOf(layer);
-        return key != 0 && GateOpensFor(x, y, key);
-    }
-    if (!InBounds(x, y)) return false;
-    return (tiles[static_cast<size_t>(y * width + x)].passable >> base) & 1u;
 }
 
 void Grid::SetGate(int x, int y, Core::PlayerId owner) {

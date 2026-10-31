@@ -22,6 +22,10 @@ constexpr int kDiagonal = 14;
 // not move.
 constexpr int kMaxExpansions = 20000;
 
+// The route search's open-list keys: index and h in 20 bits each, f above
+// them (Node's order in one integer); maps are far smaller than 2^20 tiles.
+constexpr uint64_t kKeyField = (1u << 20) - 1;
+
 struct Node {
     int32_t index;
     int32_t g_cost;
@@ -46,6 +50,9 @@ struct Scratch {
     std::vector<int32_t> g_score;
     std::vector<int32_t> came_from;
     std::vector<uint8_t> closed;
+    // Per tile, for the route search: 0 not yet asked, 1 open all round, 2
+    // beside closed ground.
+    std::vector<uint8_t> beside;
 
     void Prepare(int w, int h) {
         if (width != w || height != h) {
@@ -56,6 +63,7 @@ struct Scratch {
             g_score.assign(n, 0);
             came_from.assign(n, -1);
             closed.assign(n, 0);
+            beside.assign(n, 0);
             generation = 0;
         }
         ++generation;
@@ -68,6 +76,7 @@ struct Scratch {
             g_score[i] = INT32_MAX;
             came_from[i] = -1;
             closed[i] = 0;
+            beside[i] = 0;
         }
     }
 };
@@ -617,23 +626,39 @@ ECS::Components::Path AStar::FindRoute(const Physics::Grid& grid, Vector2D from,
     auto index_of = [w](int x, int y) { return static_cast<int32_t>(y) * w + x; };
     const int32_t start_index = index_of(start_x, start_y);
     const int32_t goal_index = index_of(end_x, end_y);
-    auto beside_closed = [&](int x, int y) {
-        for (int oy = -1; oy <= 1; ++oy) {
-            for (int ox = -1; ox <= 1; ++ox) {
-                if ((ox != 0 || oy != 0) && !grid.Passable(layer, x + ox, y + oy)) return true;
+    // Worked out once a search for each tile it reaches.
+    auto beside_closed = [&](int32_t index, int x, int y) {
+        uint8_t& known = sc.beside[index];
+        if (known == 0) {
+            known = 1;
+            for (int oy = -1; oy <= 1 && known == 1; ++oy) {
+                for (int ox = -1; ox <= 1; ++ox) {
+                    if ((ox != 0 || oy != 0) && !grid.Passable(layer, x + ox, y + oy)) {
+                        known = 2;
+                        break;
+                    }
+                }
             }
         }
-        return false;
+        return known == 2;
     };
     auto standing_on = [&](int32_t tile) {
         const auto range = std::equal_range(crowd.begin(), crowd.end(), tile);
         return static_cast<int32_t>(range.second - range.first);
     };
 
-    std::priority_queue<Node, std::vector<Node>, std::greater<Node>> open;
+    // The open list: a node's f, h and index packed into one key, so that a
+    // single comparison orders nodes as Node does; its g is f less h.
+    static std::vector<uint64_t> open;
+    open.clear();
+    auto push = [](int32_t g, int32_t heuristic, int32_t index) {
+        open.push_back((static_cast<uint64_t>(g + heuristic) << 40) | (static_cast<uint64_t>(heuristic) << 20) |
+                       static_cast<uint64_t>(index));
+        std::push_heap(open.begin(), open.end(), std::greater<uint64_t>());
+    };
     sc.Touch(start_index);
     sc.g_score[start_index] = 0;
-    open.push({start_index, 0, Heuristic(start_x, start_y, end_x, end_y)});
+    push(0, Heuristic(start_x, start_y, end_x, end_y), start_index);
     static const int dx[8] = { 0,  0,  1, -1,  1, -1,  1, -1};
     static const int dy[8] = {-1,  1,  0,  0, -1, -1,  1,  1};
     int expansions = 0;
@@ -641,21 +666,25 @@ ECS::Components::Path AStar::FindRoute(const Physics::Grid& grid, Vector2D from,
     int32_t nearest = start_index;
     int32_t nearest_h = Heuristic(start_x, start_y, end_x, end_y);
     while (!open.empty()) {
-        const Node current = open.top();
-        open.pop();
-        if (sc.closed[current.index]) continue;
-        sc.closed[current.index] = 1;
-        if (current.index == goal_index) {
-            reached = current.index;
+        std::pop_heap(open.begin(), open.end(), std::greater<uint64_t>());
+        const uint64_t key = open.back();
+        open.pop_back();
+        const auto index = static_cast<int32_t>(key & kKeyField);
+        const auto heuristic = static_cast<int32_t>((key >> 20) & kKeyField);
+        const int32_t g = static_cast<int32_t>(key >> 40) - heuristic;
+        if (sc.closed[index]) continue;
+        sc.closed[index] = 1;
+        if (index == goal_index) {
+            reached = index;
             break;
         }
-        if (current.h_cost < nearest_h) {
-            nearest_h = current.h_cost;
-            nearest = current.index;
+        if (heuristic < nearest_h) {
+            nearest_h = heuristic;
+            nearest = index;
         }
         if (++expansions > kMaxExpansions) break;
-        const int cx = current.index % w;
-        const int cy = current.index / w;
+        const int cx = index % w;
+        const int cy = index / w;
         for (int i = 0; i < 8; ++i) {
             const int nx = cx + dx[i];
             const int ny = cy + dy[i];
@@ -666,13 +695,13 @@ ECS::Components::Path AStar::FindRoute(const Physics::Grid& grid, Vector2D from,
             sc.Touch(neighbour);
             if (sc.closed[neighbour]) continue;
             int32_t step = i < 4 ? kStraight : kDiagonal;
-            if (beside_closed(nx, ny)) step += kBesideClosed;
+            if (beside_closed(neighbour, nx, ny)) step += kBesideClosed;
             step += kPastStanding * standing_on(neighbour);
-            const int32_t tentative = current.g_cost + step;
+            const int32_t tentative = g + step;
             if (tentative >= sc.g_score[neighbour]) continue;
             sc.g_score[neighbour] = tentative;
-            sc.came_from[neighbour] = current.index;
-            open.push({neighbour, tentative, Heuristic(nx, ny, end_x, end_y)});
+            sc.came_from[neighbour] = index;
+            push(tentative, Heuristic(nx, ny, end_x, end_y), neighbour);
         }
     }
     Core::Costs::Route(expansions);
