@@ -429,8 +429,11 @@ bool UnitOn(const entt::registry& registry, const Bounds& ground, Core::PlayerId
     auto units = registry.view<const Components::Transform, const Components::Animation,
                                const Components::Owner>();
     for (auto unit : units) {
+        // Where it stands first: nearly every unit is elsewhere.
+        const auto& at = units.get<const Components::Transform>(unit).position;
+        if (at.x < ground.min_x || at.x > ground.max_x || at.y < ground.min_y || at.y > ground.max_y) continue;
         if (registry.any_of<Components::Building, Components::Dying, Components::Corpse>(unit)) continue;
-        if (ground.DistanceFrom(units.get<const Components::Transform>(unit).position).value != 0) continue;
+        if (ground.DistanceFrom(at).value != 0) continue;
         const Core::PlayerId owner = units.get<const Components::Owner>(unit).player_id;
         if (owner != Core::PLAYER_GAIA && !SameSide(registry, player, owner)) {
             foe = true;
