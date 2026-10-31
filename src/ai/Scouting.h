@@ -10,7 +10,9 @@
 // the boat attack groups leave over -- once each attack group has its
 // sn-minimum-boat-attack-group-size -- explore the water in up to
 // sn-number-boat-explore-groups groups, no more of them than are left over,
-// each to the unexplored water nearest it.
+// each to the unexplored water nearest it. The scout and the groups, idle at
+// a point, go on to the next once sn-consecutive-idle-unit-limit seconds
+// have passed since they were sent to it.
 namespace AI::Scouting {
 
 // Before the army is tasked: the explore groups filled from idle soldiers,

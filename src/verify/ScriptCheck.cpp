@@ -34,6 +34,7 @@
 #include "ecs/components/Building.h"
 #include "ecs/components/Identity.h"
 #include "ecs/components/Owner.h"
+#include "ecs/components/Path.h"
 #include "ecs/components/ProductionQueue.h"
 #include "ecs/components/Relic.h"
 #include "ecs/components/Resource.h"
@@ -777,6 +778,56 @@ const char* CheckExploring() {
     return nullptr;
 }
 
+// The scout, at a point it reached, is sent on once
+// sn-consecutive-idle-unit-limit seconds have passed since it was sent there:
+// with the limit at 60 it waits out what its walk did not take, with it at 1
+// no more than a pass or two.
+const char* CheckIdleLimit() {
+    const int scout_unit = Core::ConfigManager::Get().GetUnitIdByName("SCOUT");
+    for (const int limit : {60, 1}) {
+        Core::GameSetup setup = Core::DefaultSetup();
+        setup.players[1].computer = true;
+        ECS::Simulation sim;
+        sim.Init(setup);
+        auto& reg = sim.GetRegistry();
+        Files files;
+        files["main"] = "(defrule (true) => (set-strategic-number sn-number-explore-groups 1)"
+                        " (set-strategic-number sn-consecutive-idle-unit-limit " + std::to_string(limit) +
+                        ") (disable-self))\n";
+        AI::Brains* brains = reg.ctx().find<AI::Brains>();
+        if (brains == nullptr || brains->brains.empty()) return "no brain for the computer seat";
+        AI::Brain& brain = brains->brains.front();
+        brain.program = CompileFiles(files, {}, 0);
+        AI::Reset(brain.mind, brain.program.rules.size(), &setup);
+        entt::entity scout = entt::null;
+        for (auto e : reg.view<ECS::Components::Identity, ECS::Components::Owner>()) {
+            if (reg.get<ECS::Components::Owner>(e).player_id == 1 && reg.get<ECS::Components::Identity>(e).unit_id == scout_unit) {
+                scout = e;
+            }
+        }
+        if (scout == entt::null) return "no scout";
+        const auto walking = [&] {
+            const auto* path = reg.try_get<ECS::Components::Path>(scout);
+            return path != nullptr && path->current_waypoint_index < path->waypoints.size();
+        };
+        // Out, there, and on again: from leaving to leaving again is the
+        // limit, or the walk if that was longer.
+        int t = 0;
+        const int most = 240 * kTicksPerSecond;
+        while (t < most && !walking()) { sim.Update(16); ++t; }
+        const int left = t;
+        while (t < most && walking()) { sim.Update(16); ++t; }
+        const int stopped = t;
+        while (t < most && !walking()) { sim.Update(16); ++t; }
+        if (t >= most) return "the scout never went on from the first point it reached";
+        const int between = (t - left) / kTicksPerSecond;
+        const int waited = (t - stopped) / kTicksPerSecond;
+        if (limit == 60 && (between < 59 || between > 62)) return "the scout was not sent on sn-consecutive-idle-unit-limit after it was sent";
+        if (limit == 1 && waited > 3) return "the scout waited longer than sn-consecutive-idle-unit-limit at a point";
+    }
+    return nullptr;
+}
+
 // Relics: a computer player's idle Monk fetches a relic lying where the player
 // has explored and puts it in the player's Monastery; at Easiest the relic is
 // left alone; and enemy-captured-relics holds once the enemy's Monastery has
@@ -1106,6 +1157,7 @@ bool CheckScript() {
     if (verdict == nullptr) verdict = CheckAllyHits();
     if (verdict == nullptr) verdict = CheckTrading();
     if (verdict == nullptr) verdict = CheckExploring();
+    if (verdict == nullptr) verdict = CheckIdleLimit();
     if (verdict == nullptr) verdict = CheckRelics();
     if (verdict == nullptr) verdict = CheckRetask();
     if (verdict == nullptr) verdict = CheckExplorers();

@@ -122,6 +122,7 @@ void ClaimBoats(Turn& turn) {
         brain.boat_explore_groups.resize(static_cast<size_t>(std::max(0, wanted)));
     }
     while (static_cast<int>(brain.boat_explore_groups.size()) < wanted) brain.boat_explore_groups.emplace_back();
+    brain.boat_explore_idle_ms.resize(brain.boat_explore_groups.size(), -2);
     const auto taken = [&](entt::entity e) {
         for (const auto& g : brain.boat_explore_groups) {
             if (std::find(g.begin(), g.end(), e) != g.end()) return true;
@@ -146,6 +147,25 @@ void ClaimBoats(Turn& turn) {
             std::erase(census.military, e);
             std::erase(census.idle_military, e);
         }
+    }
+}
+
+// Whether an explorer standing idle is due a new point: at once the first
+// time, then once sn-consecutive-idle-unit-limit seconds have passed since
+// it was last sent. `sent_ms` keeps when that was.
+bool Due(const Turn& turn, int64_t sent_ms, bool busy) {
+    if (busy) return false;
+    if (sent_ms == -2) return true;
+    return turn.now_ms - sent_ms >= static_cast<int64_t>(Sn(turn, Lang::SN::ConsecutiveIdleUnitLimit)) * 1000;
+}
+
+// The scout to the next point it has not explored, when it is due one.
+void ExploreScout(Turn& turn, entt::entity unit) {
+    if (!Due(turn, turn.brain->scout_idle_ms, Busy(*turn.registry, unit))) return;
+    turn.brain->scout_idle_ms = turn.now_ms;
+    int x = 0, y = 0;
+    if (NextPoint(turn, x, y)) {
+        Give(*turn.registry, *turn.grid, Core::MoveCommand{unit, Core::Fixed32(x), Core::Fixed32(y), turn.player});
     }
 }
 
@@ -177,6 +197,7 @@ void Claim(Turn& turn) {
     const int most = std::max(1, Sn(turn, Lang::SN::MaximumExploreGroupSize));
     if (static_cast<int>(brain.explore_groups.size()) > wanted) brain.explore_groups.resize(static_cast<size_t>(wanted));
     while (static_cast<int>(brain.explore_groups.size()) < wanted) brain.explore_groups.emplace_back();
+    brain.explore_idle_ms.resize(brain.explore_groups.size(), -2);
     for (auto& group : brain.explore_groups) {
         for (auto it = census.idle_military.begin();
              it != census.idle_military.end() && static_cast<int>(group.size()) < most;) {
@@ -209,9 +230,14 @@ void Run(Turn& turn) {
     // unexplored point nearest home, when none of them is still on the way or
     // fighting.
     const int least = std::max(1, Sn(turn, Lang::SN::MinimumExploreGroupSize));
-    for (const auto& group : turn.brain->explore_groups) {
+    Brain& brain = *turn.brain;
+    brain.explore_idle_ms.resize(brain.explore_groups.size(), -2);
+    for (size_t i = 0; i < brain.explore_groups.size(); ++i) {
+        const auto& group = brain.explore_groups[i];
         if (static_cast<int>(group.size()) < least) continue;
-        if (std::any_of(group.begin(), group.end(), [&](entt::entity e) { return Busy(*turn.registry, e); })) continue;
+        const bool busy = std::any_of(group.begin(), group.end(), [&](entt::entity e) { return Busy(*turn.registry, e); });
+        if (!Due(turn, brain.explore_idle_ms[i], busy)) continue;
+        brain.explore_idle_ms[i] = turn.now_ms;
         int x = 0, y = 0;
         if (!NearestUnexplored(turn, x, y)) break;
         if (group.size() == 1) {
@@ -222,9 +248,13 @@ void Run(Turn& turn) {
         }
     }
     const int least_boats = std::max(1, Sn(turn, Lang::SN::MinimumBoatExploreGroupSize));
-    for (const auto& group : turn.brain->boat_explore_groups) {
+    brain.boat_explore_idle_ms.resize(brain.boat_explore_groups.size(), -2);
+    for (size_t i = 0; i < brain.boat_explore_groups.size(); ++i) {
+        const auto& group = brain.boat_explore_groups[i];
         if (static_cast<int>(group.size()) < least_boats) continue;
-        if (std::any_of(group.begin(), group.end(), [&](entt::entity e) { return Busy(*turn.registry, e); })) continue;
+        const bool busy = std::any_of(group.begin(), group.end(), [&](entt::entity e) { return Busy(*turn.registry, e); });
+        if (!Due(turn, brain.boat_explore_idle_ms[i], busy)) continue;
+        brain.boat_explore_idle_ms[i] = turn.now_ms;
         int x = 0, y = 0;
         if (!NearestUnexploredWater(turn, group.front(), x, y)) continue;
         for (entt::entity ship : group) {
@@ -233,7 +263,7 @@ void Run(Turn& turn) {
     }
     if (turn.census->scout != entt::null &&
         turn.mind->sn[static_cast<size_t>(Lang::SN::NumberExploreGroups)] > 0) {
-        Explore(turn, turn.census->scout);
+        ExploreScout(turn, turn.census->scout);
     }
     for (entt::entity v : turn.brain->explorers) {
         const auto& w = turn.registry->get<ECS::Components::Worker>(v);

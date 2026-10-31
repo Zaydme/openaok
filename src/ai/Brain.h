@@ -103,6 +103,11 @@ struct Brain {
     // Warships exploring the water, the boat attack groups' leftovers, as
     // sn-number-boat-explore-groups asks.
     std::vector<std::vector<entt::entity>> boat_explore_groups;
+    // When the scout and each explore group were last sent to a point, for
+    // sn-consecutive-idle-unit-limit (ai/Scouting); -2 before the first.
+    int64_t scout_idle_ms = -2;
+    std::vector<int64_t> explore_idle_ms;
+    std::vector<int64_t> boat_explore_idle_ms;
     // A boar being hunted, and the party sent after it.
     entt::entity boar = entt::null;
     std::vector<entt::entity> hunters;
