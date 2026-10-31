@@ -31,6 +31,7 @@
 #include "ecs/Relics.h"
 #include "ecs/ScenarioWorld.h"
 #include "ecs/Simulation.h"
+#include "ecs/Techs.h"
 #include "ecs/components/Building.h"
 #include "ecs/components/Identity.h"
 #include "ecs/components/Owner.h"
@@ -1056,6 +1057,35 @@ const char* CheckCamps() {
     return nullptr;
 }
 
+// The Hardest's gift: a computer player starts with 500 more of each of
+// food, wood, stone and gold than a person, and is given 500 of each again
+// when it reaches the Feudal Age; at Hard there is none.
+const char* CheckHardestGift() {
+    for (const int difficulty : {0, 1}) {
+        Core::GameSetup setup = Core::DefaultSetup();
+        setup.difficulty = difficulty;
+        setup.players[1].computer = true;
+        ECS::Simulation sim;
+        sim.Init(setup);
+        auto& reg = sim.GetRegistry();
+        const auto stock = [&](Core::PlayerId p, Core::ResourceType r) {
+            const ECS::Players::Player* seat = ECS::Players::Find(reg, p);
+            return seat != nullptr ? ECS::Players::Stock(*seat, r) : -1;
+        };
+        const int gift = difficulty == 0 ? 500 : 0;
+        for (const auto r : {Core::ResourceType::Food, Core::ResourceType::Wood, Core::ResourceType::Stone,
+                             Core::ResourceType::Gold}) {
+            if (stock(1, r) != stock(2, r) + gift) return "a computer player did not start with the Hardest's gift";
+        }
+        const int food = stock(1, Core::ResourceType::Food);
+        ECS::Techs::Complete(reg, 1, ECS::Techs::AgeTech(reg, 1, 1));
+        if (stock(1, Core::ResourceType::Food) != food + gift) {
+            return "a computer player was not given the Hardest's gift on reaching the Feudal Age";
+        }
+    }
+    return nullptr;
+}
+
 // Civilian explorers as the game counts them: of the three villagers at the
 // start, sn-percent-civilian-explorers 34 rounded up and capped at 2 sends
 // two; with sn-percent-half-exploration reached, one; and a lone villager
@@ -1162,6 +1192,7 @@ bool CheckScript() {
     if (verdict == nullptr) verdict = CheckRetask();
     if (verdict == nullptr) verdict = CheckExplorers();
     if (verdict == nullptr) verdict = CheckCamps();
+    if (verdict == nullptr) verdict = CheckHardestGift();
     if (verdict == nullptr) verdict = CheckForwardBuilders();
     std::printf("script=%s\n", verdict == nullptr ? "ok" : verdict);
     return verdict == nullptr;

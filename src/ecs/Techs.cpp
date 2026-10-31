@@ -2,6 +2,7 @@
 
 #include "ecs/Events.h"
 
+#include "core/GameSetup.h"
 #include "core/Rules.h"
 #include "ecs/Effects.h"
 #include "ecs/Players.h"
@@ -20,6 +21,11 @@ constexpr int kAges = 4;
 
 // The dat resource that shows a player what its enemies see.
 constexpr int kRevealEnemy = 183;
+
+// What a computer player at the Hardest is given of each of food, wood,
+// stone and gold with every age it reaches, the Dark Age it starts in among
+// them.
+constexpr int kHardestAgeGift = 500;
 
 bool RequirementsMet(const Players::Player& player, const R::TechRules& tech) {
     int done = 0;
@@ -40,6 +46,17 @@ void Research(entt::registry& registry, Players::Player& player, int tech_id) {
     status.state = Players::TechState::Done;
     if (const R::TechRules* tech = R::Tech(tech_id)) {
         Effects::Apply(registry, player.id, tech->effect);
+    }
+    // The Hardest's gift to a computer player, age by age.
+    const auto* setup = registry.ctx().find<Core::GameSetup>();
+    if (setup != nullptr && setup->difficulty == 0 && player.id < Core::kMaxPlayers &&
+        setup->players[player.id].computer) {
+        for (int age : kAgeTechResources) {
+            if (Players::Resource(player, age).ToInt() != tech_id) continue;
+            for (int r : {R::Res::Food, R::Res::Wood, R::Res::Stone, R::Res::Gold}) {
+                Players::AddResource(player, r, Core::Fixed32(kHardestAgeGift));
+            }
+        }
     }
     // Every technology done passes here: the score counts it after its
     // effect.
