@@ -42,41 +42,46 @@ struct Node {
 };
 
 // Scratch reused between searches; a generation stamp avoids clearing it.
+// A tile's fields sit together, so a search reaching a tile touches one
+// cache line.
 struct Scratch {
+    struct Cell {
+        uint32_t seen = 0;       // generation stamp
+        int32_t g_score = 0;
+        int32_t came_from = -1;
+        uint8_t closed = 0;
+        // For the route search: 0 not yet asked, 1 open all round, 2 beside
+        // closed ground.
+        uint8_t beside = 0;
+        // How many units stand on it, where `crowded` holds this search's
+        // generation.
+        uint32_t crowded = 0;
+        int32_t standing = 0;
+    };
     int width = 0;
     int height = 0;
     uint32_t generation = 0;
-    std::vector<uint32_t> seen;      // generation stamp per tile
-    std::vector<int32_t> g_score;
-    std::vector<int32_t> came_from;
-    std::vector<uint8_t> closed;
-    // Per tile, for the route search: 0 not yet asked, 1 open all round, 2
-    // beside closed ground.
-    std::vector<uint8_t> beside;
+    std::vector<Cell> cells;
 
     void Prepare(int w, int h) {
         if (width != w || height != h) {
             width = w;
             height = h;
-            const size_t n = static_cast<size_t>(w) * h;
-            seen.assign(n, 0);
-            g_score.assign(n, 0);
-            came_from.assign(n, -1);
-            closed.assign(n, 0);
-            beside.assign(n, 0);
+            cells.assign(static_cast<size_t>(w) * h, Cell{});
             generation = 0;
         }
         ++generation;
     }
 
-    bool Visited(int32_t i) const { return seen[i] == generation; }
+    bool Visited(int32_t i) const { return cells[i].seen == generation; }
     void Touch(int32_t i) {
-        if (seen[i] != generation) {
-            seen[i] = generation;
-            g_score[i] = INT32_MAX;
-            came_from[i] = -1;
-            closed[i] = 0;
-            beside[i] = 0;
+        Cell& c = cells[i];
+        if (c.seen != generation) {
+            c.seen = generation;
+            c.g_score = INT32_MAX;
+            c.came_from = -1;
+            c.closed = 0;
+            c.beside = 0;
         }
     }
 };
@@ -263,7 +268,7 @@ ECS::Components::Path AStar::FindPath(const Physics::Grid& grid,
 
     std::priority_queue<Node, std::vector<Node>, std::greater<Node>> open;
     s.Touch(start_index);
-    s.g_score[start_index] = 0;
+    s.cells[start_index].g_score = 0;
     open.push({start_index, 0, Heuristic(start_x, start_y, end_x, end_y)});
 
     // Straights before diagonals, in a fixed order, so equal-cost expansions
@@ -278,8 +283,8 @@ ECS::Components::Path AStar::FindPath(const Physics::Grid& grid,
         open.pop();
 
         // A cheaper route to this tile was found after it was queued.
-        if (s.closed[current.index]) continue;
-        s.closed[current.index] = 1;
+        if (s.cells[current.index].closed) continue;
+        s.cells[current.index].closed = 1;
 
         if (current.index == goal_index) { found = true; break; }
         if (++expansions > kMaxExpansions) break;
@@ -300,13 +305,13 @@ ECS::Components::Path AStar::FindPath(const Physics::Grid& grid,
 
             const int32_t neighbour = index_of(nx, ny);
             s.Touch(neighbour);
-            if (s.closed[neighbour]) continue;
+            if (s.cells[neighbour].closed) continue;
 
             const int32_t tentative = current.g_cost + (i < 4 ? kStraight : kDiagonal);
-            if (tentative >= s.g_score[neighbour]) continue;
+            if (tentative >= s.cells[neighbour].g_score) continue;
 
-            s.g_score[neighbour] = tentative;
-            s.came_from[neighbour] = current.index;
+            s.cells[neighbour].g_score = tentative;
+            s.cells[neighbour].came_from = current.index;
             open.push({neighbour, tentative, Heuristic(nx, ny, end_x, end_y)});
         }
     }
@@ -316,7 +321,7 @@ ECS::Components::Path AStar::FindPath(const Physics::Grid& grid,
 
     // Walk the parent chain back to the start.
     std::vector<int32_t> tiles;
-    for (int32_t i = goal_index; i != -1 && i != start_index; i = s.came_from[i]) {
+    for (int32_t i = goal_index; i != -1 && i != start_index; i = s.cells[i].came_from) {
         tiles.push_back(i);
     }
     std::reverse(tiles.begin(), tiles.end());
@@ -628,7 +633,7 @@ ECS::Components::Path AStar::FindRoute(const Physics::Grid& grid, Vector2D from,
     const int32_t goal_index = index_of(end_x, end_y);
     // Worked out once a search for each tile it reaches.
     auto beside_closed = [&](int32_t index, int x, int y) {
-        uint8_t& known = sc.beside[index];
+        uint8_t& known = sc.cells[index].beside;
         if (known == 0) {
             known = 1;
             for (int oy = -1; oy <= 1 && known == 1; ++oy) {
@@ -642,10 +647,15 @@ ECS::Components::Path AStar::FindRoute(const Physics::Grid& grid, Vector2D from,
         }
         return known == 2;
     };
-    auto standing_on = [&](int32_t tile) {
-        const auto range = std::equal_range(crowd.begin(), crowd.end(), tile);
-        return static_cast<int32_t>(range.second - range.first);
-    };
+    // The units standing on each tile, counted once for the search.
+    for (const int32_t tile : crowd) {
+        if (sc.cells[tile].crowded != sc.generation) {
+            sc.cells[tile].crowded = sc.generation;
+            sc.cells[tile].standing = 0;
+        }
+        ++sc.cells[tile].standing;
+    }
+    auto standing_on = [&](int32_t tile) { return sc.cells[tile].crowded == sc.generation ? sc.cells[tile].standing : 0; };
 
     // The open list: a node's f, h and index packed into one key, so that a
     // single comparison orders nodes as Node does; its g is f less h.
@@ -657,7 +667,7 @@ ECS::Components::Path AStar::FindRoute(const Physics::Grid& grid, Vector2D from,
         std::push_heap(open.begin(), open.end(), std::greater<uint64_t>());
     };
     sc.Touch(start_index);
-    sc.g_score[start_index] = 0;
+    sc.cells[start_index].g_score = 0;
     push(0, Heuristic(start_x, start_y, end_x, end_y), start_index);
     static const int dx[8] = { 0,  0,  1, -1,  1, -1,  1, -1};
     static const int dy[8] = {-1,  1,  0,  0, -1, -1,  1,  1};
@@ -672,8 +682,8 @@ ECS::Components::Path AStar::FindRoute(const Physics::Grid& grid, Vector2D from,
         const auto index = static_cast<int32_t>(key & kKeyField);
         const auto heuristic = static_cast<int32_t>((key >> 20) & kKeyField);
         const int32_t g = static_cast<int32_t>(key >> 40) - heuristic;
-        if (sc.closed[index]) continue;
-        sc.closed[index] = 1;
+        if (sc.cells[index].closed) continue;
+        sc.cells[index].closed = 1;
         if (index == goal_index) {
             reached = index;
             break;
@@ -693,14 +703,14 @@ ECS::Components::Path AStar::FindRoute(const Physics::Grid& grid, Vector2D from,
             if (i >= 4 && (!grid.Passable(layer, cx, ny) || !grid.Passable(layer, nx, cy))) continue;
             const int32_t neighbour = index_of(nx, ny);
             sc.Touch(neighbour);
-            if (sc.closed[neighbour]) continue;
+            if (sc.cells[neighbour].closed) continue;
             int32_t step = i < 4 ? kStraight : kDiagonal;
             if (beside_closed(neighbour, nx, ny)) step += kBesideClosed;
             step += kPastStanding * standing_on(neighbour);
             const int32_t tentative = g + step;
-            if (tentative >= sc.g_score[neighbour]) continue;
-            sc.g_score[neighbour] = tentative;
-            sc.came_from[neighbour] = index;
+            if (tentative >= sc.cells[neighbour].g_score) continue;
+            sc.cells[neighbour].g_score = tentative;
+            sc.cells[neighbour].came_from = index;
             push(tentative, Heuristic(nx, ny, end_x, end_y), neighbour);
         }
     }
@@ -711,7 +721,7 @@ ECS::Components::Path AStar::FindRoute(const Physics::Grid& grid, Vector2D from,
     // The tile centres from the start to the end, the exact destination last
     // when it was reached.
     std::vector<int32_t> tiles;
-    for (int32_t i = end; i != -1 && i != start_index; i = sc.came_from[i]) tiles.push_back(i);
+    for (int32_t i = end; i != -1 && i != start_index; i = sc.cells[i].came_from) tiles.push_back(i);
     std::reverse(tiles.begin(), tiles.end());
     std::vector<Vector2D> points;
     points.reserve(tiles.size() + 1);
