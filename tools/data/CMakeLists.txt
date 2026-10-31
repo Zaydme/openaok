@@ -9,9 +9,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(GUTILS_TOOLS OFF CACHE BOOL "" FORCE)
 set(GUTILS_TEST OFF CACHE BOOL "" FORCE)
 set(GUTILS_STATIC ON CACHE BOOL "" FORCE)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/genieutils genieutils)
+# genieutils' sources; a build for Windows names a copy with its extern/
+# win-iconv added (windows/build.sh).
+set(GENIEUTILS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/genieutils" CACHE PATH "genieutils' sources")
+add_subdirectory(${GENIEUTILS_DIR} genieutils)
 
 add_executable(dump_dat dump_dat.cpp)
-target_include_directories(dump_dat PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/genieutils/include)
+target_include_directories(dump_dat PRIVATE ${GENIEUTILS_DIR}/include)
+if(MINGW)
+    target_link_options(dump_dat PRIVATE -static-libgcc -static-libstdc++ -static)
+endif()
 target_link_libraries(dump_dat PRIVATE genieutils)

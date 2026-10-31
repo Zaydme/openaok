@@ -20,9 +20,11 @@ _cache = None
 
 
 def build_dumper():
-    """Builds dump_dat if it is missing or older than its source."""
+    """Builds dump_dat if it is missing or older than its source. Where the
+    source is not there (the Windows download), the dumper given is used."""
     source = os.path.join(HERE, 'dump_dat.cpp')
-    if os.path.exists(DUMPER) and os.path.getmtime(DUMPER) > os.path.getmtime(source):
+    if os.path.exists(DUMPER) and (not os.path.exists(source) or
+                                   os.path.getmtime(DUMPER) > os.path.getmtime(source)):
         return
     try:
         subprocess.run(['cmake', '-S', HERE, '-B', BUILD_DIR, '-DCMAKE_BUILD_TYPE=Release'],
@@ -43,6 +45,6 @@ def load():
     if _cache is None:
         build_dumper()
         output = subprocess.run([DUMPER, EMPIRES2_DAT], check=True,
-                                capture_output=True, text=True).stdout
+                                capture_output=True, encoding='utf-8').stdout
         _cache = json.loads(output)
     return _cache

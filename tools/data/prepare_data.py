@@ -16,6 +16,7 @@ and does nothing on later runs unless the CD's files change or --force is given.
 import argparse
 import os
 import shutil
+import struct
 import subprocess
 import sys
 
@@ -137,7 +138,7 @@ def fingerprint():
 def prepared():
     if not os.path.exists(STAMP):
         return False
-    with open(STAMP) as fh:
+    with open(STAMP, encoding='utf-8') as fh:
         if fh.read() != fingerprint():
             return False
     return all(os.path.exists(os.path.join(ROOT, p)) for p in OUTPUTS)
@@ -152,16 +153,65 @@ def check_dat():
              'The Conquerors and later editions are not supported.' % (version, DAT_VERSION))
 
 
+def cab_names(cab):
+    """The paths of the files in a cabinet, as it stores them, with / between
+    folders."""
+    with open(cab, 'rb') as fh:
+        data = fh.read()
+    coff_files, = struct.unpack_from('<I', data, 16)
+    count, = struct.unpack_from('<H', data, 28)
+    names = []
+    off = coff_files
+    for _ in range(count):
+        end = data.index(b'\0', off + 16)
+        names.append(data[off + 16:end].decode('latin-1').replace('\\', '/'))
+        off = end + 1
+    return names
+
+
+def placed(cab, into):
+    """Whether every file of `cab` is in `into` where the cabinet puts it,
+    moving any a tool left side by side, without its folders, into place."""
+    for name in cab_names(cab):
+        path = os.path.join(into, *name.split('/'))
+        flat = os.path.join(into, os.path.basename(name))
+        if not os.path.exists(path) and os.path.exists(flat):
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            shutil.move(flat, path)
+        if not os.path.exists(path):
+            return False
+    return True
+
+
+def unpack_cab(cab, into):
+    """Unpacks `cab` whole into `into` with the first tool that can:
+    cabextract, or on Windows its own extrac32, tar or expand."""
+    commands = [['cabextract', '-q', '-d', into, cab]]
+    if os.name == 'nt':
+        commands += [['extrac32', '/Y', '/E', '/L', into, cab],
+                     ['tar', '-xf', cab, '-C', into],
+                     ['expand', '-F:*', cab, into]]
+    for command in commands:
+        if shutil.which(command[0]) is None:
+            continue
+        subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if placed(cab, into):
+            return True
+        shutil.rmtree(into, ignore_errors=True)
+        os.makedirs(into)
+    return False
+
+
 def extract_cab():
     cab = os.path.join(CD, 'GAME', 'EMPIRES2.CAB')
-    tool = shutil.which('cabextract')
-    if tool is None:
-        fail('cabextract is needed to unpack GAME/EMPIRES2.CAB. Install it with '
-             '"brew install cabextract" (macOS) or "sudo apt install cabextract" (Debian/Ubuntu).')
     partial = ORIGINAL + '.partial'
     shutil.rmtree(partial, ignore_errors=True)
     os.makedirs(partial)
-    subprocess.run([tool, '-q', '-d', partial, cab], check=True)
+    if not unpack_cab(cab, partial):
+        if os.name == 'nt':
+            fail('GAME/EMPIRES2.CAB could not be unpacked with Windows\' extrac32, tar or expand.')
+        fail('cabextract is needed to unpack GAME/EMPIRES2.CAB. Install it with '
+             '"brew install cabextract" (macOS) or "sudo apt install cabextract" (Debian/Ubuntu).')
     shutil.rmtree(ORIGINAL, ignore_errors=True)
     os.rename(partial, ORIGINAL)
 
@@ -183,7 +233,8 @@ def run_extractors():
     for command in EXTRACTORS:
         print('  %s' % command[0])
         result = subprocess.run([sys.executable, os.path.join(HERE, command[0])] + command[1:],
-                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='utf-8',
+                                errors='replace')
         if result.returncode != 0:
             print(result.stdout)
             fail('%s failed' % command[0])
@@ -207,7 +258,7 @@ def main():
     print('  reading GAME/DATA/EMPIRES2.DAT')
     check_dat()
     run_extractors()
-    with open(STAMP, 'w') as fh:
+    with open(STAMP, 'w', encoding='utf-8', newline='\n') as fh:
         fh.write(fingerprint())
     print('Game data ready.')
 
