@@ -26,6 +26,9 @@ struct Options {
     bool one_click_garrison = false;
     bool audio_taunts = true;
     int graphics_detail = 2;     // 0 low, 1 medium, 2 high
+    // Any number of units selected at once; off, forty at most, as the
+    // original allows (InputManager::SelectionLimit).
+    bool no_selection_limit = true;
     // The game's frame as wide as the screen, the interface reaching its
     // edges (rendering/HudLayout.h). Off, the frame is 4:3.
 #if defined(__ANDROID__) || defined(__SWITCH__)

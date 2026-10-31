@@ -254,6 +254,11 @@ bool CheckTargets();
 // zooms the view at once. Prints "zoom=".
 bool CheckZoom();
 
+// The selection limit (the original's forty, off by default): a box round
+// sixty of the player's units selects them all, or forty with the limit on.
+// Prints "selection=".
+bool CheckSelection();
+
 // A late game measured: eight computer players on a giant map in the
 // Imperial Age, their armies and fleets sent at one another, a minute's
 // ticks timed system by system (core/Costs). Prints "stress=" with the

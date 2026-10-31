@@ -44,6 +44,7 @@
 #include "ecs/DropSites.h"
 #include "ecs/Monks.h"
 #include <algorithm>
+#include <limits>
 #include <cmath>
 
 namespace {
@@ -1249,6 +1250,10 @@ void InputManager::RunCommand(ECS::Simulation& sim, const Rendering::UIRenderer:
     }
 }
 
+int InputManager::SelectionLimit() {
+    return Core::Profile::Current().no_selection_limit ? std::numeric_limits<int>::max() : kOriginalSelectionLimit;
+}
+
 void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Rendering::Renderer& renderer) {
     auto& registry = sim.GetRegistry();
     // The current frame size: Update keeps it too, but is skipped while the
@@ -2045,6 +2050,7 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
         }
         if (event.button.button == SDL_BUTTON_LEFT && is_dragging) {
             is_dragging = false;
+            const int limit = SelectionLimit();
             float dex = static_cast<float>(event.button.x) / zoom;
             float dey = static_cast<float>(event.button.y) / zoom;
 
@@ -2128,7 +2134,7 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
                     for (auto e : view) {
                         auto& sel = view.get<ECS::Components::Selectable>(e);
                         sel.is_selected = false;
-                        if (taken >= kMaxSelection || !own(e)) continue;
+                        if (taken >= limit || !own(e)) continue;
                         const auto* id = registry.try_get<ECS::Components::Identity>(e);
                         if (id == nullptr) continue;
                         if (villagers ? !villager(e) : id->unit_id != kind) continue;
@@ -2157,7 +2163,7 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
                     auto& picked = view.get<ECS::Components::Selectable>(best);
                     if (picked.is_selected) {
                         picked.is_selected = false;
-                    } else if (count < kMaxSelection) {
+                    } else if (count < limit) {
                         picked.is_selected = true;
                     }
                 } else {
@@ -2169,7 +2175,7 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
             } else {
                 // A box takes the player's own units, and its buildings only
                 // when it caught no units at all. Ctrl or Shift adds to what
-                // is already selected. Forty at most.
+                // is already selected, up to the selection limit.
                 const SDL_Keymod mods = SDL_GetModState();
                 const bool adding = (mods & (KMOD_CTRL | KMOD_SHIFT | KMOD_GUI)) != 0;
                 std::vector<entt::entity> units, buildings;
@@ -2203,7 +2209,7 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
                 }
                 for (auto e : caught) {
                     auto& sel = registry.get<ECS::Components::Selectable>(e);
-                    if (sel.is_selected || count >= kMaxSelection) continue;
+                    if (sel.is_selected || count >= limit) continue;
                     sel.is_selected = true;
                     ++count;
                 }

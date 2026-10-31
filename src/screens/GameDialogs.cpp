@@ -77,7 +77,7 @@ struct Shared {
     // three checks, applied only on OK.
     int option_size = 1;
     Slider music, sound, scroll;
-    CheckBox taunts, one_click, two_button;
+    CheckBox taunts, one_click, two_button, no_selection_limit;
     Slider top_bar, panel, text;   // the interface's sizes
     // The Save Game dialog: the games already saved, and the name typed.
     ListBox saves;
@@ -287,9 +287,10 @@ void OpenOptions(int w, int h) {
     s.music = Slider{SDL_Rect{ox + 250, oy + 135, 260, 22}, profile.music_volume, 10};
     s.sound = Slider{SDL_Rect{ox + 250, oy + 180, 260, 22}, profile.sound_volume, 10};
     s.scroll = Slider{SDL_Rect{ox + 250, oy + 225, 260, 22}, profile.scroll_speed, 10};
-    s.taunts = CheckBox{SDL_Rect{ox + 250, oy + 265, 30, 27}, profile.audio_taunts};
-    s.one_click = CheckBox{SDL_Rect{ox + 250, oy + 297, 30, 27}, profile.one_click_garrison};
-    s.two_button = CheckBox{SDL_Rect{ox + 250, oy + 329, 30, 27}, profile.two_button_mouse};
+    s.taunts = CheckBox{SDL_Rect{ox + 250, oy + 263, 30, 27}, profile.audio_taunts};
+    s.one_click = CheckBox{SDL_Rect{ox + 250, oy + 291, 30, 27}, profile.one_click_garrison};
+    s.two_button = CheckBox{SDL_Rect{ox + 250, oy + 319, 30, 27}, profile.two_button_mouse};
+    s.no_selection_limit = CheckBox{SDL_Rect{ox + 250, oy + 347, 30, 27}, profile.no_selection_limit};
     // The interface's sizes, in a column of their own on the right.
     s.top_bar = SizeSlider(SDL_Rect{ox + 530, oy + 155, 120, 22}, profile.top_bar_size);
     s.panel = SizeSlider(SDL_Rect{ox + 530, oy + 225, 120, 22}, profile.panel_size);
@@ -334,6 +335,11 @@ void DrawOptionsDialog(SDL_Renderer* r, int w, int h) {
         DrawText(r, Text::kGeorgia10B, b.c->box.x + b.c->box.w + 10, b.c->box.y + 5, Get(b.label),
                  ink, ink, Align::Left, false);
     }
+    // No selection limit (Profile::Options::no_selection_limit); its label
+    // is in no string table.
+    DrawCheckBox(r, theme, s.no_selection_limit, s.mx, s.my, s.held);
+    DrawText(r, Text::kGeorgia10B, s.no_selection_limit.box.x + s.no_selection_limit.box.w + 10,
+             s.no_selection_limit.box.y + 5, "Disable selection limit", ink, ink, Align::Left, false);
     DrawSizeSlider(r, theme, s.top_bar, "Top Bar Size");
     DrawSizeSlider(r, theme, s.panel, "Panel Size");
     DrawSizeSlider(r, theme, s.text, "Text Size");
@@ -354,7 +360,7 @@ bool OptionsEventIn(const SDL_Event& e, int w, int h) {
         for (Slider* slider : {&s.music, &s.sound, &s.scroll, &s.top_bar, &s.panel, &s.text}) {
             if (DragSlider(*slider, e.button.x, e.button.y)) return false;
         }
-        for (CheckBox* c : {&s.taunts, &s.one_click, &s.two_button}) {
+        for (CheckBox* c : {&s.taunts, &s.one_click, &s.two_button, &s.no_selection_limit}) {
             if (Hit(c->box, e.button.x, e.button.y)) {
                 c->checked = !c->checked;
                 Click();
@@ -386,6 +392,7 @@ bool OptionsEventIn(const SDL_Event& e, int w, int h) {
             profile.audio_taunts = s.taunts.checked;
             profile.one_click_garrison = s.one_click.checked;
             profile.two_button_mouse = s.two_button.checked;
+            profile.no_selection_limit = s.no_selection_limit.checked;
             profile.top_bar_size = SizeOf(s.top_bar);
             profile.panel_size = SizeOf(s.panel);
             profile.text_size = SizeOf(s.text);

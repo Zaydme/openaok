@@ -18,6 +18,11 @@ public:
 
     void ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Rendering::Renderer& renderer);
 
+    // The most the player may select at once: the original's forty, or no
+    // limit (Profile::Options::no_selection_limit).
+    static constexpr int kOriginalSelectionLimit = 40;
+    static int SelectionLimit();
+
     // The box-select rectangle in window pixels, or false when not dragging.
     // In window pixels so it draws unscaled at any zoom.
     bool GetSelectionRect(SDL_Rect& out) const {
@@ -152,8 +157,6 @@ private:
     int last_group = 0;
     uint32_t last_group_at = 0;
     static constexpr uint32_t kDoubleTapMs = 500;
-    // The most the player may select at once.
-    static constexpr int kMaxSelection = 40;
     // Centres the view on a world position.
     void LookAt(Rendering::Renderer& renderer, float wx, float wy);
     // Selects and looks at the next of the player's buildings of a kind, by

@@ -82,6 +82,7 @@ BOATS="$(echo "$OUTPUT" | grep '^boats=')"
 ATTACKGROUPS="$(echo "$OUTPUT" | grep '^attackgroups=')"
 TARGETS="$(echo "$OUTPUT" | grep '^targets=')"
 ZOOM="$(echo "$OUTPUT" | grep '^zoom=')"
+SELECTION="$(echo "$OUTPUT" | grep '^selection=')"
 STRESS="$(echo "$OUTPUT" | grep '^stress=')"
 LANDING="$(echo "$OUTPUT" | grep '^landing=')"
 MARKET="$(echo "$OUTPUT" | grep '^market=')"
@@ -601,6 +602,12 @@ else
     echo "  $ZOOM" >&2
     STATUS=1
 fi
+
+# The selection limit: none by default, the original's forty when on.
+case "$SELECTION" in
+    selection=ok*) echo "selection OK" ;;
+    *) echo "SELECTION FAILED" >&2; echo "  $SELECTION" >&2; STATUS=1 ;;
+esac
 
 # The stress scenario: a late game run and its costs measured, system by
 # system; it fails only if it did not run.

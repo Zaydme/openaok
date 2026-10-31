@@ -325,7 +325,7 @@ struct OptionsScreen {
     TextField name;
     Button sizes[3];
     Slider music, sound, scroll;
-    CheckBox taunts, one_click, two_button, widescreen;
+    CheckBox taunts, one_click, two_button, widescreen, no_selection_limit;
     Slider top_bar, panel, text;   // the interface's sizes, 100% to 200%
     Button ok, cancel;
     int chosen_size = 1;
@@ -353,6 +353,7 @@ void OpenOptions() {
     o.one_click = CheckBox{SDL_Rect{300, 415, 30, 27}, profile.one_click_garrison};
     o.two_button = CheckBox{SDL_Rect{300, 450, 30, 27}, profile.two_button_mouse};
     o.widescreen = CheckBox{SDL_Rect{300, 485, 30, 27}, profile.widescreen};
+    o.no_selection_limit = CheckBox{SDL_Rect{300, 520, 30, 27}, profile.no_selection_limit};
     o.top_bar = SizeSlider(SDL_Rect{590, 245, 160, 22}, profile.top_bar_size);
     o.panel = SizeSlider(SDL_Rect{590, 315, 160, 22}, profile.panel_size);
     o.text = SizeSlider(SDL_Rect{590, 385, 160, 22}, profile.text_size);
@@ -400,6 +401,10 @@ void DrawOptions(SDL_Renderer* r) {
     DrawCheckBox(r, theme, o.widescreen, S().mx, S().my, S().held);
     DrawText(r, Text::kGeorgia10B, o.widescreen.box.x + o.widescreen.box.w + 10, o.widescreen.box.y + 5,
              "Widescreen", ink, ink, Align::Left, false);
+    // No selection limit (Profile::Options::no_selection_limit), likewise.
+    DrawCheckBox(r, theme, o.no_selection_limit, S().mx, S().my, S().held);
+    DrawText(r, Text::kGeorgia10B, o.no_selection_limit.box.x + o.no_selection_limit.box.w + 10,
+             o.no_selection_limit.box.y + 5, "Disable selection limit", ink, ink, Align::Left, false);
     // The interface's sizes (Profile::Options::top_bar_size...), likewise.
     DrawSizeSlider(r, theme, o.top_bar, "Top Bar Size");
     DrawSizeSlider(r, theme, o.panel, "Panel Size");
@@ -416,7 +421,7 @@ void OptionsEvent(const SDL_Event& e) {
         for (Slider* s : {&o.music, &o.sound, &o.scroll, &o.top_bar, &o.panel, &o.text}) {
             if (DragSlider(*s, e.button.x, e.button.y)) return;
         }
-        for (CheckBox* c : {&o.taunts, &o.one_click, &o.two_button, &o.widescreen}) {
+        for (CheckBox* c : {&o.taunts, &o.one_click, &o.two_button, &o.widescreen, &o.no_selection_limit}) {
             if (Hit(c->box, e.button.x, e.button.y)) { c->checked = !c->checked; Click(); return; }
         }
         o.name.focused = Hit(o.name.rect, e.button.x, e.button.y);
@@ -443,6 +448,7 @@ void OptionsEvent(const SDL_Event& e) {
             profile.one_click_garrison = o.one_click.checked;
             profile.two_button_mouse = o.two_button.checked;
             profile.widescreen = o.widescreen.checked;
+            profile.no_selection_limit = o.no_selection_limit.checked;
             profile.top_bar_size = SizeOf(o.top_bar);
             profile.panel_size = SizeOf(o.panel);
             profile.text_size = SizeOf(o.text);
