@@ -31,22 +31,33 @@ struct Map {
     uint16_t explore_all = 0;
     uint16_t see_all = 0;
 
-    // What the buildings see, which changes only when one comes, goes, moves
-    // or changes hands: kept between ticks with the buildings it was made
-    // from, and stamped again when they differ.
-    struct FixedSeer {
+    // What `visible` is made from, kept between ticks so that a tick stamps
+    // again only the seers that have moved a tile or changed: for each
+    // player, how many seers see each tile; what each player sees itself,
+    // before shared sight; and each seer as it was stamped. Made afresh when
+    // empty, as after loading a game.
+    struct Seer {
         uint32_t entity = 0;
         int x = 0;
         int y = 0;
         int radius = 0;
-        int player = 0;
+        uint16_t players = 0;      // a bit per player it lets see
         int unit_id = -1;          // the building, for one that sees its footprint
         bool footprint = false;
-        bool operator==(const FixedSeer&) const = default;
+        bool operator==(const Seer&) const = default;
     };
-    std::vector<FixedSeer> fixed_seers;
-    std::vector<FixedSeer> fixed_now;   // this tick's, compared with the above
-    std::vector<uint16_t> fixed_visible;
+    struct Slot {
+        Seer seer;
+        uint32_t pass = 0;         // the last Update that found it; 0 when not stamped
+    };
+    std::vector<std::vector<uint16_t>> counts;   // [player][tile]
+    std::vector<uint16_t> own;
+    std::vector<Slot> slots;                     // by entity index
+    std::vector<uint32_t> stamped;               // the slots stamped
+    std::vector<Seer> flares;                    // Treason's marks as stamped
+    std::vector<Seer> flares_now;                // this tick's, compared with the above
+    uint32_t pass = 0;
+    bool shared = false;                         // whether `visible` was last made with shared sight
 };
 
 // `reveal` is the lobby's choice: fog as normal, the map explored from the
