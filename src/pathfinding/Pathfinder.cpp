@@ -744,12 +744,18 @@ bool AStar::BodyClear(const Physics::Grid& grid, Vector2D a, Vector2D b, Physics
     if (!middle_clear) return false;
     Along along_x(dx, samples);
     Along along_y(dy, samples);
+    // A test over the same tiles as the one before, which were all open,
+    // finds them open again.
+    TileSpan open{1, 1, 0, 0};
     for (int i = 0; i <= samples; ++i, along_x.Next(), along_y.Next()) {
         const Vector2D p{a.x + along_x.Now(), a.y + along_y.Now()};
         const TileSpan under = Under(p, reach);
+        if (under.x0 == open.x0 && under.y0 == open.y0 && under.x1 == open.x1 && under.y1 == open.y1) continue;
+        bool all_open = true;
         for (int y = under.y0; y <= under.y1; ++y) {
             for (int x = under.x0; x <= under.x1; ++x) {
                 if (grid.Passable(layer, x, y)) continue;
+                all_open = false;
                 const int32_t tile = y * w + x;
                 auto it = std::find_if(touched.begin(), touched.end(),
                                        [tile](const Touched& t) { return t.tile == tile; });
@@ -761,6 +767,7 @@ bool AStar::BodyClear(const Physics::Grid& grid, Vector2D a, Vector2D b, Physics
                 }
             }
         }
+        open = all_open ? under : TileSpan{1, 1, 0, 0};
     }
     for (const Touched& t : touched) {
         const bool unbroken = t.last - t.first + 1 == t.count;
