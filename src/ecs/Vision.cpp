@@ -312,12 +312,10 @@ void ToggleSeeAll(entt::registry& registry, Core::PlayerId player) {
     }
 }
 
+const Map* MapOf(const entt::registry& registry) { return registry.ctx().find<Map>(); }
+
 bool Visible(const entt::registry& registry, Core::PlayerId player, int x, int y) {
-    const auto* map = registry.ctx().find<Map>();
-    if (map == nullptr) return true;
-    if (!InBounds(*map, x, y)) return false;
-    if (player < 16 && (map->see_all & Bit(player)) != 0) return true;
-    return (map->visible[static_cast<size_t>(Index(*map, x, y))] & Bit(player)) != 0;
+    return Visible(MapOf(registry), player, x, y);
 }
 
 bool Explored(const entt::registry& registry, Core::PlayerId player, int x, int y) {

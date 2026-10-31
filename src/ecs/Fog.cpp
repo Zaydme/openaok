@@ -33,10 +33,10 @@ int Width(const entt::registry& registry) {
 }
 
 // The players who see the tile now.
-uint16_t SeenBy(const entt::registry& registry, int x, int y) {
+uint16_t SeenBy(const Vision::Map* map, int x, int y) {
     uint16_t mask = 0;
     for (Core::PlayerId p = 1; p < Core::kMaxPlayers; ++p) {
-        if (Vision::Visible(registry, p, x, y)) mask = static_cast<uint16_t>(mask | Bit(p));
+        if (Vision::Visible(map, p, x, y)) mask = static_cast<uint16_t>(mask | Bit(p));
     }
     return mask;
 }
@@ -116,19 +116,22 @@ void Update(entt::registry& registry) {
 
     // Buildings players stop seeing: the tile under the middle, by everyone
     // but the owner.
-    std::vector<std::pair<entt::entity, uint16_t>> lost;
+    const Vision::Map* map = Vision::MapOf(registry);
+    static std::vector<std::pair<entt::entity, uint16_t>> lost;
+    lost.clear();
     auto buildings = registry.view<C::Building, const C::Transform, const C::Owner>();
     for (auto b : buildings) {
         auto& state = buildings.get<C::Building>(b);
         if (!state.begun) continue;
         const auto& at = buildings.get<const C::Transform>(b).position;
-        const uint16_t now = SeenBy(registry, Physics::TileOf(at.x), Physics::TileOf(at.y));
+        const uint16_t now = SeenBy(map, Physics::TileOf(at.x), Physics::TileOf(at.y));
         const uint16_t owner = Bit(buildings.get<const C::Owner>(b).player_id);
         const auto gone = static_cast<uint16_t>(state.seen & ~now & ~owner);
         state.seen = now;
         if (gone != 0) lost.emplace_back(b, gone);
     }
     for (const auto& [building, players] : lost) Picture(registry, building, players);
+    map = Vision::MapOf(registry);
 
     // Pictures whose ground their player sees again.
     std::vector<std::pair<Core::PlayerId, entt::entity>> seen;
@@ -139,11 +142,12 @@ void Update(entt::registry& registry) {
         bool sees = false;
         Buildings::ForEachFootprintTile(d.unit_id, Physics::TileOf(d.origin.x), Physics::TileOf(d.origin.y),
                                         [&](int x, int y) {
-            sees = sees || Vision::Visible(registry, d.player, x, y);
+            sees = sees || Vision::Visible(map, d.player, x, y);
         });
         if (sees) seen.emplace_back(d.player, d.source);
     }
     for (const auto& [player, source] : seen) Forget(registry, player, source);
+    map = Vision::MapOf(registry);
 
     // Remembered ground seen again.
     const int width = Width(registry);
@@ -152,7 +156,7 @@ void Update(entt::registry& registry) {
         std::erase_if(memory->ground[p], [&](const Ground& g) {
             const int x = g.tile % width;
             const int y = g.tile / width;
-            if (!Vision::Visible(registry, p, x, y)) return false;
+            if (!Vision::Visible(map, p, x, y)) return false;
             Logged(*memory, x, y);
             return true;
         });
