@@ -2,11 +2,14 @@
 
 #include <algorithm>
 
+#include "ai/Military.h"
+#include "ecs/Navigation.h"
 #include "ecs/Vision.h"
 #include "ecs/components/Combat.h"
 #include "ecs/components/Monk.h"
 #include "ecs/components/Path.h"
 #include "ecs/components/Worker.h"
+#include "pathfinding/Pathfinder.h"
 
 namespace AI::Scouting {
 
@@ -75,6 +78,77 @@ bool NearestUnexplored(Turn& turn, int& out_x, int& out_y) {
     return false;
 }
 
+// The unexplored water nearest a warship that it can sail to, ring by ring out
+// from it.
+bool NearestUnexploredWater(Turn& turn, entt::entity ship, int& out_x, int& out_y) {
+    const entt::registry& registry = *turn.registry;
+    const Physics::Grid& grid = *turn.grid;
+    const Physics::Layer layer = ECS::Navigation::LayerOf(registry, grid, ship);
+    const int region = ECS::Navigation::RegionOf(registry, grid, ship);
+    const auto& at = registry.get<ECS::Components::Transform>(ship).position;
+    const int sx = Physics::TileOf(at.x), sy = Physics::TileOf(at.y);
+    const int limit = std::max(grid.GetWidth(), grid.GetHeight());
+    for (int ring = kRingStep; ring <= limit; ring += kRingStep) {
+        for (int b = 0; b < kBearings; ++b) {
+            const int x = sx + ring * kCos[b] / 1024;
+            const int y = sy + ring * kSin[b] / 1024;
+            if (!grid.InBounds(x, y) || Pathfinding::RegionAt(grid, x, y, layer) != region) continue;
+            if (ECS::Vision::Explored(registry, turn.player, x, y)) continue;
+            out_x = x;
+            out_y = y;
+            return true;
+        }
+    }
+    return false;
+}
+
+void ClaimBoats(Turn& turn) {
+    Brain& brain = *turn.brain;
+    Census& census = *turn.census;
+    for (auto& group : brain.boat_explore_groups) {
+        std::erase_if(group, [&](entt::entity e) {
+            return std::find(census.boats.begin(), census.boats.end(), e) == census.boats.end();
+        });
+    }
+    // Every warship counts, those exploring already among them.
+    const int boats = static_cast<int>(census.boats.size());
+    const int least_attack = std::max(1, Sn(turn, Lang::SN::MinimumBoatAttackGroupSize));
+    const int attack = std::min((boats + least_attack - 1) / least_attack, Sn(turn, Lang::SN::NumberBoatAttackGroups));
+    const int left = boats - least_attack * attack;
+    const int least = std::max(1, Sn(turn, Lang::SN::MinimumBoatExploreGroupSize));
+    const int wanted = left > 0 ? std::min((left + least - 1) / least, Sn(turn, Lang::SN::NumberBoatExploreGroups)) : 0;
+    const int most = std::max(1, Sn(turn, Lang::SN::MaximumBoatExploreGroupSize));
+    if (static_cast<int>(brain.boat_explore_groups.size()) > wanted) {
+        brain.boat_explore_groups.resize(static_cast<size_t>(std::max(0, wanted)));
+    }
+    while (static_cast<int>(brain.boat_explore_groups.size()) < wanted) brain.boat_explore_groups.emplace_back();
+    const auto taken = [&](entt::entity e) {
+        for (const auto& g : brain.boat_explore_groups) {
+            if (std::find(g.begin(), g.end(), e) != g.end()) return true;
+        }
+        return false;
+    };
+    // No more of them than the attack groups leave over.
+    int spare = std::max(0, left);
+    for (const auto& group : brain.boat_explore_groups) spare -= static_cast<int>(group.size());
+    for (auto& group : brain.boat_explore_groups) {
+        for (entt::entity e : census.idle_military) {
+            if (static_cast<int>(group.size()) >= most || spare <= 0) break;
+            if (std::find(census.boats.begin(), census.boats.end(), e) == census.boats.end()) continue;
+            if (taken(e) || Military::Attacking(turn, e)) continue;
+            group.push_back(e);
+            --spare;
+        }
+    }
+    for (const auto& group : brain.boat_explore_groups) {
+        for (entt::entity e : group) {
+            std::erase(census.boats, e);
+            std::erase(census.military, e);
+            std::erase(census.idle_military, e);
+        }
+    }
+}
+
 // A lone explorer to the next point it has not explored, when it is not
 // already on its way or fighting.
 void Explore(Turn& turn, entt::entity unit) {
@@ -125,6 +199,7 @@ void Claim(Turn& turn) {
             std::erase(census.idle_military, e);
         }
     }
+    ClaimBoats(turn);
 }
 
 void Run(Turn& turn) {
@@ -143,6 +218,16 @@ void Run(Turn& turn) {
         } else {
             Give(*turn.registry, *turn.grid, Core::FormationMoveCommand{group, Core::Fixed32(x), Core::Fixed32(y),
                                                                        Core::Formation::Line, turn.player});
+        }
+    }
+    const int least_boats = std::max(1, Sn(turn, Lang::SN::MinimumBoatExploreGroupSize));
+    for (const auto& group : turn.brain->boat_explore_groups) {
+        if (static_cast<int>(group.size()) < least_boats) continue;
+        if (std::any_of(group.begin(), group.end(), [&](entt::entity e) { return Busy(*turn.registry, e); })) continue;
+        int x = 0, y = 0;
+        if (!NearestUnexploredWater(turn, group.front(), x, y)) continue;
+        for (entt::entity ship : group) {
+            Give(*turn.registry, *turn.grid, Core::MoveCommand{ship, Core::Fixed32(x), Core::Fixed32(y), turn.player});
         }
     }
     if (turn.census->scout != entt::null &&

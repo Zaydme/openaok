@@ -228,6 +228,11 @@ bool CheckPocket();
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();
 
+// A computer player's boats on Islands: a fishing ship keeps to fish within
+// sn-maximum-fish-boat-drop-distance of a Dock, and the warship the boat
+// attack groups leave over explores the water. Prints "boats=".
+bool CheckBoats();
+
 // A landing on Islands: a transport takes on a war party under the dat's
 // garrison rules, sails it to the other island and puts it ashore, and the
 // party's assault ends the game in conquest; a transport sunk with a soldier

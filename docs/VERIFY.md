@@ -46,6 +46,7 @@ that the script reads.
 | `script` | The computer players' rule language: reading, rule passes, every original script loading for every civilisation, difficulty and map, strategic numbers scaled for the difficulty and kept in bounds, civilian explorers, retasking, mining camps and forward builders as the game reckons them, explore groups of one soldier, Monks fetching relics |
 | `ai`, `pace`, `seven` | Twenty minutes of the computer against itself; each difficulty's pace; seven computer players |
 | `crossing`, `landing`, `water`, `fishing`, `navy` | Transport ships, passability on water maps, docks and fishing, warships |
+| `boats` | A computer player's boats: fishing ships keep near a Dock as the rules ask, a spare warship explores the water |
 | `net` | A host and a client in lockstep over loopback, and a desync caught |
 | `lobby` | The multiplayer lobby over loopback: the game found, joined, rows, ready checks and chat, a refused start, the game started from the table |
 | `victory`, `modes` | Conquest, Wonders, relics; Regicide, Death Match, starting options |

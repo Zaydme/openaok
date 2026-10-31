@@ -83,6 +83,9 @@ struct Brain {
     // Soldiers' explore groups past the scout's, as sn-number-explore-groups
     // asks (ai/Scouting); out of the army while they explore.
     std::vector<std::vector<entt::entity>> explore_groups;
+    // Warships exploring the water, the boat attack groups' leftovers, as
+    // sn-number-boat-explore-groups asks.
+    std::vector<std::vector<entt::entity>> boat_explore_groups;
     // A boar being hunted, and the party sent after it.
     entt::entity boar = entt::null;
     std::vector<entt::entity> hunters;

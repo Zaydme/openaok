@@ -60,6 +60,7 @@ int Run(int ticks) {
     if (runs("water")) ok &= CheckWater();
     if (runs("fishing")) ok &= CheckFishing();
     if (runs("navy")) ok &= CheckNavy();
+    if (runs("boats")) ok &= CheckBoats();
     if (runs("shipangles")) ok &= CheckShipAngles();
     if (runs("turning")) ok &= CheckTurning();
     if (runs("colours")) ok &= CheckColours();

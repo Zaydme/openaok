@@ -6,7 +6,11 @@
 // between sn-minimum- and sn-maximum-explore-group-size of them; and villagers
 // the strategic numbers set exploring (ai/Economy picks them) walk. The scout
 // and the villagers go to the next point unexplored on widening rings round
-// home, the soldiers' groups to the unexplored point nearest home.
+// home, the soldiers' groups to the unexplored point nearest home. Warships
+// the boat attack groups leave over -- once each attack group has its
+// sn-minimum-boat-attack-group-size -- explore the water in up to
+// sn-number-boat-explore-groups groups, no more of them than are left over,
+// each to the unexplored water nearest it.
 namespace AI::Scouting {
 
 // Before the army is tasked: the explore groups filled from idle soldiers,

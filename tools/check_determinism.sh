@@ -78,6 +78,7 @@ VICTORY="$(echo "$OUTPUT" | grep '^victory=')"
 WATER="$(echo "$OUTPUT" | grep '^water=')"
 FISHING="$(echo "$OUTPUT" | grep '^fishing=')"
 NAVY="$(echo "$OUTPUT" | grep '^navy=')"
+BOATS="$(echo "$OUTPUT" | grep '^boats=')"
 LANDING="$(echo "$OUTPUT" | grep '^landing=')"
 MARKET="$(echo "$OUTPUT" | grep '^market=')"
 TRADE="$(echo "$OUTPUT" | grep '^trade=')"
@@ -556,6 +557,16 @@ if [ "$NAVY" = "navy=ok" ]; then
 else
     echo "NAVY FAILED" >&2
     echo "  $NAVY" >&2
+    STATUS=1
+fi
+
+# A computer player's fishing ships keep near a Dock as the rules ask, and its
+# spare warship explores the water.
+if [ "$BOATS" = "boats=ok" ]; then
+    echo "boats OK"
+else
+    echo "BOATS FAILED" >&2
+    echo "  $BOATS" >&2
     STATUS=1
 fi
 

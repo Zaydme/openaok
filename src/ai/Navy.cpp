@@ -22,6 +22,8 @@ namespace {
 namespace R = Core::Rules;
 using ECS::Components::Vector2D;
 
+int Sn(const Turn& turn, Lang::SN sn) { return turn.mind->sn[static_cast<size_t>(sn)]; }
+
 } // namespace
 
 void Run(Turn& turn) {
@@ -65,6 +67,10 @@ void Run(Turn& turn) {
             const auto& at = stock.get<const ECS::Components::Transform>(e).position;
             Core::Fixed32 drop(1 << 20);
             for (const auto& dock : docks) drop = std::min(drop, dock.DistanceFrom(at));
+            // Fish further from a Dock than sn-maximum-fish-boat-drop-distance
+            // are left.
+            const int limit = Sn(turn, Lang::SN::MaximumFishBoatDropDistance);
+            if (limit >= 0 && drop > Core::Fixed32(limit)) continue;
             const Core::Fixed32 cost = drop * Core::Fixed32(3) + Core::FixedMath::Distance(at.x - from.x, at.y - from.y);
             if (cost > best_cost || (cost == best_cost && e >= best)) continue;
             if (!Pathfinding::Approachable(*turn.grid, region, Physics::TileOf(at.x), Physics::TileOf(at.y), layer)) {
