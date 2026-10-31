@@ -65,6 +65,7 @@
 #include "ecs/Walls.h"
 #include "core/Costs.h"
 #include "editor/Editor.h"
+#include "verify/Stress.h"
 #include "screens/GameDialogs.h"
 #include "screens/Movies.h"
 #include "screens/Screens.h"
@@ -107,6 +108,9 @@ struct Launch {
     int host_players = 2;
     std::string join_address;
     bool ai_only = false;
+    // --stress: the self-check's stress scenario played in the window
+    // (verify/Stress), for --perf to measure.
+    bool stress = false;
     int look_x = -1;
     int look_y = -1;
     float zoom = 0.0f;
@@ -480,6 +484,10 @@ void ParseFlags(int argc, char* argv[], Launch& launch) {
         } else if (arg == "--no-ai") {
             // Nobody plays the other seat.
             launch.no_ai = true;
+        } else if (arg == "--stress") {
+            launch.stress = true;
+            launch.direct = true;
+            setup = Verify::Stress::Setup();
         } else if (arg == "--ai-only") {
             // The computer plays every seat, the player's too: to watch.
             launch.ai_only = true;
@@ -1126,6 +1134,7 @@ GameEnd RunGame(HAL::Window& window, Rendering::Renderer& renderer, Core::GameSe
     auto sim = std::make_unique<ECS::Simulation>();
     if (play.playback != nullptr) setup = play.playback->setup;
     sim->Init(setup);
+    if (launch.stress && play.load_path.empty() && session.restore.empty()) Verify::Stress::Populate(*sim);
     // The lobby as the game began, the computer players' colours settled.
     setup = sim->Setup();
     if (!play.load_path.empty() || !session.restore.empty()) {
