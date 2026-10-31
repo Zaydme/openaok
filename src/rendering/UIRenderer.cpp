@@ -1084,10 +1084,11 @@ void UIRenderer::DrawMinimapIn(ECS::Simulation& sim, Renderer& renderer, SDL_Ren
             const float cell_h =
                 std::max(1.0f, well.h * step / static_cast<float>(grid.GetHeight()));
             FillBatch cells(sdl_r);
+            const ECS::Vision::Map* sight = ECS::Vision::MapOf(registry);
             for (int y = 0; y < grid.GetHeight(); y += step) {
                 for (int x = 0; x < grid.GetWidth(); x += step) {
-                    if (ECS::Vision::Visible(registry, LocalViewer(), x, y)) continue;
-                    const bool seen = ECS::Vision::Explored(registry, LocalViewer(), x, y);
+                    if (ECS::Vision::Visible(sight, LocalViewer(), x, y)) continue;
+                    const bool seen = ECS::Vision::Explored(sight, LocalViewer(), x, y);
                     const SDL_FPoint p = MinimapProject(local, static_cast<float>(x),
                                                         static_cast<float>(y),
                                                         grid.GetWidth(), grid.GetHeight());

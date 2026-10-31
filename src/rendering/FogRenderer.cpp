@@ -285,15 +285,16 @@ void FogRenderer::Draw(ECS::Simulation& sim, Renderer& renderer, SDL_Renderer* s
     const int cols = x1 - x0 + 2;
     const int rows = y1 - y0 + 2;
     g.tiles.resize(static_cast<size_t>(cols) * static_cast<size_t>(rows));
+    const ECS::Vision::Map* sight = ECS::Vision::MapOf(registry);
     for (int j = 0; j < rows; ++j) {
         for (int i = 0; i < cols; ++i) {
             const int tx = x0 - 1 + i;
             const int ty = y0 - 1 + j;
             uint8_t s = kOffMap;
             if (tx >= 0 && ty >= 0 && tx < w && ty < h) {
-                s = ECS::Vision::Visible(registry, viewer, tx, ty)    ? kSeen
-                    : ECS::Vision::Explored(registry, viewer, tx, ty) ? kFogged
-                                                                      : kUnexplored;
+                s = ECS::Vision::Visible(sight, viewer, tx, ty)    ? kSeen
+                    : ECS::Vision::Explored(sight, viewer, tx, ty) ? kFogged
+                                                                   : kUnexplored;
             }
             g.tiles[static_cast<size_t>(j * cols + i)] = s;
         }

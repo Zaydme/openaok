@@ -343,8 +343,9 @@ bool Shows(const entt::registry& registry, Core::PlayerId viewer, entt::entity e
     if (at == nullptr) return true;
     const int x = Physics::TileOf(at->position.x);
     const int y = Physics::TileOf(at->position.y);
-    if (Visible(registry, viewer, x, y)) return true;
-    if (!Explored(registry, viewer, x, y)) return false;
+    const Map* map = MapOf(registry);
+    if (Visible(map, viewer, x, y)) return true;
+    if (!Explored(map, viewer, x, y)) return false;
     // In the fog, what the viewer keeps a picture of is the picture.
     if (const auto* remembered = registry.try_get<Components::Remembered>(subject);
         remembered != nullptr && viewer < 16 && (remembered->by & Bit(viewer)) != 0) {
