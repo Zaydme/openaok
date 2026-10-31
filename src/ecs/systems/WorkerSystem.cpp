@@ -85,6 +85,82 @@ enum class Approach {
     Unreachable,  // nowhere to stand, or no route to it
 };
 
+// Who is at each job, for ApproachGround's crew, during a pass of Update:
+// the workers by what each was making for when the pass began, and those
+// that have turned to something else since, as each finishes its turn.
+struct Crews {
+    bool ready = false;
+    uint32_t pass = 0;
+    std::vector<std::pair<uint32_t, entt::entity>> by_target;   // target, worker; by target, then view order
+    std::vector<std::pair<entt::entity, entt::entity>> moved;   // target, worker
+    struct Was {
+        entt::entity worker = entt::null;
+        entt::entity target = entt::null;
+        uint32_t pass = 0;
+    };
+    std::vector<Was> was;                                        // by worker index
+};
+Crews crews_now;
+
+void BeginCrews(entt::registry& registry) {
+    Crews& c = crews_now;
+    ++c.pass;
+    c.by_target.clear();
+    c.moved.clear();
+    auto view = registry.view<Components::Worker, Components::Transform>();
+    for (auto e : view) {
+        const entt::entity target = ActiveTarget(view.get<Components::Worker>(e));
+        c.by_target.emplace_back(entt::to_integral(target), e);
+        const size_t index = static_cast<size_t>(entt::to_entity(e));
+        if (index >= c.was.size()) c.was.resize(index + 1);
+        c.was[index] = {e, target, c.pass};
+    }
+    std::stable_sort(c.by_target.begin(), c.by_target.end(),
+                     [](const auto& a, const auto& b) { return a.first < b.first; });
+    c.ready = true;
+}
+
+// After `worker`'s turn: if it now makes for something else, it is found
+// there.
+void TurnTaken(const entt::registry& registry, entt::entity worker) {
+    Crews& c = crews_now;
+    const auto* job = registry.valid(worker) ? registry.try_get<Components::Worker>(worker) : nullptr;
+    if (job == nullptr) return;
+    const entt::entity target = ActiveTarget(*job);
+    const size_t index = static_cast<size_t>(entt::to_entity(worker));
+    if (index < c.was.size() && c.was[index].pass == c.pass && c.was[index].worker == worker &&
+        c.was[index].target == target) {
+        return;
+    }
+    c.moved.emplace_back(target, worker);
+}
+
+// Each crew mate of `self` at `target`: every other worker with a body
+// making for it now.
+template <typename Visit>
+void EachMate(const entt::registry& registry, entt::entity self, entt::entity target, Visit&& visit) {
+    auto consider = [&](entt::entity mate) {
+        if (mate == self || !registry.valid(mate)) return;
+        const auto* other = registry.try_get<Components::Worker>(mate);
+        const auto* at = registry.try_get<Components::Transform>(mate);
+        if (other == nullptr || at == nullptr || ActiveTarget(*other) != target) return;
+        visit(mate, *other, *at);
+    };
+    const Crews& c = crews_now;
+    if (!c.ready) {
+        auto mates = registry.view<const Components::Worker, const Components::Transform>();
+        for (auto mate : mates) consider(mate);
+        return;
+    }
+    const uint32_t key = entt::to_integral(target);
+    auto lo = std::lower_bound(c.by_target.begin(), c.by_target.end(), key,
+                               [](const auto& entry, uint32_t k) { return entry.first < k; });
+    for (auto it = lo; it != c.by_target.end() && it->first == key; ++it) consider(it->second);
+    for (const auto& m : c.moved) {
+        if (m.first == target) consider(m.second);
+    }
+}
+
 // Walks `self` up to `target`, whose ground is `ground`, until its box is
 // within `range` of it -- the dat's work range for the job -- and reports
 // whether it is there yet.
@@ -112,31 +188,28 @@ Approach ApproachGround(entt::registry& registry, const Physics::Grid& grid,
     // Counting walkers keeps a group ordered together from all being handed
     // the same spot.
     const entt::entity target = ActiveTarget(worker);
-    std::vector<Components::Vector2D> taken;
+    static std::vector<Components::Vector2D> taken;
+    taken.clear();
     bool crowded = false;
-    auto mates = registry.view<Components::Worker, Components::Transform>();
-    for (auto mate : mates) {
-        if (!crew) break;
-        if (mate == self) continue;
-        const auto& other = mates.get<Components::Worker>(mate);
-        if (ActiveTarget(other) != target) continue;
+    auto mate_at = [&](entt::entity mate, const Components::Worker& other, const Components::Transform& at) {
         if (other.working) {
-            const auto& there = mates.get<Components::Transform>(mate).position;
+            const auto& there = at.position;
             taken.push_back(there);
             if (Core::FixedMath::Distance(there.x - transform.position.x,
                                           there.y - transform.position.y) * Core::Fixed32(2) < spacing) {
                 crowded = true;
             }
-            continue;
+            return;
         }
         const auto* heading = registry.try_get<Components::Path>(mate);
         if (heading && heading->has_goal &&
             heading->current_waypoint_index < heading->waypoints.size()) {
             taken.push_back(heading->goal);
         } else {
-            taken.push_back(mates.get<Components::Transform>(mate).position);
+            taken.push_back(at.position);
         }
-    }
+    };
+    if (crew) EachMate(registry, self, target, mate_at);
     // Within reach and not standing over a crew mate at work: at work here.
     if (within && !crowded) return Approach::Arrived;
 
@@ -463,6 +536,10 @@ void TakeUp(const entt::registry& registry, Components::Worker& worker, entt::en
 
 void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t fixed_dt_ms) {
     auto view = registry.view<Components::Worker, Components::Transform>();
+    BeginCrews(registry);
+    struct EndCrews {
+        ~EndCrews() { crews_now.ready = false; }
+    } end_crews;
 
     // How many builders are swinging at each site, from where they stood at the
     // end of the last tick. A crew shares one building's progress, so each
@@ -500,6 +577,11 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
     for (auto entity : view) {
         auto& worker = view.get<Components::Worker>(entity);
         auto& transform = view.get<Components::Transform>(entity);
+        struct Turn {
+            const entt::registry& registry;
+            entt::entity entity;
+            ~Turn() { TurnTaken(registry, entity); }
+        } turn{registry, entity};
 
         // `working` says the villager is swinging a hammer or an axe *right
         // now*, and the animation system wears the job graphic because of it.
