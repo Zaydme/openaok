@@ -10,6 +10,7 @@
 #include "core/GameSetup.h"
 #include "core/Rules.h"
 #include "ecs/Diplomacy.h"
+#include "ecs/Events.h"
 #include "ecs/Mortality.h"
 #include "ecs/Players.h"
 #include "ecs/Simulation.h"
@@ -219,11 +220,21 @@ bool CheckDiplomacy() {
     };
 
     if (ok()) {
-        Order(sim, Core::DiplomacyCommand{2, static_cast<uint8_t>(Stance::Neutral), 1});
+        // Given three times over, the order is one change, told once.
+        int told = 0;
+        for (int i = 0; i < 3; ++i) {
+            Order(sim, Core::DiplomacyCommand{2, static_cast<uint8_t>(Stance::Neutral), 1});
+            const auto* log = ECS::Events::Read(reg);
+            for (const auto& e : log->events) {
+                told += e.tick == log->tick && e.kind == ECS::Events::Kind::Stance && e.player == 1 && e.from == 2;
+            }
+        }
         if (ECS::Diplomacy::StanceOf(reg, 1, 2) != Stance::Neutral) {
             verdict = "a stance did not change by order";
         } else if (ECS::Diplomacy::StanceOf(reg, 2, 1) != Stance::Enemy) {
             verdict = "changing one stance changed the other player's";
+        } else if (told != 1) {
+            verdict = "a stance set again as it was was told again";
         }
     }
 

@@ -70,6 +70,7 @@ bool SetStance(entt::registry& registry, Core::PlayerId player, Core::PlayerId o
     if (table == nullptr || table->locked || player == other) return false;
     if (!Seated(registry, player) || !Seated(registry, other)) return false;
     if (stance != Stance::Ally && stance != Stance::Neutral && stance != Stance::Enemy) return false;
+    if (table->stance[player][other] == stance) return true;
     table->stance[player][other] = stance;
     Events::Emit(registry, {.kind = Events::Kind::Stance,
                             .player = player,
@@ -81,6 +82,7 @@ bool SetStance(entt::registry& registry, Core::PlayerId player, Core::PlayerId o
 bool SetAlliedVictory(entt::registry& registry, Core::PlayerId player, bool on) {
     Table* table = registry.ctx().find<Table>();
     if (table == nullptr || table->locked || !Seated(registry, player)) return false;
+    if (table->allied_victory[player] == on) return true;
     table->allied_victory[player] = on;
     Events::Emit(registry, {.kind = Events::Kind::Stance,
                             .player = player,

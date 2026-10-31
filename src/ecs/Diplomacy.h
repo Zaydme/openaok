@@ -54,12 +54,14 @@ bool AlliedVictory(const entt::registry& registry, Core::PlayerId player);
 // Lock Teams: stances are the lobby's for the whole game.
 bool Locked(const entt::registry& registry);
 
-// Changes how `player` regards `other`. False, changing nothing, when teams
-// are locked, or either is not a player in the game, or they are one.
+// Changes how `player` regards `other`, telling the players (Events) only
+// when it is a change. False, changing nothing, when teams are locked, or
+// either is not a player in the game, or they are one.
 bool SetStance(entt::registry& registry, Core::PlayerId player, Core::PlayerId other,
                Stance stance);
 
-// Turns the player's allied victory on or off. False when teams are locked.
+// Turns the player's allied victory on or off, told only when it is a change.
+// False when teams are locked.
 bool SetAlliedVictory(entt::registry& registry, Core::PlayerId player, bool on);
 
 // Whether `a` and `b` win together: the same player, or allied each way with

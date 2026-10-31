@@ -270,8 +270,8 @@ bool CheckTrade();
 bool CheckTribute();
 
 // Diplomacy: the lobby's stances, team bonuses and Lock Teams; stances
-// changed in play; targeting that follows them; Cartography's shared sight;
-// allied victory. Prints "diplomacy=".
+// changed in play, and told only when they change; targeting that follows
+// them; Cartography's shared sight; allied victory. Prints "diplomacy=".
 bool CheckDiplomacy();
 
 // Chat and flares as orders: who hears a message, taunts, refusals, Lock
