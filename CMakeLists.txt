@@ -81,10 +81,23 @@ if(TARGET SDL2::SDL2)
     endif()
 else()
     target_link_libraries(OpenAoK PRIVATE ${SDL2_LIBRARIES})
+endif()
+# The sources include SDL as <SDL2/...>: the directory above SDL's headers,
+# which the package lists beside them.
+if(SDL2_INCLUDE_DIRS)
     target_include_directories(OpenAoK SYSTEM PRIVATE ${SDL2_INCLUDE_DIRS})
 endif()
 
 target_link_libraries(OpenAoK PRIVATE Freetype::Freetype)
+
+# Windows: the sockets library, and the C and C++ runtimes linked in so the
+# executable needs only SDL2.dll beside it.
+if(WIN32)
+    target_link_libraries(OpenAoK PRIVATE ws2_32)
+    if(MINGW)
+        target_link_options(OpenAoK PRIVATE -static-libgcc -static-libstdc++ -static)
+    endif()
+endif()
 
 # Nintendo Switch homebrew, with devkitPro's toolchain (switch/README.md): the
 # executable packed into an .nro with its name, version and icon.
