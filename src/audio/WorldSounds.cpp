@@ -1,7 +1,7 @@
 #include "audio/WorldSounds.h"
 #include "core/FixedMath.h"
 
-#include <unordered_map>
+#include <vector>
 
 #include "audio/SoundTable.h"
 #include "core/Media.h"
@@ -18,14 +18,17 @@ namespace Audio::WorldSounds {
 
 namespace {
 
-// What an entity was showing when last heard.
+// What an entity was showing when last heard, and in which Update: by entity
+// index, so a frame allocates nothing.
 struct Seen {
+    entt::entity entity = entt::null;
     int graphic = -1;
     int frame = 0;
+    uint32_t pass = 0;
 };
 
-std::unordered_map<entt::entity, Seen> g_seen;
-std::unordered_map<entt::entity, Seen> g_next;
+std::vector<Seen> g_seen;
+uint32_t g_pass = 1;
 
 int CivOf(const entt::registry& registry, entt::entity entity) {
     const auto* owner = registry.try_get<ECS::Components::Owner>(entity);
@@ -65,7 +68,7 @@ void FrameSounds(int graphic, uint8_t heading, int from, int to, int frames, int
 
 void Update(const entt::registry& registry, const Listener& listener,
             Core::PlayerId viewer) {
-    g_next.clear();
+    ++g_pass;
     auto view = registry.view<ECS::Components::Animation, ECS::Components::Sprite,
                               ECS::Components::Transform>();
     for (auto entity : view) {
@@ -76,13 +79,17 @@ void Update(const entt::registry& registry, const Listener& listener,
 
         const auto& anim = view.get<ECS::Components::Animation>(entity);
         const auto& sprite = view.get<ECS::Components::Sprite>(entity);
-        const Seen now{anim.graphic[static_cast<int>(anim.shown)], sprite.current_frame};
-        g_next[entity] = now;
+        const Seen now{entity, anim.graphic[static_cast<int>(anim.shown)], sprite.current_frame, g_pass};
+        const auto index = static_cast<size_t>(entt::to_entity(entity));
+        if (index >= g_seen.size()) g_seen.resize(index + 1);
+        // As it was heard last Update, if it was.
+        const Seen before = g_seen[index];
+        const bool heard = before.entity == entity && before.pass == g_pass - 1;
+        g_seen[index] = now;
 
-        auto before = g_seen.find(entity);
         if (now.graphic < 0) continue;
         const int civ = CivOf(registry, entity);
-        if (before == g_seen.end()) {
+        if (!heard) {
             // Something that appears already falling -- a building's
             // collapse -- is heard as it appears.
             if (registry.all_of<ECS::Components::Dying>(entity)) {
@@ -91,24 +98,22 @@ void Update(const entt::registry& registry, const Listener& listener,
             }
             continue;
         }
-        if (before->second.graphic != now.graphic) {
+        if (before.graphic != now.graphic) {
             // A new graphic: its own sound, and whatever its frames up to the
             // current one carry.
             const int start = Core::Media::GraphicSound(now.graphic);
             if (start >= 0) Sound(start, civ, placement);
             FrameSounds(now.graphic, sprite.heading, -1, now.frame,
                         sprite.frames_per_angle, civ, placement);
-        } else if (before->second.frame != now.frame) {
-            FrameSounds(now.graphic, sprite.heading, before->second.frame,
+        } else if (before.frame != now.frame) {
+            FrameSounds(now.graphic, sprite.heading, before.frame,
                         now.frame, sprite.frames_per_angle, civ, placement);
         }
     }
-    g_seen.swap(g_next);
 }
 
 void Reset() {
     g_seen.clear();
-    g_next.clear();
 }
 
 } // namespace Audio::WorldSounds
