@@ -26,3 +26,4 @@
 __pycache__/
 .DS_Store
 /.vscode/
+/windows/build/
