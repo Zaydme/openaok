@@ -78,8 +78,6 @@ bool NearestUnexplored(Turn& turn, int& out_x, int& out_y) {
     return false;
 }
 
-// The unexplored water nearest a warship that it can sail to, ring by ring out
-// from it.
 bool NearestUnexploredWater(Turn& turn, entt::entity ship, int& out_x, int& out_y) {
     const entt::registry& registry = *turn.registry;
     const Physics::Grid& grid = *turn.grid;
@@ -136,7 +134,7 @@ void ClaimBoats(Turn& turn) {
         for (entt::entity e : census.idle_military) {
             if (static_cast<int>(group.size()) >= most || spare <= 0) break;
             if (std::find(census.boats.begin(), census.boats.end(), e) == census.boats.end()) continue;
-            if (taken(e) || Military::Attacking(turn, e)) continue;
+            if (taken(e) || Military::InAttackGroup(turn, e)) continue;
             group.push_back(e);
             --spare;
         }
@@ -270,6 +268,10 @@ void Run(Turn& turn) {
         if (w.state != Core::UnitState::Idle && w.state != Core::UnitState::Moving) continue;
         Explore(turn, v);
     }
+}
+
+bool UnexploredWater(Turn& turn, entt::entity ship, int& x, int& y) {
+    return ship != entt::null && NearestUnexploredWater(turn, ship, x, y);
 }
 
 } // namespace AI::Scouting

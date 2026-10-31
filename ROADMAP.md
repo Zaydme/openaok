@@ -34,8 +34,7 @@ and campaigns, the computer players' finer play, and polish.
 
 1. **Computer players**
    - Their attack groups' choice of target by the game's target evaluation
-     (the sn-target-evaluation numbers), and their boat attack groups as
-     groups.
+     (the sn-target-evaluation numbers).
    - The priority of their units' orders (sn-zero-priority-distance), which
      needs order priorities in the units' own behaviour.
    - Defend groups and what they guard (the defend priorities), which only

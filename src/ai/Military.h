@@ -16,9 +16,13 @@
 // nothing to attack it walks off at random to look. Attacks wait for the
 // initial attack delay (sn-initial-attack-delay and its type).
 //
+// Its warships make boat attack groups the same way, of up to
+// sn-number-boat-attack-groups groups of the boat sizes; one whose player
+// knows no enemy explores the water instead.
+//
 // `attack-now` makes groups of its own of sn-percent-attack-soldiers percent
-// of the free soldiers, which go at once (and sn-percent-attack-boats of the
-// warships into the boat attack group).
+// of the free soldiers (and sn-percent-attack-boats of the free warships),
+// which go at once.
 //
 // The rest defend. A blow struck at the player's things anywhere -- by Gaia's
 // too, but not at an explorer, nor, with sn-ignore-attack-group-under-attack,
@@ -46,7 +50,9 @@ void Run(Turn& turn);
 bool Attacking(const Turn& turn, entt::entity unit);
 bool InAttackGroup(const Turn& turn, entt::entity unit);
 
-// The land soldiers in attack groups on their way to fight.
+// The land soldiers in attack groups on their way to fight, and the warships
+// in boat attack groups attacking.
 int AttackingSoldiers(const Turn& turn);
+int AttackingBoats(const Turn& turn);
 
 } // namespace AI::Military

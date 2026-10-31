@@ -4,6 +4,7 @@
 
 #include "ai/Catalog.h"
 #include "ai/Knowledge.h"
+#include "ai/Scouting.h"
 #include "core/FixedMath.h"
 #include "ecs/BuildingGeometry.h"
 #include "ecs/Combat.h"
@@ -287,31 +288,10 @@ bool Ferry(Turn& turn, Group& group) {
     return false;
 }
 
-void Upkeep(Turn& turn, Group& group) {
-    entt::registry& registry = *turn.registry;
-    Prune(registry, group);
-    if (group.units.empty()) {
-        group.target = entt::null;
-        group.ships.clear();
-        group.stage = kMarching;
-        return;
-    }
-    if (Ferry(turn, group)) return;
-    if (!ECS::Combat::Alive(registry, group.target)) {
-        group.target = NextTarget(turn, group, true);
-        if (group.target == entt::null) {
-            // Nothing left it can get at: home.
-            Disband(turn, group);
-            return;
-        }
-    }
-    Charge(turn, group, true);
-}
-
 bool InGroup(const Group& group, entt::entity e) { return Contains(group.units, e); }
 
 // The land attack groups' tasks.
-enum Task { kIdle = 0, kAttack = 1, kRandomMove = 2 };
+enum Task { kIdle = 0, kAttack = 1, kRandomMove = 2, kExplore = 3 };
 
 // A group gathered on its leader is within sn-attack-group-gather-spacing of
 // it, a tile's give either way; ten passes of gathering and it goes as it is.
@@ -325,9 +305,14 @@ constexpr int kRandomMoveTries = 32;
 // The lobby's Easy: from there down, Monks stay out of the attack groups.
 constexpr int kEasy = 3;
 
+// The land attack groups, or the boat attack groups.
+std::vector<Group>& GroupsOf(Turn& turn, bool sea) { return sea ? turn.brain->boat_groups : turn.brain->attack_groups; }
+
 const Group* GroupOf(const Turn& turn, entt::entity e) {
-    for (const Group& g : turn.brain->attack_groups) {
-        if (InGroup(g, e)) return &g;
+    for (const auto* groups : {&turn.brain->attack_groups, &turn.brain->boat_groups}) {
+        for (const Group& g : *groups) {
+            if (InGroup(g, e)) return &g;
+        }
     }
     return nullptr;
 }
@@ -348,14 +333,14 @@ std::vector<entt::entity> Defenders(const Turn& turn) {
     return out;
 }
 
-// Land soldiers in no attack group, as the groups may take them: Monks only
-// above Easy.
-std::vector<entt::entity> Free(const Turn& turn) {
+// Land soldiers in no attack group, as the groups may take them -- Monks only
+// above Easy -- or, `sea`, warships in none.
+std::vector<entt::entity> Free(const Turn& turn, bool sea) {
     std::vector<entt::entity> out;
     const Census& c = *turn.census;
     const bool easy = turn.setup != nullptr && turn.setup->difficulty >= kEasy;
     for (entt::entity e : c.military) {
-        if (Contains(c.boats, e) || GroupOf(turn, e) != nullptr) continue;
+        if (Contains(c.boats, e) != sea || GroupOf(turn, e) != nullptr) continue;
         if (!turn.registry->all_of<ECS::Components::Transform>(e)) continue;
         if (easy && turn.registry->all_of<ECS::Components::Monk>(e)) continue;
         out.push_back(e);
@@ -430,45 +415,59 @@ void Allow(Turn& turn) {
 // to sn-number-attack-groups groups of sn-minimum-attack-group-size, each
 // wanting that many and a random few more (sn-attack-group-size-randomness),
 // at most sn-maximum-attack-group-size.
-void Setup(Turn& turn) {
+// The warships make up to sn-number-boat-attack-groups groups of
+// sn-minimum-boat-attack-group-size, each wanting that many and a random few
+// more, at most sn-maximum-boat-attack-group-size (`sea`).
+void Setup(Turn& turn, bool sea) {
     Brain& brain = *turn.brain;
-    std::erase_if(brain.attack_groups, [](const Group& g) { return g.units.empty() && (g.now || g.task != kIdle); });
-    int soldiers = 0;
-    for (entt::entity e : turn.census->military) soldiers += Contains(turn.census->boats, e) ? 0 : 1;
-    if (turn.census->scout != entt::null) ++soldiers;
-    for (const auto& g : brain.explore_groups) soldiers += static_cast<int>(g.size());
-    const int least_explore = std::max(1, Sn(turn, Lang::SN::MinimumExploreGroupSize));
-    const int explore = std::min((soldiers + least_explore - 1) / least_explore,
-                                 std::max(0, Sn(turn, Lang::SN::NumberExploreGroups)));
-    const int left = soldiers - explore * least_explore;
-    const int least = std::max(1, Sn(turn, Lang::SN::MinimumAttackGroupSize));
-    const int wanted = left > 0 ? std::min((left + least - 1) / least, std::max(0, Sn(turn, Lang::SN::NumberAttackGroups))) : 0;
+    std::vector<Group>& groups = GroupsOf(turn, sea);
+    std::erase_if(groups, [](const Group& g) { return g.units.empty() && (g.now || g.task != kIdle); });
+    int wanted = 0, least = 1, most = 1;
+    if (sea) {
+        int boats = static_cast<int>(turn.census->boats.size());
+        for (const auto& g : brain.boat_explore_groups) boats += static_cast<int>(g.size());
+        least = std::max(1, Sn(turn, Lang::SN::MinimumBoatAttackGroupSize));
+        most = Sn(turn, Lang::SN::MaximumBoatAttackGroupSize);
+        wanted = std::min((boats + least - 1) / least, std::max(0, Sn(turn, Lang::SN::NumberBoatAttackGroups)));
+    } else {
+        int soldiers = 0;
+        for (entt::entity e : turn.census->military) soldiers += Contains(turn.census->boats, e) ? 0 : 1;
+        if (turn.census->scout != entt::null) ++soldiers;
+        for (const auto& g : brain.explore_groups) soldiers += static_cast<int>(g.size());
+        const int least_explore = std::max(1, Sn(turn, Lang::SN::MinimumExploreGroupSize));
+        const int explore = std::min((soldiers + least_explore - 1) / least_explore,
+                                     std::max(0, Sn(turn, Lang::SN::NumberExploreGroups)));
+        const int left = soldiers - explore * least_explore;
+        least = std::max(1, Sn(turn, Lang::SN::MinimumAttackGroupSize));
+        most = Sn(turn, Lang::SN::MaximumAttackGroupSize);
+        wanted = left > 0 ? std::min((left + least - 1) / least, std::max(0, Sn(turn, Lang::SN::NumberAttackGroups))) : 0;
+    }
     int routine = 0;
-    for (const Group& g : brain.attack_groups) routine += g.now ? 0 : 1;
+    for (const Group& g : groups) routine += g.now ? 0 : 1;
     while (routine < wanted) {
         Group g;
         const int spread = std::max(0, Sn(turn, Lang::SN::AttackGroupSizeRandomness));
         g.wanted = std::min(least + static_cast<int>(brain.rng.NextInt(static_cast<uint32_t>(spread + 1))),
-                            std::max(least, Sn(turn, Lang::SN::MaximumAttackGroupSize)));
+                            std::max(least, most));
         g.tasked_ms = turn.now_ms;
-        brain.attack_groups.push_back(g);
+        groups.push_back(g);
         ++routine;
     }
     // Too many: the last ones go, idle ones first.
     for (int pass = 0; pass < 2 && routine > wanted; ++pass) {
-        for (size_t i = brain.attack_groups.size(); i-- > 0 && routine > wanted;) {
-            const Group& g = brain.attack_groups[i];
+        for (size_t i = groups.size(); i-- > 0 && routine > wanted;) {
+            const Group& g = groups[i];
             if (g.now || (pass == 0 && Out(g))) continue;
-            brain.attack_groups.erase(brain.attack_groups.begin() + static_cast<std::ptrdiff_t>(i));
+            groups.erase(groups.begin() + static_cast<std::ptrdiff_t>(i));
             --routine;
         }
     }
 }
 
 // Idle groups short of soldiers take free ones, where most stand together.
-void Fill(Turn& turn) {
-    std::vector<entt::entity> free = Free(turn);
-    for (Group& g : turn.brain->attack_groups) {
+void Fill(Turn& turn, bool sea) {
+    std::vector<entt::entity> free = Free(turn, sea);
+    for (Group& g : GroupsOf(turn, sea)) {
         if (g.now || g.task != kIdle || g.stage != kMarching) continue;
         if (static_cast<int>(g.units.size()) >= g.wanted || free.empty()) continue;
         for (entt::entity e : Cluster(turn, free, static_cast<size_t>(g.wanted) - g.units.size())) g.units.push_back(e);
@@ -506,10 +505,11 @@ bool Gathered(const Turn& turn, const Group& g) {
 }
 
 // An idle group, once it has its soldiers and has gathered, attacks if the
-// player knows its enemy; short, or not gathered, it gathers.
-void Dispatch(Turn& turn) {
+// player knows its enemy -- boats that know none explore the water instead;
+// short, or not gathered, it gathers.
+void Dispatch(Turn& turn, bool sea) {
     const bool known = KnowsEnemy(turn);
-    for (Group& g : turn.brain->attack_groups) {
+    for (Group& g : GroupsOf(turn, sea)) {
         if (g.task != kIdle || g.stage != kMarching || g.units.empty()) continue;
         const bool full = static_cast<int>(g.units.size()) >= g.wanted;
         if (!Gathered(turn, g)) {
@@ -518,7 +518,13 @@ void Dispatch(Turn& turn) {
         }
         if (!full) continue;
         g.wanted = static_cast<int>(g.units.size());
-        if (!known) continue;
+        if (!known) {
+            if (sea) {
+                g.task = kExplore;
+                g.issued = false;
+            }
+            continue;
+        }
         g.task = kAttack;
         g.issued = false;
         g.gathering = 0;
@@ -549,10 +555,11 @@ void Reset(Group& g) {
 // made the group; with none, a random walk once the group has waited a
 // while. Under way, a group whose target has fallen, or turned friend, goes
 // idle again to regather; its idle soldiers are sent at the target again.
-void Act(Turn& turn) {
+void Act(Turn& turn, bool sea) {
     entt::registry& registry = *turn.registry;
     Brain& brain = *turn.brain;
-    for (Group& g : brain.attack_groups) {
+    const bool known = sea && KnowsEnemy(turn);
+    for (Group& g : GroupsOf(turn, sea)) {
         Prune(registry, g);
         if (g.units.empty()) {
             Reset(g);
@@ -566,10 +573,31 @@ void Act(Turn& turn) {
             if (!moving) Reset(g);
             continue;
         }
+        if (g.task == kExplore) {
+            // Boats looking for the enemy: on to the unexplored water
+            // nearest them when they stand idle, until the enemy is known.
+            if (known) {
+                Reset(g);
+                continue;
+            }
+            bool moving = false;
+            for (entt::entity u : g.units) moving = moving || !Idle(registry, u);
+            int x = 0, y = 0;
+            if (!moving && Scouting::UnexploredWater(turn, Lead(turn, g), x, y)) {
+                for (entt::entity u : g.units) {
+                    Give(registry, *turn.grid, Core::MoveCommand{u, Core::Fixed32(x), Core::Fixed32(y), turn.player});
+                }
+            }
+            continue;
+        }
         if (g.task != kAttack) continue;
         if (!g.issued) {
             if (!brain.attacks_allowed && !g.now) continue;
             g.target = NextTarget(turn, g, true);
+            if (g.target == entt::null && sea) {
+                g.task = kExplore;
+                continue;
+            }
             if (g.target == entt::null) {
                 const entt::entity over = NextTarget(turn, g, false);
                 g.target = over;
@@ -722,7 +750,8 @@ void Defend(Turn& turn) {
 void GuardTheSea(Turn& turn) {
     const entt::registry& registry = *turn.registry;
     for (entt::entity boat : turn.census->boats) {
-        if (InGroup(turn.brain->boat_attack, boat) || !Idle(registry, boat)) continue;
+        const Group* group = GroupOf(turn, boat);
+        if ((group != nullptr && Out(*group)) || !Idle(registry, boat)) continue;
         const Ground ground = GroundOf(turn, boat);
         const entt::entity enemy = NearestEnemy(turn, Where(registry, boat), kSeaGuard, false, false, &ground);
         if (enemy != entt::null) Give(*turn.registry, *turn.grid, Core::AttackCommand{boat, enemy, turn.player});
@@ -752,32 +781,11 @@ void GatherDefense(Turn& turn) {
     }
 }
 
-void Launch(Turn& turn, Group& group, const std::vector<entt::entity>& home, int pct, bool land) {
-    if (group.stage != kMarching) return;   // still carrying the last one
-    const size_t send = pct <= 0 ? 0 : (home.size() * static_cast<size_t>(pct) + 99) / 100;
-    for (size_t i = 0; i < send && i < home.size(); ++i) group.units.push_back(home[i]);
-    if (group.units.empty()) return;
-    if (!ECS::Combat::Alive(*turn.registry, group.target)) group.target = NextTarget(turn, group, true);
-    if (group.target == entt::null && land) {
-        // Nothing to walk to: across the water, if there are transports.
-        group.target = NextTarget(turn, group, false);
-        if (group.target == entt::null || !Board(turn, group)) {
-            group.units.clear();
-            group.ships.clear();
-            group.target = entt::null;
-            group.stage = kMarching;
-        }
-        return;
-    }
-    if (group.target == entt::null) group.units.clear();
-    else Charge(turn, group, false);
-}
-
 } // namespace
 
 bool Attacking(const Turn& turn, entt::entity unit) {
     const Group* g = GroupOf(turn, unit);
-    return (g != nullptr && Out(*g)) || InGroup(turn.brain->boat_attack, unit);
+    return g != nullptr && Out(*g);
 }
 
 bool InAttackGroup(const Turn& turn, entt::entity unit) { return GroupOf(turn, unit) != nullptr; }
@@ -788,37 +796,42 @@ int AttackingSoldiers(const Turn& turn) {
     return n;
 }
 
+int AttackingBoats(const Turn& turn) {
+    int n = 0;
+    for (const Group& g : turn.brain->boat_groups) n += g.task == kAttack ? static_cast<int>(g.units.size()) : 0;
+    return n;
+}
+
 void AttackNow(Turn& turn) {
-    // sn-percent-attack-soldiers of the free soldiers, rounded up, in groups
-    // of those standing together; they go whether or not attacks are
-    // allowed yet.
-    std::vector<entt::entity> free = Free(turn);
-    const int pct = Sn(turn, Lang::SN::PercentAttackSoldiers);
-    size_t send = pct <= 0 ? 0 : (free.size() * static_cast<size_t>(pct) + 99) / 100;
-    while (send > 0 && !free.empty()) {
-        Group g;
-        g.units = Cluster(turn, free, send);
-        if (g.units.empty()) break;
-        send -= g.units.size();
-        g.wanted = static_cast<int>(g.units.size());
-        g.now = true;
-        g.tasked_ms = turn.now_ms;
-        turn.brain->attack_groups.push_back(std::move(g));
+    // sn-percent-attack-soldiers of the free soldiers, and
+    // sn-percent-attack-boats of the free warships, rounded up, in groups of
+    // those standing together; they go whether or not attacks are allowed
+    // yet.
+    for (const bool sea : {false, true}) {
+        std::vector<entt::entity> free = Free(turn, sea);
+        const int pct = Sn(turn, sea ? Lang::SN::PercentAttackBoats : Lang::SN::PercentAttackSoldiers);
+        size_t send = pct <= 0 ? 0 : (free.size() * static_cast<size_t>(pct) + 99) / 100;
+        while (send > 0 && !free.empty()) {
+            Group g;
+            g.units = Cluster(turn, free, send);
+            if (g.units.empty()) break;
+            send -= g.units.size();
+            g.wanted = static_cast<int>(g.units.size());
+            g.now = true;
+            g.tasked_ms = turn.now_ms;
+            GroupsOf(turn, sea).push_back(std::move(g));
+        }
     }
-    std::vector<entt::entity> boats;
-    for (entt::entity e : turn.census->boats) {
-        if (!InGroup(turn.brain->boat_attack, e)) boats.push_back(e);
-    }
-    Launch(turn, turn.brain->boat_attack, boats, Sn(turn, Lang::SN::PercentAttackBoats), false);
 }
 
 void Run(Turn& turn) {
     Allow(turn);
-    Setup(turn);
-    Fill(turn);
-    Dispatch(turn);
-    Act(turn);
-    Upkeep(turn, turn.brain->boat_attack);
+    for (const bool sea : {false, true}) {
+        Setup(turn, sea);
+        Fill(turn, sea);
+        Dispatch(turn, sea);
+        Act(turn, sea);
+    }
     Defend(turn);
     GuardTheSea(turn);
     GatherDefense(turn);

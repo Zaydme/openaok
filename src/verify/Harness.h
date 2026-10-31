@@ -229,8 +229,9 @@ bool CheckPocket();
 bool CheckWolves();
 
 // A computer player's boats on Islands: a fishing ship keeps to fish within
-// sn-maximum-fish-boat-drop-distance of a Dock, and the warship the boat
-// attack groups leave over explores the water. Prints "boats=".
+// sn-maximum-fish-boat-drop-distance of a Dock, the warship the boat attack
+// groups leave over explores the water, and boat attack groups attack an
+// enemy known or explore. Prints "boats=".
 bool CheckBoats();
 
 // A computer player's attack groups as the game runs them: made, filled,

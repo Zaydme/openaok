@@ -479,7 +479,8 @@ void PutBrains(Writer& w, const AI::Brains& table) {
         w.U64(static_cast<uint64_t>(b.helped_ms));
         PutPod(w, b.foe);
         w.U64(static_cast<uint64_t>(b.defense_gathered_ms));
-        PutGroup(w, b.boat_attack);
+        w.U32(static_cast<uint32_t>(b.boat_groups.size()));
+        for (const AI::Group& g : b.boat_groups) PutGroup(w, g);
         PutPods(w, b.explorers);
         PutPods(w, b.gathering);
         PutPods(w, b.forward_builders);
@@ -538,7 +539,8 @@ void GetBrains(Reader& r, AI::Brains& table) {
         b.helped_ms = static_cast<int64_t>(r.U64());
         GetPod(r, b.foe);
         b.defense_gathered_ms = static_cast<int64_t>(r.U64());
-        GetGroup(r, b.boat_attack);
+        b.boat_groups.resize(std::min<uint32_t>(r.U32(), 256));
+        for (AI::Group& g : b.boat_groups) GetGroup(r, g);
         GetPods(r, b.explorers);
         GetPods(r, b.gathering);
         GetPods(r, b.forward_builders);

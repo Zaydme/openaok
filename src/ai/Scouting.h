@@ -22,4 +22,8 @@ void Claim(Turn& turn);
 
 void Run(Turn& turn);
 
+// The unexplored water nearest a warship that it can sail to, ring by ring
+// out from it; false if there is none.
+bool UnexploredWater(Turn& turn, entt::entity ship, int& x, int& y);
+
 } // namespace AI::Scouting

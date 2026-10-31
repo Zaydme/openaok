@@ -11,6 +11,8 @@
 #include "core/GameSetup.h"
 #include "ecs/ScenarioWorld.h"
 #include "ecs/Simulation.h"
+#include "ecs/components/Combat.h"
+#include "ecs/Vision.h"
 #include "ecs/components/Path.h"
 #include "ecs/components/Transform.h"
 #include "ecs/components/Worker.h"
@@ -99,7 +101,8 @@ const char* CheckFishLimit() {
 }
 
 // Three galleys at the Hardest: two boat attack groups of one take two, and
-// the third explores the water; asked for no boat explore groups, none does.
+// the third is a boat explore group's, exploring the water; asked for no
+// boat explore groups, none is made.
 const char* CheckBoatExplorers() {
     for (const int groups : {1, 0}) {
         Harbour h;
@@ -108,17 +111,49 @@ const char* CheckBoatExplorers() {
         h.Run(5);
         const auto& reg = h.sim.GetRegistry();
         size_t members = 0;
-        for (const auto& group : h.brain->boat_explore_groups) members += group.size();
-        int sailing = 0;
-        for (entt::entity ship : h.ships) sailing += Sailing(reg, ship) ? 1 : 0;
+        bool sailing = false;
+        for (const auto& group : h.brain->boat_explore_groups) {
+            members += group.size();
+            for (entt::entity ship : group) sailing |= Sailing(reg, ship);
+        }
         if (groups == 1) {
             if (h.brain->boat_explore_groups.size() != 1 || members != 1) {
                 return "the warship the boat attack groups leave over was not sent exploring";
             }
-            if (sailing != 1) return "the exploring warship did not sail";
-        } else if (members != 0 || sailing != 0) {
-            return "a warship went exploring with no boat explore group asked for";
+            if (!sailing) return "the exploring warship did not sail";
+        } else if (members != 0) {
+            return "a warship was put in a boat explore group with none asked for";
         }
+    }
+    return nullptr;
+}
+
+// Boat attack groups: two galleys, no boat explore groups asked for. With
+// the enemy's Dock known, a group sails at it and attacks; with no enemy
+// known, the groups explore the water instead.
+const char* CheckBoatAttackGroups() {
+    for (const bool known : {true, false}) {
+        Harbour h;
+        if (const char* v = h.Open(Core::ConfigManager::Get().GetUnitIdByName("SGALY"), 2)) return v;
+        AI::SetStrategic(h.brain->mind, SN::NumberBoatExploreGroups, 0, &h.setup);
+        auto& reg = h.sim.GetRegistry();
+        entt::entity dock = entt::null;
+        if (known) {
+            const auto [ex, ey] = h.sim.player_starts[1];
+            dock = Shore::RaiseNear(h.sim, 2, Core::ConfigManager::Get().GetUnitIdByName("DOCK"), ex, ey, 40);
+            if (dock == entt::null) return "no shore for the enemy's Dock";
+            const auto& at = reg.get<ECS::Components::Transform>(dock).position;
+            ECS::Vision::Explore(reg, 1, Physics::TileOf(at.x), Physics::TileOf(at.y), 6);
+        }
+        h.Run(20);
+        bool attacking = false, sailing = false;
+        for (entt::entity ship : h.ships) {
+            const auto* combat = reg.try_get<ECS::Components::Combat>(ship);
+            attacking |= combat != nullptr && dock != entt::null && combat->target == dock;
+            sailing |= Sailing(reg, ship);
+        }
+        if (known && !attacking) return "a boat attack group did not attack the enemy's Dock it knew";
+        if (!known && !sailing) return "a boat attack group that knew no enemy did not explore";
     }
     return nullptr;
 }
@@ -128,6 +163,7 @@ const char* CheckBoatExplorers() {
 bool CheckBoats() {
     const char* verdict = CheckFishLimit();
     if (verdict == nullptr) verdict = CheckBoatExplorers();
+    if (verdict == nullptr) verdict = CheckBoatAttackGroups();
     std::printf("boats=%s\n", verdict == nullptr ? "ok" : verdict);
     return verdict == nullptr;
 }

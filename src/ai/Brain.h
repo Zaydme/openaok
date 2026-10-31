@@ -87,7 +87,7 @@ struct Brain {
     Core::PlayerId foe = 0;
     // When the idle soldiers were last gathered (sn-gather-defense-units).
     int64_t defense_gathered_ms = -1;
-    Group boat_attack;            // boat attack group
+    std::vector<Group> boat_groups;     // boat attack groups
     std::vector<entt::entity> explorers;   // villagers sent exploring
     // Blows the player's things have taken from each ally: at
     // sn-hits-before-alliance-change, with teams not locked, it turns enemy.

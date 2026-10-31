@@ -259,7 +259,7 @@ int AttackSoldiers(const Turn& turn) {
     return turn.brain != nullptr ? Military::AttackingSoldiers(turn) : 0;
 }
 int AttackBoats(const Turn& turn) {
-    return turn.brain != nullptr ? static_cast<int>(turn.brain->boat_attack.units.size()) : 0;
+    return turn.brain != nullptr ? Military::AttackingBoats(turn) : 0;
 }
 
 // The same letters in the same order, case and everything else aside: the
