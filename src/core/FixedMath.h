@@ -107,10 +107,16 @@ public:
             v = v - t;
             base += 32;
         }
-        // The 256ths whose tangent the angle has reached.
-        int steps = 0;
-        while (steps < 32 && (v << 32) >= u * kTan[steps]) ++steps;
-        return static_cast<uint8_t>((base + steps) & 0xFF);
+        // The 256ths whose tangent the angle has reached: the tangents rise,
+        // so halving the range finds the first it has not.
+        int low = 0, high = 32;
+        const __int128_t scaled = v << 32;
+        while (low < high) {
+            const int mid = (low + high) / 2;
+            if (scaled >= u * kTan[mid]) low = mid + 1;
+            else high = mid;
+        }
+        return static_cast<uint8_t>((base + low) & 0xFF);
     }
 
     // The nearest of `angles` facings evenly round a turn, the first at
