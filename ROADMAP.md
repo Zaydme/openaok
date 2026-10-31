@@ -1,9 +1,9 @@
 # Roadmap
 
 The 1999 game plays end to end: random maps, campaigns, scenarios, the scenario
-editor, saved and recorded games, multiplayer and computer players, on macOS,
-Linux, Android and the Nintendo Switch. What remains is the last of the editor
-and campaigns, the computer players' finer play, and polish.
+editor, saved and recorded games, multiplayer and computer players, on Windows,
+macOS, Linux, Android and the Nintendo Switch. What remains is the last of the
+editor and campaigns, the computer players' finer play, and polish.
 
 ## Done
 
@@ -31,6 +31,8 @@ and campaigns, the computer players' finer play, and polish.
   players on a giant map in the Imperial Age with nearly three thousand units
   and buildings, runs at about a third of a millisecond a tick on a desktop.
 - **Linux**: built and checked on Debian 13 (GCC 14).
+- **Windows**: 64-bit, built with MinGW-w64 (windows/build.sh) and released
+  as a folder to unzip; the data prepared from the CD on first start.
 - **Android**: touch controls, larger interface options, widescreen.
 - **Nintendo Switch**: homebrew, with the touch controls and the controller
   played as a mouse and the game's hotkeys.
@@ -48,8 +50,7 @@ and campaigns, the computer players' finer play, and polish.
 2. **Performance on phones and the Switch**: fewer draw calls for the
    world's sprites, which each graphic's own texture keeps apart, and the
    chase routes of large fights.
-3. **Windows**: a build, and its packaging.
-4. **The Conquerors**: the 2000 expansion, played from the player's own copy
+3. **The Conquerors**: the 2000 expansion, played from the player's own copy
    when its files are in `original_game_1999/`, with the 1999 game unchanged.
    - Its data: the dat, the expansion's archives and strings, its scenarios
      and campaigns, its random map and AI scripts.
@@ -67,6 +68,5 @@ and campaigns, the computer players' finer play, and polish.
 - **Computer players are slow to advance.** On the standard test map the
   hardest reach the Feudal Age around minute 17 to 20.
 - **57 graphics are missing** from the 1999 data; the game draws without them.
-- **Windows is not supported yet.**
 - **On the Switch, network games** from the multiplayer menu are not yet
   tested.

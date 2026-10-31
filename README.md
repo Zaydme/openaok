@@ -17,7 +17,8 @@ kid. Microsoft was never going to make that happen, so I did it myself.
 
 OpenAoK is a new engine, written from scratch, that plays the original 1999
 game from your own copy of its CD: the same units, maps, art, sounds, music,
-movies and campaigns, on macOS, Linux, Android phones and the Nintendo Switch.
+movies and campaigns, on Windows, macOS, Linux, Android phones and the
+Nintendo Switch.
 
 ## What it is
 
@@ -157,6 +158,21 @@ game files. Run the game from `build/`:
 ```sh
 cd build && ./OpenAoK
 ```
+
+## On Windows
+
+OpenAoK runs on 64-bit Windows 10 and 11. The download holds none of the
+game's data; the data is prepared from your own CD the first time it starts.
+
+1. Unzip `OpenAoK-windows-<version>.zip` from the
+   [releases](https://github.com/Zaydme/openaok/releases).
+2. Copy everything on your CD into its `OpenAoK\original_game_1999` folder.
+3. Install [Python 3](https://www.python.org/downloads/windows/), needed once
+   to prepare the data.
+4. Double-click `OpenAoK.bat`. The first time it prepares the data, which
+   takes a few minutes, and then the game starts.
+
+More, building it yourself included, in [windows/README.md](windows/README.md).
 
 ## On Android
 

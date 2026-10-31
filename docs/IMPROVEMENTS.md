@@ -33,7 +33,7 @@ out of the way of the original's own look and rules.
 
 ## Where it runs
 
-- **macOS and Linux**, from the player's own CD.
+- **Windows 10 and 11, macOS and Linux**, from the player's own CD.
 - **Android phones and tablets.** On a touch screen the game is played as
   with a mouse: tap to click, hold to right-click, drag one finger to select,
   two fingers to scroll the map, pinch to zoom. A press on a text field brings

@@ -25,6 +25,8 @@ bash tools/check_determinism.sh  # the gate: must pass before and after every ch
   21, SDK platform 36, NDK 28.2). See `android/README.md`.
 - Switch: `switch/build.sh` (devkitPro, or its Docker image) and
   `python3 switch/package.py` for the SD card's folder. See `switch/README.md`.
+- Windows: `windows/build.sh` on Debian/Ubuntu with MinGW-w64 lays out the
+  folder to unzip in `windows/build/OpenAoK`. See `windows/README.md`.
 
 ## Captures
 
