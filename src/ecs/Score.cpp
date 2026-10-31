@@ -1,6 +1,7 @@
 #include "ecs/Score.h"
 
 #include <algorithm>
+#include <array>
 
 #include "core/Rules.h"
 #include "ecs/Diplomacy.h"
@@ -43,6 +44,18 @@ constexpr int kMilitaryClasses[] = {0,  6,  12, 13, 22, 23, 24, 26, 28, 35, 36,
 template <size_t N>
 bool OneOf(const int (&list)[N], int value) {
     return std::find(std::begin(list), std::end(list), value) != std::end(list);
+}
+
+// Per dat class: 1 civilian, 2 military.
+constexpr int kClassTableSize = 256;
+const std::array<uint8_t, kClassTableSize>& ClassKinds() {
+    static const std::array<uint8_t, kClassTableSize> kinds = [] {
+        std::array<uint8_t, kClassTableSize> k{};
+        for (const int c : kCivilianClasses) k[static_cast<size_t>(c)] |= 1;
+        for (const int c : kMilitaryClasses) k[static_cast<size_t>(c)] |= 2;
+        return k;
+    }();
+    return kinds;
 }
 
 // A resource's whole part, truncated toward zero.
@@ -137,16 +150,19 @@ void CountExplored(entt::registry& registry) {
 void CountPopulation(entt::registry& registry) {
     int civilian[Core::kMaxPlayers] = {};
     int military[Core::kMaxPlayers] = {};
+    const auto& kinds = ClassKinds();
     auto units = registry.view<const Components::Identity, const Components::Owner>();
     for (auto e : units) {
-        if (registry.any_of<Components::Corpse, Components::Projectile>(e)) continue;
+        // Gaia's -- the trees, mines and animals -- are no one's population.
         const Core::PlayerId owner = units.get<const Components::Owner>(e).player_id;
-        if (owner >= Core::kMaxPlayers) continue;
+        if (owner == Core::PLAYER_GAIA || owner >= Core::kMaxPlayers) continue;
+        if (registry.any_of<Components::Corpse, Components::Projectile>(e)) continue;
         const R::UnitRules* rules =
             Players::UnitOf(registry, owner, units.get<const Components::Identity>(e).unit_id);
-        if (rules == nullptr) continue;
-        if (OneOf(kCivilianClasses, rules->cls)) ++civilian[owner];
-        if (OneOf(kMilitaryClasses, rules->cls)) ++military[owner];
+        if (rules == nullptr || rules->cls < 0 || rules->cls >= kClassTableSize) continue;
+        const uint8_t kind = kinds[static_cast<size_t>(rules->cls)];
+        if (kind & 1) ++civilian[owner];
+        if (kind & 2) ++military[owner];
     }
     for (int p = 1; p < Core::kMaxPlayers; ++p) {
         Players::Player* player = Players::Find(registry, static_cast<Core::PlayerId>(p));
