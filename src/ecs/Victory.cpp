@@ -123,12 +123,6 @@ Core::PlayerId WonderHolder(const entt::registry& registry, const State& state) 
 // none.
 Core::PlayerId RelicHolder(const entt::registry& registry, const State& state) {
     if (state.relic_id < 0) return 0;
-    int total = 0;
-    auto relics = registry.view<const Components::Identity>();
-    for (auto e : relics) {
-        if (relics.get<const Components::Identity>(e).unit_id == state.relic_id) ++total;
-    }
-    if (total == 0) return 0;
     int held = 0;
     Core::PlayerId holder = 0;
     auto shrines = registry.view<const Components::RelicShrine>();
@@ -139,6 +133,13 @@ Core::PlayerId RelicHolder(const entt::registry& registry, const State& state) {
         if (holder != 0 && !OneSide(registry, holder, p)) return 0;
         if (holder == 0) holder = p;
         held += static_cast<int>(shrine.relics.size());
+    }
+    // Counted only when some are held: with none, nobody holds them all.
+    if (held == 0) return 0;
+    int total = 0;
+    auto relics = registry.view<const Components::Identity>();
+    for (auto e : relics) {
+        if (relics.get<const Components::Identity>(e).unit_id == state.relic_id) ++total;
     }
     return held == total ? holder : 0;
 }
