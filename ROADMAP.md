@@ -64,6 +64,3 @@ and campaigns, the computer players' finer play, and polish.
 - **Windows is not supported yet.**
 - **On the Switch, network games** from the multiplayer menu are not yet
   tested.
-- **On Android, the on-screen keyboard** comes back up when the field it
-  types into is tapped again, however it was put away; this is not yet
-  checked on a phone.
