@@ -82,6 +82,7 @@ void News(Turn& turn) {
         const auto* attacker = registry.try_get<ECS::Components::Owner>(e.other);
         if (victim == nullptr || attacker == nullptr || victim->player_id != turn.player) continue;
         const Core::PlayerId p = attacker->player_id;
+        if (p != turn.player && p < Core::kMaxPlayers) turn.census->strikes.push_back({e.subject, e.other, e.at});
         if (p == turn.player || p == Core::PLAYER_GAIA || p >= Core::kMaxPlayers) continue;
         brain.struck_by_player = true;
         if (Core::FixedMath::Distance(e.at.x - turn.census->home.x, e.at.y - turn.census->home.y) > town) continue;

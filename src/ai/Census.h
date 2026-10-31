@@ -18,6 +18,16 @@
 namespace AI {
 
 struct Census {
+    // This pass's blows against the player's things by others' -- Gaia's
+    // too -- for the soldiers' answer (ai/Military): who was struck, by whom,
+    // and where.
+    struct Strike {
+        entt::entity victim = entt::null;
+        entt::entity attacker = entt::null;
+        ECS::Components::Vector2D at{};
+    };
+    std::vector<Strike> strikes;
+
     Core::PlayerId player = 0;
     int age = 0;
     int stock[4] = {0, 0, 0, 0};       // by Core::ResourceType

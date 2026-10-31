@@ -20,7 +20,12 @@
 // of the free soldiers, which go at once (and sn-percent-attack-boats of the
 // warships into the boat attack group).
 //
-// The rest defend: anything hostile that strikes in town or stands in it
+// The rest defend. A blow struck at the player's things anywhere -- by Gaia's
+// too, but not at an explorer, nor, with sn-ignore-attack-group-under-attack,
+// at an attack group on its way -- is answered by
+// sn-percent-enemy-sighted-response percent (rounded down) of the idle
+// soldiers within sn-enemy-sighted-response-distance of it. And anything
+// hostile that strikes in town or stands in it
 // (within sn-maximum-town-size of home) is met by
 // sn-percent-enemy-sighted-response percent of the idle soldiers within
 // sn-enemy-sighted-response-distance of it; idle soldiers wandered off are

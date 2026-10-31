@@ -11,10 +11,12 @@
 #include "core/ConfigManager.h"
 #include "core/FixedMath.h"
 #include "core/GameSetup.h"
+#include "ecs/Combat.h"
 #include "ecs/ScenarioWorld.h"
 #include "ecs/Simulation.h"
 #include "ecs/Vision.h"
 #include "ecs/components/Combat.h"
+#include "ecs/components/Identity.h"
 #include "ecs/components/Owner.h"
 #include "ecs/components/Transform.h"
 
@@ -117,6 +119,68 @@ struct Town {
     }
 };
 
+// Out of town (sn-maximum-town-size and the sentry distance) but within the
+// enemy-sighted response distance of the soldiers at home.
+constexpr int kOutOfTown = 35;
+
+// A blow at a thing of the computer's out of town, by an enemy spearman:
+// how many of the spearmen at home go for the striker. `scout` strikes the
+// exploring scout instead of a villager.
+const char* Answered(bool scout, int& answered) {
+    Town town;
+    if (const char* v = town.Open(false)) return v;
+    auto& reg = town.sim.GetRegistry();
+    auto& grid = town.sim.GetGrid();
+    AI::SetStrategic(town.brain->mind, SN::NumberAttackGroups, 0, &town.setup);
+    AI::SetStrategic(town.brain->mind, SN::PercentEnemySightedResponse, 60, &town.setup);
+    AI::SetStrategic(town.brain->mind, SN::NumberExploreGroups, 1, &town.setup);
+    town.Run(2);
+    const auto [hx, hy] = town.sim.player_starts[0];
+    auto& cfg = Core::ConfigManager::Get();
+    const auto at = [&](int x, int y) {
+        return ECS::Components::Vector2D{Core::Fixed32(x) + Core::Fixed32(1) / Core::Fixed32(2),
+                                         Core::Fixed32(y) + Core::Fixed32(1) / Core::Fixed32(2)};
+    };
+    // Open ground for the two, about kOutOfTown tiles off, towards the map's
+    // middle.
+    const int mx = grid.GetWidth() / 2, my = grid.GetHeight() / 2;
+    const int sx = mx > hx ? 1 : -1, sy = my > hy ? 1 : -1;
+    int vx = -1, vy = -1;
+    for (int r = 0; r < 8 && vx < 0; ++r) {
+        for (int d = -r; d <= r && vx < 0; ++d) {
+            const int x = hx + sx * (kOutOfTown * 7 / 10) + d, y = hy + sy * (kOutOfTown * 7 / 10) + r;
+            bool open = true;
+            for (int oy = 0; oy <= 2 && open; ++oy) open = grid.IsWalkable(x, y + oy) && grid.IsWalkable(x + 1, y + oy);
+            if (open) {
+                vx = x;
+                vy = y;
+            }
+        }
+    }
+    if (vx < 0) return "no open ground out of town";
+    entt::entity victim = entt::null;
+    if (scout) {
+        for (auto e : reg.view<ECS::Components::Identity, ECS::Components::Owner>()) {
+            if (reg.get<ECS::Components::Owner>(e).player_id == kComputer &&
+                reg.get<ECS::Components::Identity>(e).unit_id == cfg.GetUnitIdByName("SCOUT")) {
+                victim = e;
+            }
+        }
+    } else {
+        victim = ECS::ScenarioWorld::Place(reg, grid, cfg.GetUnitIdByName("VMBAS"), kComputer, at(vx, vy), {}, 0);
+    }
+    const entt::entity striker = ECS::ScenarioWorld::Place(reg, grid, cfg.GetUnitIdByName("SPRMN"), kEnemy, at(vx, vy + 2), {}, 0);
+    if (victim == entt::null || striker == entt::null) return "no room for the blow";
+    ECS::Combat::Hurt(reg, grid, victim, Core::Fixed32(1), striker, kEnemy);
+    town.Run(2);
+    answered = 0;
+    for (entt::entity e : town.spears) {
+        const auto* combat = reg.try_get<ECS::Components::Combat>(e);
+        answered += combat != nullptr && combat->target == striker ? 1 : 0;
+    }
+    return nullptr;
+}
+
 } // namespace
 
 // A computer player's attack groups, as the game runs them: with the
@@ -125,7 +189,9 @@ struct Town {
 // more) which gathers and attacks, while the rest wait for a group of their
 // own; with the enemy unknown none goes, nor wanders off to look; with sn-number-attack-groups 0
 // there are no groups; and with sn-initial-attack-delay-type 2 none goes
-// before sn-initial-attack-delay.
+// before sn-initial-attack-delay. And blows answered as the game answers
+// them: a share, rounded down, of the idle soldiers near the one struck, and
+// none for an explorer.
 bool CheckAttackGroups() {
     const char* verdict = nullptr;
     {
@@ -175,6 +241,19 @@ bool CheckAttackGroups() {
             town.Run(40);
             if (verdict == nullptr && town.Attacking() == 0) verdict = "no attack group set out after the initial attack delay";
         }
+    }
+    // Blows answered: 60% of the six idle spearmen, rounded down, go for an
+    // enemy that struck a villager out of town; none for the exploring
+    // scout.
+    if (verdict == nullptr) {
+        int answered = 0;
+        verdict = Answered(false, answered);
+        if (verdict == nullptr && answered != 3) verdict = "a blow out of town was not answered by the game's share of the idle soldiers";
+    }
+    if (verdict == nullptr) {
+        int answered = 0;
+        verdict = Answered(true, answered);
+        if (verdict == nullptr && answered != 0) verdict = "a blow at the exploring scout was answered";
     }
     std::printf("attackgroups=%s\n", verdict == nullptr ? "ok" : verdict);
     return verdict == nullptr;

@@ -594,10 +594,52 @@ void Act(Turn& turn) {
     }
 }
 
+// Whether a struck thing of the player's is one whose blows go unanswered:
+// one exploring, or -- with sn-ignore-attack-group-under-attack -- one of an
+// attack group on its way to fight.
+bool Unanswered(const Turn& turn, entt::entity victim) {
+    if (victim == turn.census->scout) return true;
+    for (const auto& g : turn.brain->explore_groups) {
+        if (Contains(g, victim)) return true;
+    }
+    for (const auto& g : turn.brain->boat_explore_groups) {
+        if (Contains(g, victim)) return true;
+    }
+    const Group* g = GroupOf(turn, victim);
+    return g != nullptr && Out(*g) && Sn(turn, Lang::SN::IgnoreAttackGroupUnderAttack) == 1;
+}
+
+// The blows of this pass answered: of the idle soldiers at home within
+// sn-enemy-sighted-response-distance of the one struck,
+// sn-percent-enemy-sighted-response percent -- whole soldiers, rounded down
+// -- go for whoever struck it.
+void Answer(Turn& turn) {
+    const entt::registry& registry = *turn.registry;
+    std::vector<entt::entity> answered;
+    const Core::Fixed32 reach(Sn(turn, Lang::SN::EnemySightedResponseDistance));
+    const int pct = std::max(0, Sn(turn, Lang::SN::PercentEnemySightedResponse));
+    for (const Census::Strike& s : turn.census->strikes) {
+        if (Contains(answered, s.attacker) || !ECS::Combat::Alive(registry, s.attacker)) continue;
+        const auto* owner = registry.try_get<ECS::Components::Owner>(s.attacker);
+        if (owner == nullptr || (owner->player_id != Core::PLAYER_GAIA && !Hostile(turn, s.attacker))) continue;
+        if (Unanswered(turn, s.victim)) continue;
+        answered.push_back(s.attacker);
+        std::vector<entt::entity> idle;
+        for (entt::entity e : Defenders(turn)) {
+            if (e != s.victim && Idle(registry, e) && Distance(Where(registry, e), s.at) <= reach) idle.push_back(e);
+        }
+        const size_t send = idle.size() * static_cast<size_t>(pct) / 100;
+        for (size_t i = 0; i < send; ++i) {
+            Give(*turn.registry, *turn.grid, Core::AttackCommand{idle[i], s.attacker, turn.player});
+        }
+    }
+}
+
 void Defend(Turn& turn) {
     const entt::registry& registry = *turn.registry;
     const Census& c = *turn.census;
     if (c.town_center == entt::null) return;
+    Answer(turn);
     const int town = TownSize(turn);
     // Who to meet: whoever last struck in town, while still about; else
     // anything hostile standing in it.
