@@ -48,9 +48,8 @@ bool WallsOnRings(const entt::registry& reg, int& gates) {
 // the default map the Teutons' "castle" plan keeps 25 villagers in the Dark Age
 // and trains militia while their gold lasts, and the Franks' "feudal" plan
 // stops at 20; with the Hardest's gift of 500 of everything they arrive at
-// minutes 20 and 17, the Teutons later for the Franks' raid on their
-// villagers.
-constexpr int kFeudalBy = 20;
+// minutes 17 and 18, none of their villagers standing idle on the way.
+constexpr int kFeudalBy = 18;
 // Long enough for the later of them to finish the age's 130 seconds.
 constexpr int kAIMinutes = 24;
 

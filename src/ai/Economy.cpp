@@ -18,6 +18,7 @@
 #include "ecs/Vision.h"
 #include "ecs/components/Building.h"
 #include "ecs/components/Combat.h"
+#include "ecs/components/Health.h"
 #include "ecs/components/Identity.h"
 #include "ecs/components/Mortal.h"
 #include "ecs/components/Owner.h"
@@ -198,6 +199,12 @@ void Survey(const Turn& turn, Sources& out) {
             const bool carcass = registry.all_of<ECS::Components::Corpse>(e);
             const bool herd = ECS::Animals::Herdable(registry, e);
             if (!carcass && !herd && registry.all_of<ECS::Components::Combat>(e)) continue;   // boar, wolf
+            // An animal or a carcass lies on open ground; one on ground a
+            // building or a forest has closed nobody can stand beside.
+            if ((carcass || herd || registry.all_of<ECS::Components::Health>(e)) &&
+                !turn.grid->IsWalkable(Physics::TileOf(s.at.x), Physics::TileOf(s.at.y))) {
+                continue;
+            }
             if (herd || (carcass && cls == kSheepClass)) {
                 const auto* owner = registry.try_get<ECS::Components::Owner>(e);
                 if (owner != nullptr && owner->player_id != turn.player && owner->player_id != Core::PLAYER_GAIA) continue;
