@@ -259,6 +259,7 @@ void Window::TranslateEvent(SDL_Event& event) const {
     }
     case SDL_MOUSEBUTTONDOWN:
     case SDL_MOUSEBUTTONUP: {
+        if (event.type == SDL_MOUSEBUTTONDOWN) TextInput::Pressed(event.button.x, event.button.y);
         int gx = 0, gy = 0;
         ToGame(event.button.x, event.button.y, gx, gy);
         event.button.x = gx;

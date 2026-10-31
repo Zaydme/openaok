@@ -27,6 +27,10 @@ void Want(Kind kind);
 // its window beside it.
 void At(const SDL_Rect& field);
 
+// A press at a point of the window: on the field being typed into, a phone's
+// keyboard comes back up if it was put away.
+void Pressed(int window_x, int window_y);
+
 // Brings up the system's keyboard for the screen's fields: false when the
 // screen has none, or the machine has no such keyboard.
 bool ShowForFields();
