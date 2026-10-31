@@ -52,6 +52,25 @@ void News(Turn& turn) {
         turn.mind->tribute[e.from][r] += e.amount;
         turn.mind->tribute_memory[e.from][r] += e.amount;
     }
+    // Blows from an ally: enough of them and, unless teams are locked, the
+    // player turns on it.
+    for (const ECS::Events::Event& e : log->events) {
+        if (e.tick <= since || e.kind != ECS::Events::Kind::Struck || e.player != turn.player) continue;
+        if (!turn.registry->valid(e.other)) continue;
+        const auto* attacker = turn.registry->try_get<ECS::Components::Owner>(e.other);
+        if (attacker == nullptr) continue;
+        const Core::PlayerId p = attacker->player_id;
+        if (p == turn.player || p == Core::PLAYER_GAIA || p >= Core::kMaxPlayers) continue;
+        if (Facts::StanceToward(turn, p) != Lang::Stance::Ally) continue;
+        int& hits = brain.ally_hits[p];
+        ++hits;
+        if (hits < Sn(turn, Lang::SN::HitsBeforeAllianceChange)) continue;
+        if (turn.setup == nullptr || turn.setup->lock_teams) continue;
+        hits = 0;
+        Give(*turn.registry, *turn.grid,
+             Core::DiplomacyCommand{p, Facts::DiplomacyStance(static_cast<int>(Lang::Stance::Enemy)), turn.player});
+        turn.mind->stance[p] = static_cast<uint8_t>(Lang::Stance::Enemy);
+    }
     if (turn.census->town_center == entt::null) return;
     const entt::registry& registry = *turn.registry;
     const Core::Fixed32 town(std::max(8, Sn(turn, Lang::SN::MaximumTownSize)) +

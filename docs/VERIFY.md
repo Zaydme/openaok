@@ -43,7 +43,7 @@ that the script reads.
 | `garrison` | Entering and leaving, refusals, garrison arrows, healing, the town bell |
 | `animals`, `duties`, `monks` | Herding, fleeing, grazing; patrol, follow, guard; conversion, facing whom they convert, healing, relics |
 | `maps` | Islands, continents, beaches, cliffs and fish across several map scripts |
-| `script` | The computer players' rule language: reading, rule passes, every original script loading for every civilisation, difficulty and map, strategic numbers scaled for the difficulty and kept in bounds, civilian explorers, retasking, mining camps and forward builders as the game reckons them, explore groups of one soldier, Monks fetching relics |
+| `script` | The computer players' rule language: reading, rule passes, every original script loading for every civilisation, difficulty and map, strategic numbers scaled for the difficulty and kept in bounds, civilian explorers, retasking, mining camps and forward builders as the game reckons them, an ally turned on after too many blows, explore groups of one soldier, Monks fetching relics |
 | `ai`, `pace`, `seven` | Twenty minutes of the computer against itself; each difficulty's pace; seven computer players |
 | `crossing`, `landing`, `water`, `fishing`, `navy` | Transport ships, passability on water maps, docks and fishing, warships |
 | `boats` | A computer player's boats: fishing ships keep near a Dock as the rules ask, a spare warship explores the water |

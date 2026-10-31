@@ -68,6 +68,9 @@ struct Brain {
     Group attack;                 // land attack group
     Group boat_attack;            // boat attack group
     std::vector<entt::entity> explorers;   // villagers sent exploring
+    // Blows the player's things have taken from each ally: at
+    // sn-hits-before-alliance-change, with teams not locked, it turns enemy.
+    std::array<int, Core::kMaxPlayers> ally_hits{};
     // Villagers kept aside to build forward, as sn-number-forward-builders
     // asks (ai/Economy).
     std::vector<entt::entity> forward_builders;

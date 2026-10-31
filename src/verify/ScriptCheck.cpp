@@ -24,6 +24,7 @@
 #include "core/Rules.h"
 #include "ecs/Buildings.h"
 #include "ecs/Chat.h"
+#include "ecs/Combat.h"
 #include "ecs/Diplomacy.h"
 #include "ecs/Orders.h"
 #include "ecs/Players.h"
@@ -589,6 +590,54 @@ const char* CheckTalk() {
     return nullptr;
 }
 
+// An ally that strikes the player's things sn-hits-before-alliance-change
+// times is its enemy from then, when teams are not locked; one blow fewer, or
+// teams locked, and it stays an ally.
+const char* CheckAllyHits() {
+    using SN = AI::Lang::SN;
+    struct Case {
+        bool locked;
+        int blows;
+        bool turned;
+    };
+    for (const Case c : {Case{false, 4, false}, Case{false, 5, true}, Case{true, 5, false}}) {
+        Core::GameSetup setup = Core::DefaultSetup();
+        setup.players[1].computer = true;
+        setup.players[1].team = setup.players[2].team = 1;
+        setup.lock_teams = c.locked;
+        ECS::Simulation sim;
+        sim.Init(setup);
+        auto& reg = sim.GetRegistry();
+        Files files;
+        files["main"] = "(defrule (true) => (do-nothing))\n";
+        AI::Brains* brains = reg.ctx().find<AI::Brains>();
+        if (brains == nullptr || brains->brains.empty()) return "no brain for the computer seat";
+        AI::Brain& brain = brains->brains.front();
+        brain.program = CompileFiles(files, {}, 0);
+        AI::Reset(brain.mind, brain.program.rules.size(), &setup);
+        brain.mind.stance[2] = static_cast<uint8_t>(AI::Lang::Stance::Ally);
+        AI::SetStrategic(brain.mind, SN::HitsBeforeAllianceChange, 5, &setup);
+        if (ECS::Diplomacy::StanceOf(reg, 1, 2) != ECS::Diplomacy::Stance::Ally) return "the team did not start allied";
+        entt::entity victim = entt::null, striker = entt::null;
+        for (auto e : reg.view<ECS::Components::Worker, ECS::Components::Owner>()) {
+            const Core::PlayerId p = reg.get<ECS::Components::Owner>(e).player_id;
+            if (p == 1 && victim == entt::null) victim = e;
+            if (p == 2 && striker == entt::null) striker = e;
+        }
+        if (victim == entt::null || striker == entt::null) return "no villagers to strike and be struck";
+        for (int t = 0; t < kTicksPerSecond; ++t) sim.Update(16);
+        for (int b = 0; b < c.blows; ++b) {
+            ECS::Combat::Hurt(reg, sim.GetGrid(), victim, Core::Fixed32(1), striker, 2);
+            sim.Update(16);
+        }
+        for (int t = 0; t < 2 * kTicksPerSecond; ++t) sim.Update(16);
+        const bool enemy = ECS::Diplomacy::StanceOf(reg, 1, 2) == ECS::Diplomacy::Stance::Enemy;
+        if (c.turned && !enemy) return "a computer player stayed allied to an ally that struck it too often";
+        if (!c.turned && enemy) return "a computer player turned on an ally too soon, or with teams locked";
+    }
+    return nullptr;
+}
+
 // The Market and tribute through the rules: the price facts read the
 // Market's prices, a lot sold through a finished Market of the player's,
 // tribute given as a player gives it, and tribute received remembered until
@@ -1054,6 +1103,7 @@ bool CheckScript() {
     if (verdict == nullptr) verdict = CheckWorld();
     if (verdict == nullptr) verdict = CheckTownCenter();
     if (verdict == nullptr) verdict = CheckTalk();
+    if (verdict == nullptr) verdict = CheckAllyHits();
     if (verdict == nullptr) verdict = CheckTrading();
     if (verdict == nullptr) verdict = CheckExploring();
     if (verdict == nullptr) verdict = CheckRelics();
