@@ -198,7 +198,7 @@ void ResetSettings(Setup& s) {
     setting(s.size, 3, sizes, 0);
     setting(s.resources, 4, {Get(9702), Get(9703), Get(9704)}, 0);
     std::vector<std::string> population;
-    for (int n = 25; n <= 200; n += 25) population.push_back(std::to_string(n));
+    for (int n : Core::kPopulationLimits) population.push_back(std::to_string(n));
     setting(s.population, 5, population, 2);
     setting(s.reveal, 6, {Get(9755), Get(9756), Get(9757)}, 0);
     setting(s.age, 7, {Get(4332), Get(4202), Get(4203), Get(4204)}, 0);
@@ -235,7 +235,7 @@ Core::GameSetup Settings(const Setup& s) {
                    : s.resources.selected == 1 ? Core::StartingResources::Medium
                    : s.resources.selected == 2 ? Core::StartingResources::High
                    : Core::StartingResources::Standard;
-    game.population_limit = 25 * (s.population.selected + 1);
+    game.population_limit = Core::kPopulationLimits[std::clamp(s.population.selected, 0, Core::kPopulationChoices - 1)];
     game.reveal = s.reveal.selected == 1 ? Core::Reveal::Explored
                 : s.reveal.selected == 2 ? Core::Reveal::AllVisible : Core::Reveal::Normal;
     game.starting_age = s.age.selected;

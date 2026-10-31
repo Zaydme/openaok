@@ -65,6 +65,7 @@ int Run(int ticks) {
     if (runs("targets")) ok &= CheckTargets();
     if (runs("zoom")) ok &= CheckZoom();
     if (runs("selection")) ok &= CheckSelection();
+    if (runs("population")) ok &= CheckPopulation();
     if (runs("stress")) ok &= CheckStress();
     if (runs("shipangles")) ok &= CheckShipAngles();
     if (runs("turning")) ok &= CheckTurning();

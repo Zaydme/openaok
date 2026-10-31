@@ -259,6 +259,11 @@ bool CheckZoom();
 // Prints "selection=".
 bool CheckSelection();
 
+// The population limits the game setup offers, from 25 to 1000: the
+// original's among them, and a game at the largest supporting more than 200.
+// Prints "population=".
+bool CheckPopulation();
+
 // A late game measured: eight computer players on a giant map in the
 // Imperial Age, their armies and fleets sent at one another, a minute's
 // ticks timed system by system (core/Costs). Prints "stress=" with the

@@ -83,6 +83,7 @@ ATTACKGROUPS="$(echo "$OUTPUT" | grep '^attackgroups=')"
 TARGETS="$(echo "$OUTPUT" | grep '^targets=')"
 ZOOM="$(echo "$OUTPUT" | grep '^zoom=')"
 SELECTION="$(echo "$OUTPUT" | grep '^selection=')"
+POPULATION="$(echo "$OUTPUT" | grep '^population=')"
 STRESS="$(echo "$OUTPUT" | grep '^stress=')"
 LANDING="$(echo "$OUTPUT" | grep '^landing=')"
 MARKET="$(echo "$OUTPUT" | grep '^market=')"
@@ -607,6 +608,12 @@ fi
 case "$SELECTION" in
     selection=ok*) echo "selection OK" ;;
     *) echo "SELECTION FAILED" >&2; echo "  $SELECTION" >&2; STATUS=1 ;;
+esac
+
+# The population limits offered, from 25 to 1000.
+case "$POPULATION" in
+    population=ok*) echo "population OK" ;;
+    *) echo "POPULATION FAILED" >&2; echo "  $POPULATION" >&2; STATUS=1 ;;
 esac
 
 # The stress scenario: a late game run and its costs measured, system by

@@ -56,6 +56,12 @@ inline constexpr MapSize kMapSizes[] = {
 // conquest alone.
 enum class VictoryKind : uint8_t { Standard, Conquest };
 
+// The population limits the game setup offers: 25 to 200 in steps of 25,
+// then on to 500 in 50s and to 1000 in 100s.
+constexpr int kPopulationLimits[] = {25,  50,  75,  100, 125, 150, 175, 200, 250, 300,
+                                     350, 400, 450, 500, 600, 700, 800, 900, 1000};
+constexpr int kPopulationChoices = static_cast<int>(sizeof(kPopulationLimits) / sizeof(kPopulationLimits[0]));
+
 struct GameSetup {
     uint32_t seed = 42;
     std::string map_script = "Arabia";
@@ -63,7 +69,7 @@ struct GameSetup {
     int map_size = 120;
     PlayerSetup players[kMaxPlayers];
     StartingResources resources = StartingResources::Standard;
-    // Selectable in steps of 25 from 25 to 200.
+    // One of kPopulationLimits.
     int population_limit = 75;
     // The age every player starts in, 0 for the Dark Age to 3 for the
     // Imperial. Each age's technology up to it is researched at the start --
