@@ -31,6 +31,12 @@
 // sn-enemy-sighted-response-distance of it; idle soldiers wandered off are
 // called back to the muster point, a few tiles from home toward the middle
 // of the map, where every military building also sends what it trains.
+//
+// Allied computer players help one another (sn-coop-share-attacking): a
+// player struck by another's calls on them at most every
+// sn-coop-share-attacking-interval seconds, and each, its attacks allowed,
+// goes for the striker's things first and sends its attack groups with what
+// they have. What they see they share (ai/Knowledge).
 namespace AI::Military {
 
 void AttackNow(Turn& turn);

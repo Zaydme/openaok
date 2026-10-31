@@ -33,12 +33,11 @@ and campaigns, the computer players' finer play, and polish.
 ## Next
 
 1. **Computer players**
-   - Their groups as the game runs them: forming up (sn-group-form-distance),
-     re-tasking a group whose units stand idle
-     (sn-consecutive-idle-unit-limit), sn-ignore-attack-group-under-attack and
-     sn-zero-priority-distance.
-   - Allied computer players helping each other (sn-coop-share-attacking,
-     sn-coop-share-information), and sn-gather-defense-units.
+   - Their attack groups' choice of target by the game's target evaluation
+     (the sn-target-evaluation numbers), their boat attack groups as groups,
+     and sn-gather-defense-units.
+   - The priority of their units' orders (sn-zero-priority-distance), which
+     needs order priorities in the units' own behaviour.
    - Defend groups and what they guard (the defend priorities), which only
      players' own scripts ask for: the game's scripts leave
      sn-number-defend-groups at 0.

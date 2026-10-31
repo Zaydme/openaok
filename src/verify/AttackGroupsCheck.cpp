@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <utility>
 #include <vector>
 
 #include "ai/Brain.h"
@@ -181,6 +182,84 @@ const char* Answered(bool scout, int& answered) {
     return nullptr;
 }
 
+// Two computer players on one team, 1 and 3, and player 2 their enemy, the
+// computers' rules doing nothing; spearmen by player 1's Town Center and two
+// by player 3's.
+struct Allies {
+    ECS::Simulation sim;
+    Core::GameSetup setup;
+    AI::Brain* one = nullptr;
+    AI::Brain* three = nullptr;
+    std::vector<entt::entity> spears;
+
+    const char* Open() {
+        setup = Core::DefaultSetup();
+        setup.difficulty = 0;
+        setup.players[1].computer = true;
+        setup.players[3].active = true;
+        setup.players[3].computer = true;
+        setup.players[1].team = setup.players[3].team = 1;
+        setup.players[2].team = 2;
+        sim.Init(setup);
+        auto& reg = sim.GetRegistry();
+        AI::Brains* brains = reg.ctx().find<AI::Brains>();
+        if (brains == nullptr || brains->brains.size() != 2) return "no brains for the two computers";
+        for (AI::Brain& b : brains->brains) {
+            AI::Script::Environment env;
+            env.read = [](const std::string&, std::string& text) {
+                text = "(defrule (true) => (do-nothing))\n";
+                return true;
+            };
+            env.percent = [] { return 0; };
+            b.program = AI::Script::Compile("main", env);
+            AI::Reset(b.mind, b.program.rules.size(), &setup);
+            AI::SetStrategic(b.mind, SN::GroupFormDistance, 10, &setup);
+            AI::SetStrategic(b.mind, SN::CoopShareInformation, 0, &setup);
+            (b.player == 1 ? one : three) = &b;
+        }
+        if (one == nullptr || three == nullptr || sim.player_starts.size() < 3) return "no third seat";
+        if (!Place(1, sim.player_starts[0], kSpearmen) || !Place(3, sim.player_starts[2], 2)) return "no room for the spearmen";
+        return nullptr;
+    }
+
+    bool Place(Core::PlayerId p, std::pair<int, int> start, int n) {
+        auto& reg = sim.GetRegistry();
+        auto& grid = sim.GetGrid();
+        const int spearman = Core::ConfigManager::Get().GetUnitIdByName("SPRMN");
+        int placed = 0;
+        for (int r = 4; r < 14 && placed < n; ++r) {
+            for (int dx = -r; dx <= r && placed < n; dx += 2) {
+                const int x = start.first + dx, y = start.second + r;
+                if (!grid.IsWalkable(x, y)) continue;
+                const entt::entity e = ECS::ScenarioWorld::Place(
+                    reg, grid, spearman, p,
+                    {Core::Fixed32(x) + Core::Fixed32(1) / Core::Fixed32(2), Core::Fixed32(y) + Core::Fixed32(1) / Core::Fixed32(2)},
+                    {}, 0);
+                if (e == entt::null) continue;
+                ++placed;
+                if (p == 1) spears.push_back(e);
+            }
+        }
+        return placed == n;
+    }
+
+    void Run(int seconds) {
+        for (int t = 0; t < seconds * kTicksPerSecond; ++t) sim.Update(16);
+    }
+
+    int Attacking() {
+        auto& reg = sim.GetRegistry();
+        int n = 0;
+        for (entt::entity e : spears) {
+            const auto* combat = reg.valid(e) ? reg.try_get<ECS::Components::Combat>(e) : nullptr;
+            if (combat == nullptr || !reg.valid(combat->target)) continue;
+            const auto* owner = reg.try_get<ECS::Components::Owner>(combat->target);
+            n += owner != nullptr && owner->player_id == kEnemy ? 1 : 0;
+        }
+        return n;
+    }
+};
+
 } // namespace
 
 // A computer player's attack groups, as the game runs them: with the
@@ -191,7 +270,9 @@ const char* Answered(bool scout, int& answered) {
 // there are no groups; and with sn-initial-attack-delay-type 2 none goes
 // before sn-initial-attack-delay. And blows answered as the game answers
 // them: a share, rounded down, of the idle soldiers near the one struck, and
-// none for an explorer.
+// none for an explorer. Allied computer players share what they find
+// (sn-coop-share-information) and answer one another's calls for help
+// (sn-coop-share-attacking).
 bool CheckAttackGroups() {
     const char* verdict = nullptr;
     {
@@ -254,6 +335,45 @@ bool CheckAttackGroups() {
         int answered = 0;
         verdict = Answered(true, answered);
         if (verdict == nullptr && answered != 0) verdict = "a blow at the exploring scout was answered";
+    }
+    // Allies: what player 3 has explored of the enemy's town, player 1
+    // knows when player 3 shares what it finds, and attacks.
+    for (const int share : {1, 0}) {
+        if (verdict != nullptr) break;
+        Allies a;
+        verdict = a.Open();
+        if (verdict != nullptr) break;
+        AI::SetStrategic(a.three->mind, SN::CoopShareInformation, share, &a.setup);
+        const auto [ex, ey] = a.sim.player_starts[1];
+        ECS::Vision::Explore(a.sim.GetRegistry(), 3, ex, ey, kKnownRadius);
+        a.Run(60);
+        if (share == 1 && a.Attacking() == 0) verdict = "a computer player did not know what its ally shared of the enemy";
+        if (share == 0 && a.Attacking() != 0) verdict = "a computer player knew what its ally did not share";
+    }
+    // And a call for help: player 1 struck by player 2's, player 3 goes
+    // for player 2 with the attack group it has, short as it is.
+    if (verdict == nullptr) {
+        Allies a;
+        verdict = a.Open();
+        if (verdict == nullptr) {
+            a.Run(5);
+            auto& reg = a.sim.GetRegistry();
+            auto& grid = a.sim.GetGrid();
+            const auto [hx, hy] = a.sim.player_starts[0];
+            const entt::entity striker = ECS::ScenarioWorld::Place(
+                reg, grid, Core::ConfigManager::Get().GetUnitIdByName("SPRMN"), kEnemy,
+                {Core::Fixed32(hx + 3), Core::Fixed32(hy - 4)}, {}, 0);
+            if (striker == entt::null) verdict = "no room for the striker";
+            if (verdict == nullptr) {
+                ECS::Combat::Hurt(reg, grid, a.spears.front(), Core::Fixed32(1), striker, kEnemy);
+                a.Run(2);
+                bool sent = false;
+                for (const AI::Group& g : a.three->attack_groups) {
+                    sent |= !g.units.empty() && g.wanted == static_cast<int>(g.units.size());
+                }
+                if (a.three->foe != kEnemy || !sent) verdict = "an allied computer player did not answer a call for help";
+            }
+        }
     }
     std::printf("attackgroups=%s\n", verdict == nullptr ? "ok" : verdict);
     return verdict == nullptr;

@@ -3,9 +3,11 @@
 #include <algorithm>
 
 #include "ai/Catalog.h"
+#include "ai/Knowledge.h"
 #include "core/FixedMath.h"
 #include "ecs/BuildingGeometry.h"
 #include "ecs/Combat.h"
+#include "ecs/Diplomacy.h"
 #include "ecs/Garrisons.h"
 #include "ecs/Navigation.h"
 #include "ecs/Players.h"
@@ -112,13 +114,14 @@ bool Reaches(const Turn& turn, const Ground& ground, entt::entity target) {
 // what the player can see unless `known` lets it remember any building, and
 // -- given a ground -- only what can be got at from it.
 entt::entity NearestEnemy(const Turn& turn, const Vector2D& at, Core::Fixed32 reach, bool buildings_only,
-                          bool known, const Ground* ground) {
+                          bool known, const Ground* ground, Core::PlayerId only = 0) {
     const entt::registry& registry = *turn.registry;
     entt::entity best = entt::null;
     Core::Fixed32 best_d{};
     auto all = registry.view<const ECS::Components::Transform, const ECS::Components::Owner>();
     for (auto e : all) {
         if (!Hostile(turn, e) || !ECS::Combat::Alive(registry, e)) continue;
+        if (only != 0 && all.get<const ECS::Components::Owner>(e).player_id != only) continue;
         const bool building = registry.all_of<ECS::Components::Building>(e);
         if (buildings_only && !building) continue;
         const Core::Fixed32 d = Distance(all.get<const ECS::Components::Transform>(e).position, at);
@@ -126,8 +129,8 @@ entt::entity NearestEnemy(const Turn& turn, const Vector2D& at, Core::Fixed32 re
         if (best != entt::null && (d > best_d || (d == best_d && e >= best))) continue;
         if (known && building) {
             const Vector2D& at = all.get<const ECS::Components::Transform>(e).position;
-            if (!ECS::Vision::Explored(registry, turn.player, Physics::TileOf(at.x), Physics::TileOf(at.y))) continue;
-        } else if (!ECS::Vision::Shows(registry, turn.player, e)) {
+            if (!Knowledge::Explored(turn, Physics::TileOf(at.x), Physics::TileOf(at.y))) continue;
+        } else if (!Knowledge::Sees(turn, e)) {
             continue;
         }
         if (ground != nullptr && !Reaches(turn, *ground, e)) continue;
@@ -180,9 +183,15 @@ entt::entity NextTarget(const Turn& turn, const Group& group, bool reach) {
     const Vector2D from = lead == entt::null ? turn.census->home : Where(*turn.registry, lead);
     const Ground ground = GroundOf(turn, lead);
     const Ground* on = reach ? &ground : nullptr;
-    entt::entity t = NearestEnemy(turn, from, kNearbyTarget, false, false, on);
-    if (t == entt::null) t = NearestEnemy(turn, from, Core::Fixed32(1 << 16), true, false, on);
-    if (t == entt::null) t = NearestEnemy(turn, from, Core::Fixed32(1 << 16), true, true, on);
+    // The foe an ally's call named first, then any.
+    const Core::PlayerId foe = turn.brain->foe;
+    entt::entity t = entt::null;
+    for (int pass = foe != 0 ? 0 : 1; pass < 2 && t == entt::null; ++pass) {
+        const Core::PlayerId only = pass == 0 ? foe : Core::PlayerId{0};
+        t = NearestEnemy(turn, from, kNearbyTarget, false, false, on, only);
+        if (t == entt::null) t = NearestEnemy(turn, from, Core::Fixed32(1 << 16), true, false, on, only);
+        if (t == entt::null) t = NearestEnemy(turn, from, Core::Fixed32(1 << 16), true, true, on, only);
+    }
     return t;
 }
 
@@ -391,8 +400,8 @@ bool KnowsEnemy(const Turn& turn) {
         if (!Hostile(turn, e) || !ECS::Combat::Alive(registry, e)) continue;
         if (registry.all_of<ECS::Components::Building>(e)) {
             const Vector2D& at = all.get<const ECS::Components::Transform>(e).position;
-            if (ECS::Vision::Explored(registry, turn.player, Physics::TileOf(at.x), Physics::TileOf(at.y))) return true;
-        } else if (ECS::Vision::Shows(registry, turn.player, e)) {
+            if (Knowledge::Explored(turn, Physics::TileOf(at.x), Physics::TileOf(at.y))) return true;
+        } else if (Knowledge::Sees(turn, e)) {
             return true;
         }
     }
@@ -609,6 +618,44 @@ bool Unanswered(const Turn& turn, entt::entity victim) {
     return g != nullptr && Out(*g) && Sn(turn, Lang::SN::IgnoreAttackGroupUnderAttack) == 1;
 }
 
+// An ally's call for help against `foe` answered, once attacks are allowed:
+// that player's things are gone for first, and every attack group short of
+// soldiers goes with what it has.
+void Help(Brain& b, Core::PlayerId foe) {
+    if (!b.attacks_allowed) return;
+    b.foe = foe;
+    for (Group& g : b.attack_groups) {
+        if (g.wanted > static_cast<int>(g.units.size())) g.wanted = static_cast<int>(g.units.size());
+    }
+}
+
+// Struck by `foe`'s, the player calls on its allied computer players --
+// allied both ways -- once every sn-coop-share-attacking-interval seconds,
+// with sn-coop-share-attacking: through the coordinator, one of the computer
+// players chosen at the first call, who calls everyone; any other calls
+// those of a higher number who are not the coordinator.
+void CallForHelp(Turn& turn, Core::PlayerId foe) {
+    Brain& brain = *turn.brain;
+    if (turn.brains == nullptr || Sn(turn, Lang::SN::CoopShareAttacking) != 1) return;
+    const int64_t interval = static_cast<int64_t>(Sn(turn, Lang::SN::CoopShareAttackingInterval)) * 1000;
+    if (brain.helped_ms >= 0 && turn.now_ms - brain.helped_ms < interval) return;
+    brain.helped_ms = turn.now_ms;
+    Brains& table = *turn.brains;
+    if (table.coordinator < 0 && !table.brains.empty()) {
+        const auto pick = brain.rng.NextInt(static_cast<uint32_t>(table.brains.size()));
+        table.coordinator = table.brains[static_cast<size_t>(pick)].player;
+    }
+    for (Brain& b : table.brains) {
+        if (b.player == turn.player) continue;
+        if (ECS::Diplomacy::StanceOf(*turn.registry, b.player, turn.player) != ECS::Diplomacy::Stance::Ally ||
+            ECS::Diplomacy::StanceOf(*turn.registry, turn.player, b.player) != ECS::Diplomacy::Stance::Ally) {
+            continue;
+        }
+        const bool coordinator = turn.player == table.coordinator;
+        if (coordinator || (turn.player < b.player && b.player != table.coordinator)) Help(b, foe);
+    }
+}
+
 // The blows of this pass answered: of the idle soldiers at home within
 // sn-enemy-sighted-response-distance of the one struck,
 // sn-percent-enemy-sighted-response percent -- whole soldiers, rounded down
@@ -624,6 +671,7 @@ void Answer(Turn& turn) {
         if (owner == nullptr || (owner->player_id != Core::PLAYER_GAIA && !Hostile(turn, s.attacker))) continue;
         if (Unanswered(turn, s.victim)) continue;
         answered.push_back(s.attacker);
+        if (owner->player_id != Core::PLAYER_GAIA) CallForHelp(turn, owner->player_id);
         std::vector<entt::entity> idle;
         for (entt::entity e : Defenders(turn)) {
             if (e != s.victim && Idle(registry, e) && Distance(Where(registry, e), s.at) <= reach) idle.push_back(e);

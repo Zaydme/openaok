@@ -476,6 +476,8 @@ void PutBrains(Writer& w, const AI::Brains& table) {
         for (const AI::Group& g : b.attack_groups) PutGroup(w, g);
         w.U8(b.attacks_allowed ? 1 : 0);
         w.U8(b.struck_by_player ? 1 : 0);
+        w.U64(static_cast<uint64_t>(b.helped_ms));
+        PutPod(w, b.foe);
         PutGroup(w, b.boat_attack);
         PutPods(w, b.explorers);
         PutPods(w, b.gathering);
@@ -502,6 +504,7 @@ void PutBrains(Writer& w, const AI::Brains& table) {
         w.I32(b.wall_perimeter);
     }
     w.U64(static_cast<uint64_t>(table.now_ms));
+    w.I32(table.coordinator);
     PutPod(w, table.shared_goals);
     PutPod(w, table.ages);
     PutPod(w, table.age_since);
@@ -531,6 +534,8 @@ void GetBrains(Reader& r, AI::Brains& table) {
         for (AI::Group& g : b.attack_groups) GetGroup(r, g);
         b.attacks_allowed = r.U8() != 0;
         b.struck_by_player = r.U8() != 0;
+        b.helped_ms = static_cast<int64_t>(r.U64());
+        GetPod(r, b.foe);
         GetGroup(r, b.boat_attack);
         GetPods(r, b.explorers);
         GetPods(r, b.gathering);
@@ -558,6 +563,7 @@ void GetBrains(Reader& r, AI::Brains& table) {
         if (!r.ok) return;
     }
     table.now_ms = static_cast<int64_t>(r.U64());
+    table.coordinator = r.I32();
     GetPod(r, table.shared_goals);
     GetPod(r, table.ages);
     GetPod(r, table.age_since);

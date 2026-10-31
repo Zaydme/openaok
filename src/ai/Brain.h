@@ -80,6 +80,11 @@ struct Brain {
     // Attacks allowed: the initial attack delay is over (ai/Military).
     bool attacks_allowed = false;
     bool struck_by_player = false;   // another player has struck its things
+    // Allied computer players' help (sn-coop-share-attacking, ai/Military):
+    // when it last called for it, and the player an ally's call named, whose
+    // things its attack groups go for first.
+    int64_t helped_ms = -1;
+    Core::PlayerId foe = 0;
     Group boat_attack;            // boat attack group
     std::vector<entt::entity> explorers;   // villagers sent exploring
     // Blows the player's things have taken from each ally: at
@@ -141,6 +146,9 @@ struct Brains {
     // players-current-age-time.
     std::array<int, Core::kMaxPlayers> ages{};
     std::array<int64_t, Core::kMaxPlayers> age_since{};
+    // The computer player through whom calls for help pass, chosen the first
+    // time one is made; -1 till then.
+    int coordinator = -1;
     // What the computer players have said, newest last.
     std::vector<ChatLine> chat;
     // Scratch for the brain thinking: the world as its rules see it.
