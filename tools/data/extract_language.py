@@ -143,7 +143,7 @@ def main():
         sys.exit('no such file: %s' % path)
 
     strings = extract(path)
-    with open(OUT, 'w') as fh:
+    with open(OUT, 'w', encoding='utf-8', newline='\n') as fh:
         json.dump({str(k): v for k, v in sorted(strings.items())}, fh,
                   ensure_ascii=False, separators=(',', ':'), sort_keys=True)
 

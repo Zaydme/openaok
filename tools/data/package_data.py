@@ -93,7 +93,7 @@ class Packer:
             print('warning: no Arial or Liberation Sans on this computer; the game will draw without Arial.')
         os.makedirs(os.path.join(game, 'build'), exist_ok=True)
         os.makedirs(game, exist_ok=True)
-        with open(os.path.join(game, 'version.txt'), 'w') as fh:
+        with open(os.path.join(game, 'version.txt'), 'w', encoding='utf-8', newline='\n') as fh:
             fh.write('%d\n' % prepare_data.STAMP_VERSION)
         self.write_manifest(game)
 
@@ -108,7 +108,7 @@ class Packer:
             lines.append('%08x %d %s' % (checksum(src), os.path.getsize(src), rel.replace(os.sep, '/')))
         version = os.path.join(game, 'version.txt')
         lines.append('%08x %d %s' % (checksum(version), os.path.getsize(version), 'version.txt'))
-        with open(os.path.join(game, 'manifest.txt'), 'w') as f:
+        with open(os.path.join(game, 'manifest.txt'), 'w', encoding='utf-8', newline='\n') as f:
             f.write('\n'.join(sorted(lines, key=lambda line: line.split(' ', 2)[2])) + '\n')
 
     def summary(self, folder):

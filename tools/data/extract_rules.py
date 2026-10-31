@@ -169,7 +169,7 @@ def main():
     # the dat's figure -- 0 impassable, above 0 passable, above 50 buildable.
     restrictions = [[int(round(v * 1000)) for v in r] for r in dat['terrain_restrictions']]
 
-    with open(OUT, 'w') as fh:
+    with open(OUT, 'w', encoding='utf-8', newline='\n') as fh:
         json.dump({'units': units, 'techs': techs, 'effects': effects,
                    'civs': civs, 'terrain_restrictions': restrictions},
                   fh, separators=(',', ':'), sort_keys=True)
@@ -179,7 +179,7 @@ def main():
     # The art and sound the rules point at: graphic deltas (composite
     # graphics such as a burning building's flames) and the sound table.
     media = {'graphics': dat['graphic_media'], 'sounds': dat['sounds']}
-    with open(MEDIA_OUT, 'w') as fh:
+    with open(MEDIA_OUT, 'w', encoding='utf-8', newline='\n') as fh:
         json.dump(media, fh, separators=(',', ':'), sort_keys=True)
     print('wrote %s: %d graphics with deltas or sound, %d sounds'
           % (MEDIA_OUT, len(media['graphics']), len(media['sounds'])))

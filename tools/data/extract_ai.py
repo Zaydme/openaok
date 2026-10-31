@@ -119,7 +119,7 @@ def main():
         'gatherers': gatherer_shares(files[GATHERERS_FILE]),
         'fishing': fishing(files[CONSTANTS_FILE]),
     }
-    with open(OUT, 'w') as fh:
+    with open(OUT, 'w', encoding='utf-8', newline='\n') as fh:
         json.dump(out, fh, indent=1, sort_keys=True)
     print('wrote %s: villager targets for %d caps, %d gatherer rules'
           % (OUT, len(out['villagers']), len(out['gatherers'])))

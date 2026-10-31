@@ -318,7 +318,7 @@ def main():
     # not the mid-ramp shades a unit's body is painted with.
     player_minimap = [c['outline'] for c in dat['player_colours']]
 
-    with open(OUT, 'w') as fh:
+    with open(OUT, 'w', encoding='utf-8', newline='\n') as fh:
         json.dump({'slps': slps, 'constants': constants, 'engine': engine,
                    'scripts': scripts, 'gaia': gaia, 'object_art': object_art,
                    'player_ramps': player_ramps,

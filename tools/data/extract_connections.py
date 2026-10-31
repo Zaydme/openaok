@@ -49,7 +49,7 @@ def main():
     else:
         print('note: original_game_1999/DIRECTX/DPLAY.INF not found; '
               'the multiplayer menu lists only the local network')
-    with open(OUT, 'w') as fh:
+    with open(OUT, 'w', encoding='utf-8', newline='\n') as fh:
         json.dump({'tcp': name}, fh, indent=1)
         fh.write('\n')
     print('wrote %s: %r' % (OUT, name))

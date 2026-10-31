@@ -91,7 +91,7 @@ def main():
         entry['replay_ms'] = replay
         entry['sequence'] = sequence
 
-    with open(OUT, 'w') as fh:
+    with open(OUT, 'w', encoding='utf-8', newline='\n') as fh:
         json.dump({'units': unit_out, 'graphics': graphic_out}, fh,
                   separators=(',', ':'), sort_keys=True)
 

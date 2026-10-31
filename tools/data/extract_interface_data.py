@@ -119,7 +119,7 @@ def main():
 
     strings = {}
     if os.path.exists(STRINGS):
-        with open(STRINGS) as fh:
+        with open(STRINGS, encoding='utf-8') as fh:
             strings = json.load(fh)
     else:
         print('warning: %s missing -- run extract_language.py for names'
@@ -257,7 +257,7 @@ def main():
     civs = [{'id': i + 1, 'name': name}
             for i, name in enumerate(dat['civs'][:AOK_CIV_COUNT])]
 
-    with open(OUT, 'w') as fh:
+    with open(OUT, 'w', encoding='utf-8', newline='\n') as fh:
         json.dump({'icon_slp': ICON_SLP, 'hud_slp_base': HUD_SLP_BASE,
                    'civs': civs, 'labels': labels,
                    'resource_names': resource_names, 'units': out}, fh,

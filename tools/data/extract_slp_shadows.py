@@ -44,7 +44,7 @@ def shadow_name_candidates(name):
 def main():
     drs_path = sys.argv[1]
     blob, entries = slp.read_drs(drs_path)
-    graphics = json.load(open(GRAPHICS_JSON))
+    graphics = json.load(open(GRAPHICS_JSON, encoding='utf-8'))
     by_name = {v['name']: v for v in graphics.values() if v.get('name')}
 
     # Pass 1: find every SLP that contains shadow pixels.
@@ -76,7 +76,7 @@ def main():
                 mapping[str(slp_id)] = other['slp_id']
                 break
 
-    with open(SHADOW_MAP, 'w') as fh:
+    with open(SHADOW_MAP, 'w', encoding='utf-8', newline='\n') as fh:
         json.dump(mapping, fh, separators=(',', ':'), sort_keys=True)
 
     print('shadow SLPs: %d   mapped graphics: %d'

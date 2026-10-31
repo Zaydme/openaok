@@ -88,7 +88,7 @@ def main():
         'slots': slots(r), 'vertical_line': r['vertical_line'], 'location': r['location_in_age'],
     }, **tech_strings(r['id'])) for r in tree['researches']]
 
-    with open(OUT, 'w') as fh:
+    with open(OUT, 'w', encoding='utf-8', newline='\n') as fh:
         json.dump({'ages': ages, 'buildings': buildings, 'units': tree_units,
                    'researches': researches}, fh, separators=(',', ':'))
     print('wrote %s: %d ages, %d buildings, %d units, %d researches'

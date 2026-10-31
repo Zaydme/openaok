@@ -95,14 +95,14 @@ def sections(blob):
 
 
 def write(defaults):
-    with open(OUT, 'w') as fh:
+    with open(OUT, 'w', encoding='utf-8', newline='\n') as fh:
         json.dump({'defaults': defaults}, fh, indent=1)
         fh.write('\n')
 
 
 def main():
     blob = open(EXE, 'rb').read()
-    strings = json.load(open(STRINGS))
+    strings = json.load(open(STRINGS, encoding='utf-8'))
     # The hotkey set-up code, in .text.
     start, end = 0x139000, 0x13d000
     names = {}

@@ -11,7 +11,7 @@ def path(name):
 
 
 def load(name):
-    with open(path(name)) as fh:
+    with open(path(name), encoding='utf-8') as fh:
         return json.load(fh)
 
 

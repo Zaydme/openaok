@@ -183,7 +183,7 @@ def main():
             print('        generated: %s' % json.dumps(out[uid]))
 
     if write:
-        with open(OUT, 'w') as fh:
+        with open(OUT, 'w', encoding='utf-8', newline='\n') as fh:
             json.dump(out, fh, indent=1)
         print('\nwrote %s (%d buildings)' % (OUT, len(out) - 1))
     else:

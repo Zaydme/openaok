@@ -29,7 +29,7 @@ OUT = os.path.join(ROOT, 'assets', 'extracted_data', 'annexes.dat.json')
 
 
 def main():
-    units_1999 = json.load(open(UNITS_JSON))
+    units_1999 = json.load(open(UNITS_JSON, encoding='utf-8'))
     known = set(units_1999)
     dat = datfile.load()
 
@@ -49,7 +49,7 @@ def main():
         if annexes and unit_id in known:
             out[unit_id] = annexes
 
-    with open(OUT, 'w') as fh:
+    with open(OUT, 'w', encoding='utf-8', newline='\n') as fh:
         json.dump(out, fh, separators=(',', ':'), sort_keys=True)
 
     total = sum(len(v) for v in out.values())

@@ -22,7 +22,7 @@ def main():
     dat = datfile.load()
     os.makedirs(OUT, exist_ok=True)
     for name, table in (('graphics.json', dat['graphic_table']), ('units.json', dat['unit_table'])):
-        with open(os.path.join(OUT, name), 'w') as fh:
+        with open(os.path.join(OUT, name), 'w', encoding='utf-8', newline='\n') as fh:
             json.dump(table, fh, indent=2)
         print('wrote %s (%d entries)' % (name, len(table)))
 

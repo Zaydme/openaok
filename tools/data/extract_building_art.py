@@ -126,7 +126,7 @@ def main():
         elif unit['construction_graphic'] >= 0:
             missing_body.append(stem)
 
-    with open(OUT, 'w') as fh:
+    with open(OUT, 'w', encoding='utf-8', newline='\n') as fh:
         json.dump({'civ_arch': civ_arch, 'art': art}, fh,
                   separators=(',', ':'), sort_keys=True)
 
