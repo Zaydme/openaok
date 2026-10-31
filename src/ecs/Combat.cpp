@@ -508,6 +508,64 @@ bool SurroundSpot(const entt::registry& registry, const Physics::Grid& grid, ent
     return true;
 }
 
+// How far across its group's line of march a unit's way may be laid off
+// the group's, in tiles, and how near the target the lanes have closed.
+const Core::Fixed32 kWidestLane(4);
+const Core::Fixed32 kLanesClose(6);
+// Others set on the target within this many tiles make a group.
+const Core::Fixed32 kGroupReach(8);
+constexpr int kLeastGroup = 3;
+
+// A group set on one far target marches abreast: each of `path`'s bends is
+// laid off to the side by where `self` stands across the group -- from the
+// others on the same target near it -- as far as the ground lets it, less
+// and less towards the target, so the group passes a corner side by side
+// rather than in file.
+void KeepLane(const entt::registry& registry, const Physics::Grid& grid, entt::entity self,
+              entt::entity target, Components::Vector2D from, Physics::Layer layer, Components::Path& path) {
+    if (path.waypoints.size() < 2) return;
+    const auto& aim = registry.get<Components::Transform>(target).position;
+    Core::Fixed32 cx = from.x, cy = from.y;
+    int count = 1;
+    auto fighters = registry.view<const Combat, const Components::Transform>();
+    for (auto e : fighters) {
+        if (e == self) continue;
+        const auto& combat = fighters.get<const Combat>(e);
+        if (combat.target != target || combat.state != CombatState::Chasing) continue;
+        const auto& at = fighters.get<const Components::Transform>(e).position;
+        if (Core::FixedMath::Abs(at.x - from.x) > kGroupReach || Core::FixedMath::Abs(at.y - from.y) > kGroupReach) continue;
+        cx = cx + at.x;
+        cy = cy + at.y;
+        ++count;
+    }
+    if (count < kLeastGroup) return;
+    cx = cx / Core::Fixed32(count);
+    cy = cy / Core::Fixed32(count);
+    const Core::Fixed32 fx = aim.x - cx, fy = aim.y - cy;
+    if (Core::FixedMath::Distance(fx, fy) < Core::Fixed32(1)) return;
+    const auto forward = Core::FixedMath::NormalizeAndScale(fx, fy, Core::Fixed32(1));
+    const Core::Fixed32 side = Core::FixedMath::Clamp((from.x - cx) * (Core::Fixed32(0) - forward.y) + (from.y - cy) * forward.x,
+                                                      Core::Fixed32(0) - kWidestLane, kWidestLane);
+    if (side.value == 0) return;
+    const Core::Fixed32 radius = Radius(registry, self);
+    Components::Vector2D before = from;
+    for (size_t i = 0; i + 1 < path.waypoints.size(); ++i) {
+        const auto& w = path.waypoints[i];
+        const Core::Fixed32 left = Core::FixedMath::Distance(aim.x - w.x, aim.y - w.y);
+        if (left <= kLanesClose) break;
+        const Core::Fixed32 taper = Core::FixedMath::Min(Core::Fixed32(1), (left - kLanesClose) / kLanesClose);
+        const Core::Fixed32 off = side * taper;
+        const Components::Vector2D moved{w.x - forward.y * off, w.y + forward.x * off};
+        const auto& after = path.waypoints[i + 1];
+        if (grid.Passable(layer, Physics::TileOf(moved.x), Physics::TileOf(moved.y)) &&
+            Pathfinding::AStar::BodyClear(grid, before, moved, layer, radius) &&
+            Pathfinding::AStar::BodyClear(grid, moved, after, layer, radius)) {
+            path.waypoints[i] = moved;
+        }
+        before = path.waypoints[i];
+    }
+}
+
 bool PlanChase(entt::registry& registry, const Physics::Grid& grid, entt::entity self,
                entt::entity target, const R::UnitRules& rules) {
     const auto& from = registry.get<Components::Transform>(self).position;
@@ -560,6 +618,7 @@ bool PlanChase(entt::registry& registry, const Physics::Grid& grid, entt::entity
     // The walk ends once the target is within reach, wherever it has got to.
     auto path = Navigation::Route(registry, grid, self, from, goal, target, Reach(rules));
     if (path.waypoints.empty()) return false;
+    KeepLane(registry, grid, self, target, from, layer, path);
     registry.emplace_or_replace<Components::Path>(self, std::move(path));
     return true;
 }

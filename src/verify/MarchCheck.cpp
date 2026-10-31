@@ -95,7 +95,8 @@ void March(ECS::Simulation& sim, const std::vector<entt::entity>& units, int x0,
 // width, none standing over another; sent past the Town Center, the houses
 // and the forest's edge, they squeeze through but do not stack; twenty of
 // them sent at one enemy stand round it rather than on one another; and forty
-// sent at an enemy house spread along its walls.
+// sent at an enemy house past the town march abreast and spread along its
+// walls.
 bool CheckMarch() {
     const char* verdict = "ok";
     const int spear = Core::ConfigManager::Get().GetUnitIdByName("SPRMN");
@@ -150,10 +151,15 @@ bool CheckMarch() {
     const entt::entity house = ECS::ScenarioWorld::Place(wreg, war.GetGrid(), Core::ConfigManager::Get().GetUnitIdByName("HOUS"), 2,
                                                          {Core::Fixed32(base.first + 22), Core::Fixed32(base.second + 8)}, {}, 0);
     for (auto e : army) Core::CommandQueue::Get().PushCommand(Core::AttackCommand{e, house, 1});
+    // How wide it marches half way, past the town's corners, and how many
+    // stand over another at the walls.
+    constexpr int kHalfWay = 15;
     int wall_stacked = 0;
-    for (int s = 0; s < 30; ++s) {
+    double half_width = 0;
+    for (int s = 1; s <= 30; ++s) {
         for (int t = 0; t < kTicksPerSecond; ++t) war.Update(16);
         wall_stacked = std::max(wall_stacked, Measure(wreg, army, 1, 0).stacked);
+        if (s == kHalfWay) half_width = Measure(wreg, army, 28, 10).width;
     }
 
     if (open_stacked > 1) verdict = "soldiers marching over open ground stood over one another";
@@ -161,8 +167,10 @@ bool CheckMarch() {
     else if (town_stacked > 2) verdict = "soldiers marching through the town stood over one another";
     else if (round_stacked > 20) verdict = "soldiers at one enemy stood over one another";
     else if (wall_stacked > 10) verdict = "soldiers at an enemy house stood over one another";
-    std::printf("march=%s open_width=%.2f open_stacked=%d town_width=%.2f town_stacked=%d round_stacked=%d wall_stacked=%d\n",
-                verdict, open_narrowest, open_stacked, town_narrowest, town_stacked, round_stacked, wall_stacked);
+    else if (half_width < 1.6) verdict = "soldiers set on a far house closed into a file on the way";
+    std::printf("march=%s open_width=%.2f open_stacked=%d town_width=%.2f town_stacked=%d round_stacked=%d "
+                "attack_width=%.2f wall_stacked=%d\n",
+                verdict, open_narrowest, open_stacked, town_narrowest, town_stacked, round_stacked, half_width, wall_stacked);
     return std::strcmp(verdict, "ok") == 0;
 }
 
