@@ -322,9 +322,10 @@ void CallForHelp(entt::registry& registry, const Physics::Grid& grid, entt::enti
     std::vector<entt::entity> helpers;
     auto fighters = registry.view<Combat, Components::Transform, Components::Owner>();
     for (auto e : fighters) {
-        if (e == victim || e == attacker || !Alive(registry, e) || IsBuilding(registry, e)) continue;
+        // Where it stands first: nearly every fighter is elsewhere.
         const auto& at = fighters.get<Components::Transform>(e).position;
         if (Core::FixedMath::Abs(at.x - here.x) > near || Core::FixedMath::Abs(at.y - here.y) > near) continue;
+        if (e == victim || e == attacker || !Alive(registry, e) || IsBuilding(registry, e)) continue;
         if (!Friendly(registry, victim, e) || !Friendly(registry, e, victim)) continue;
         const auto& combat = fighters.get<Combat>(e);
         if (combat.state != CombatState::Idle || combat.stance == Components::Stance::NoAttack) continue;
