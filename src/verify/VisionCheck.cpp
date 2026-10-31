@@ -139,7 +139,7 @@ bool CheckVision() {
         auto pictures = reg.view<const ECS::Components::Doppelganger>();
         for (auto e : pictures) {
             const auto& d = pictures.get<const ECS::Components::Doppelganger>(e);
-            pictured = pictured || (d.source == theirs && d.main && ECS::Vision::Shows(reg, kUs, e));
+            pictured = pictured || (d.source == theirs && d.marked && ECS::Vision::Shows(reg, kUs, e));
         }
         if (!saw_tc || !saw_guard) {
             verdict = "a scout beside the enemy base could not see it";

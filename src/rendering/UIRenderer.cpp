@@ -1170,7 +1170,7 @@ void UIRenderer::DrawMinimapIn(ECS::Simulation& sim, Renderer& renderer, SDL_Ren
         auto pictures = registry.view<ECS::Components::Transform, ECS::Components::Doppelganger>();
         for (auto entity : pictures) {
             const auto& picture = pictures.get<ECS::Components::Doppelganger>(entity);
-            if (!picture.main || picture.player != LocalViewer() || picture.colour == Core::PLAYER_GAIA) continue;
+            if (!picture.marked || picture.player != LocalViewer() || picture.colour == Core::PLAYER_GAIA) continue;
             const HAL::PaletteColor colour = graphics.GetPaletteColor(
                 static_cast<size_t>(Core::ConfigManager::Get().PlayerMinimapColour(picture.colour)));
             const auto* info = Core::ConfigManager::Get().GetUnitInterface(picture.unit_id);

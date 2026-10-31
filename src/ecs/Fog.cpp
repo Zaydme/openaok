@@ -138,7 +138,7 @@ void Update(entt::registry& registry) {
     auto pictures = registry.view<const C::Doppelganger>();
     for (auto e : pictures) {
         const auto& d = pictures.get<const C::Doppelganger>(e);
-        if (!d.main) continue;
+        if (!d.marked) continue;
         bool sees = false;
         Buildings::ForEachFootprintTile(d.unit_id, Physics::TileOf(d.origin.x), Physics::TileOf(d.origin.y),
                                         [&](int x, int y) {

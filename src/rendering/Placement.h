@@ -34,7 +34,7 @@ struct Piece {
     bool clear = false;              // the placement check passes here
     // The building's own piece -- the single building's draw -- rather than
     // an annex or a wall segment: it pulses through another red.
-    bool main = false;
+    bool primary = false;
 };
 
 struct Outline {
@@ -70,7 +70,7 @@ bool Collect(ECS::Simulation& sim, const Renderer& renderer, std::vector<Piece>&
 // 0x22..0x26 and back down; the annexes and a wall's pieces climb 0x24..0x27,
 // then step to 0x28 -- one past the red ramp, a brown -- and back down
 // 0x27..0x25.
-int BlockedColour(uint64_t game_ms, bool main);
+int BlockedColour(uint64_t game_ms, bool primary);
 
 } // namespace Placement
 

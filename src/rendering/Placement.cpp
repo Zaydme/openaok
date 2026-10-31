@@ -24,9 +24,9 @@ void OriginTile(int unit_id, float wx, float wy, int& tile_x, int& tile_y) {
     tile_y = static_cast<int>(std::floor(wy - mid_y + 0.5f));
 }
 
-int BlockedColour(uint64_t game_ms, bool main) {
+int BlockedColour(uint64_t game_ms, bool primary) {
     const int step = static_cast<int>((game_ms >> 7) & 7);
-    if (main) return step < 4 ? 0x22 + step : 0x2a - step;
+    if (primary) return step < 4 ? 0x22 + step : 0x2a - step;
     return step < 4 ? 0x24 + step : 0x2c - step;
 }
 
@@ -74,7 +74,7 @@ bool Collect(ECS::Simulation& sim, const Renderer& renderer, std::vector<Piece>&
         mid_y = static_cast<float>(f.y.low + f.y.high) / 2.0f;
     }
 
-    auto add = [&](int slp, int frame, float wx, float wy, bool clear, bool main) {
+    auto add = [&](int slp, int frame, float wx, float wy, bool clear, bool primary) {
         const HAL::GraphicAtlas* atlas = graphics.GetAtlas(static_cast<uint32_t>(slp));
         if (atlas == nullptr || atlas->base == nullptr || frame < 0 ||
             static_cast<size_t>(frame) >= atlas->frames.size() ||
@@ -88,7 +88,7 @@ bool Collect(ECS::Simulation& sim, const Renderer& renderer, std::vector<Piece>&
         piece.wx = wx;
         piece.wy = wy;
         piece.clear = clear;
-        piece.main = main;
+        piece.primary = primary;
         pieces.push_back(piece);
     };
 
@@ -122,11 +122,11 @@ bool Collect(ECS::Simulation& sim, const Renderer& renderer, std::vector<Piece>&
                 // Resolved exactly as the finished building's art is, so the
                 // preview shows the building the player's age would put up.
                 const int slp = ECS::Buildings::PieceGraphic(registry, viewer, part);
-                const bool main = part.unit_id == unit_id || part.unit_id == art_unit ||
+                const bool primary = part.unit_id == unit_id || part.unit_id == art_unit ||
                                   part.counterpart_of == unit_id || part.counterpart_of == art_unit;
                 if (slp >= 0) {
                     add(slp, 0, static_cast<float>(tile_x) + part.dx + mid_x,
-                        static_cast<float>(tile_y) + part.dy + mid_y, clear, main);
+                        static_cast<float>(tile_y) + part.dy + mid_y, clear, primary);
                 }
             }
         } else {

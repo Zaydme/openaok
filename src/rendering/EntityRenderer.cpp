@@ -910,7 +910,7 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
                 e.sel_sx = px;
                 e.sel_sy = py;
                 e.player_tex = piece.player;
-                e.ghost = piece.clear ? kGhostClear : piece.main ? kGhostBlockedMain : kGhostBlocked;
+                e.ghost = piece.clear ? kGhostClear : piece.primary ? kGhostBlockedMain : kGhostBlocked;
                 entries.push_back(e);
             }
         }

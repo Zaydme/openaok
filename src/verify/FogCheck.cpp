@@ -64,7 +64,7 @@ entt::entity PictureOf(entt::registry& reg, Core::PlayerId player, entt::entity 
     auto view = reg.view<const C::Doppelganger>();
     for (auto e : view) {
         const auto& d = view.get<const C::Doppelganger>(e);
-        if (d.player == player && d.source == source && d.main) return e;
+        if (d.player == player && d.source == source && d.marked) return e;
     }
     return entt::null;
 }

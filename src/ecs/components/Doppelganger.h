@@ -19,7 +19,7 @@ struct Doppelganger {
     entt::entity source = entt::null;   // what it shows, while that lasts
     int unit_id = -1;                   // the thing's unit: its footprint, its minimap square
     Vector2D origin{};                  // where the thing stands
-    bool main = false;                  // the piece the minimap marks
+    bool marked = false;                // the piece the minimap marks
 };
 
 // On something a player keeps a picture of: those players, a bit each, who see
