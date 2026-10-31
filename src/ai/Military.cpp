@@ -35,8 +35,12 @@ constexpr int kChaseBeyondTown = 6;
 // How far from its group's lead an attack group looks for its next target
 // before going on to the next building.
 const Core::Fixed32 kNearbyTarget(12);
-// Soldiers this far past the town are called back to the muster point.
-constexpr int kStrayBeyondTown = 4;
+// sn-gather-defense-units: how often the idle soldiers are gathered, how far
+// from the Town Center they may stand, and how far past the town an enemy
+// makes the town under attack, when they are not.
+constexpr int64_t kGatherDefenseMs = 60000;
+const Core::Fixed32 kDefendedReach(7);
+constexpr int kUnderAttackBeyondTown = 4;
 // How near an idle warship an enemy has to come to be met.
 const Core::Fixed32 kSeaGuard(14);
 // How long a group waits for its soldiers to board, and for its transports
@@ -725,24 +729,26 @@ void GuardTheSea(Turn& turn) {
     }
 }
 
-void Home(Turn& turn) {
+// sn-gather-defense-units: once a minute, unless an enemy is in town, the
+// idle soldiers in no group further than kDefendedReach from the Town Center
+// walk to it.
+void GatherDefense(Turn& turn) {
     const entt::registry& registry = *turn.registry;
+    Brain& brain = *turn.brain;
     const Census& c = *turn.census;
-    if (c.town_center == entt::null) return;
-    const Vector2D muster = Muster(turn);
-    // Every building that trains soldiers sends them to the muster point.
-    std::vector<int> military;
-    for (const Census::Site& site : c.buildings) {
-        if (!site.complete || registry.all_of<ECS::Components::RallyPoint>(site.entity)) continue;
-        if (military.empty()) military = Catalog::MilitaryBuildings(registry, turn.player);
-        if (std::find(military.begin(), military.end(), site.unit_id) == military.end()) continue;
-        Give(*turn.registry, *turn.grid, Core::RallyCommand{site.entity, muster.x, muster.y, entt::null, turn.player});
+    if (c.town_center == entt::null || Sn(turn, Lang::SN::GatherDefenseUnits) != 1) return;
+    if (brain.defense_gathered_ms >= 0 && turn.now_ms - brain.defense_gathered_ms < kGatherDefenseMs) return;
+    brain.defense_gathered_ms = turn.now_ms;
+    if (NearestEnemy(turn, c.home, Core::Fixed32(TownSize(turn) + kUnderAttackBeyondTown), false, false, nullptr) !=
+        entt::null) {
+        return;
     }
-    const Core::Fixed32 stray(TownSize(turn) + kStrayBeyondTown);
+    const Ground home = GroundOf(turn, c.town_center);
     for (entt::entity e : Defenders(turn)) {
-        if (!Idle(registry, e) || GroupOf(turn, e) != nullptr) continue;
-        if (Distance(Where(registry, e), c.home) <= stray) continue;
-        Give(*turn.registry, *turn.grid, Core::MoveCommand{e, muster.x, muster.y, turn.player});
+        if (GroupOf(turn, e) != nullptr || !Idle(registry, e)) continue;
+        if (Distance(Where(registry, e), c.home) <= kDefendedReach) continue;
+        if (home.region >= 0 && GroundOf(turn, e).region != home.region) continue;
+        Give(*turn.registry, *turn.grid, Core::MoveCommand{e, c.home.x, c.home.y, turn.player});
     }
 }
 
@@ -815,7 +821,7 @@ void Run(Turn& turn) {
     Upkeep(turn, turn.brain->boat_attack);
     Defend(turn);
     GuardTheSea(turn);
-    Home(turn);
+    GatherDefense(turn);
 }
 
 } // namespace AI::Military

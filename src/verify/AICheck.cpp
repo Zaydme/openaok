@@ -47,12 +47,13 @@ bool WallsOnRings(const entt::registry& reg, int& gates) {
 // The latest minute the hardest computer players may reach the Feudal Age. On
 // the default map the Teutons' "castle" plan keeps 25 villagers in the Dark Age
 // and trains militia while their gold lasts, and the Franks' "feudal" plan
-// stops at 20 and trains militia against the Teutons' raids; their scouts
-// are sent on every sn-consecutive-idle-unit-limit (15 at the Hardest), and
-// they arrive at minutes 19 and 22.
-constexpr int kFeudalBy = 22;
+// stops at 20 and, raided by the Teutons' attack groups, holds its stock in
+// escrow for the fight; their scouts are sent on every
+// sn-consecutive-idle-unit-limit (15 at the Hardest), and they arrive at
+// minutes 19 and 23.
+constexpr int kFeudalBy = 23;
 // Long enough for the later of them to finish the age's 130 seconds.
-constexpr int kAIMinutes = 22;
+constexpr int kAIMinutes = 24;
 
 } // namespace
 

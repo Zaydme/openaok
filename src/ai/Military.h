@@ -28,9 +28,9 @@
 // hostile that strikes in town or stands in it
 // (within sn-maximum-town-size of home) is met by
 // sn-percent-enemy-sighted-response percent of the idle soldiers within
-// sn-enemy-sighted-response-distance of it; idle soldiers wandered off are
-// called back to the muster point, a few tiles from home toward the middle
-// of the map, where every military building also sends what it trains.
+// sn-enemy-sighted-response-distance of it. With sn-gather-defense-units,
+// the idle soldiers in no group are gathered at the Town Center once a
+// minute while the town is quiet.
 //
 // Allied computer players help one another (sn-coop-share-attacking): a
 // player struck by another's calls on them at most every

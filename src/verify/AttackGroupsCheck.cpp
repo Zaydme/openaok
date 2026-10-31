@@ -375,6 +375,35 @@ bool CheckAttackGroups() {
             }
         }
     }
+    // sn-gather-defense-units: an idle spearman in no group, far from the
+    // Town Center, is walked to it within the minute; without, it stays.
+    for (const int gather : {1, 0}) {
+        if (verdict != nullptr) break;
+        Town town;
+        verdict = town.Open(false);
+        if (verdict != nullptr) break;
+        AI::SetStrategic(town.brain->mind, SN::NumberAttackGroups, 0, &town.setup);
+        AI::SetStrategic(town.brain->mind, SN::GatherDefenseUnits, gather, &town.setup);
+        auto& reg = town.sim.GetRegistry();
+        auto& grid = town.sim.GetGrid();
+        const auto [hx, hy] = town.sim.player_starts[0];
+        const int mx = grid.GetWidth() / 2, my = grid.GetHeight() / 2;
+        int fx = hx + (mx > hx ? 15 : -15), fy = hy + (my > hy ? 15 : -15);
+        while (!grid.IsWalkable(fx, fy) && fx != hx) fx += fx > hx ? -1 : 1;
+        const entt::entity far = ECS::ScenarioWorld::Place(
+            reg, grid, Core::ConfigManager::Get().GetUnitIdByName("SPRMN"), kComputer,
+            {Core::Fixed32(fx) + Core::Fixed32(1) / Core::Fixed32(2), Core::Fixed32(fy) + Core::Fixed32(1) / Core::Fixed32(2)},
+            {}, 0);
+        if (far == entt::null) {
+            verdict = "no room for the far spearman";
+            break;
+        }
+        town.Run(75);
+        const auto& at = reg.get<ECS::Components::Transform>(far).position;
+        const bool home = Core::FixedMath::Distance(at.x - Core::Fixed32(hx), at.y - Core::Fixed32(hy)) <= Core::Fixed32(9);
+        if (gather == 1 && !home) verdict = "an idle soldier in no group was not gathered at the Town Center";
+        if (gather == 0 && home) verdict = "an idle soldier was gathered at the Town Center with sn-gather-defense-units 0";
+    }
     std::printf("attackgroups=%s\n", verdict == nullptr ? "ok" : verdict);
     return verdict == nullptr;
 }

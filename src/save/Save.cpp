@@ -478,6 +478,7 @@ void PutBrains(Writer& w, const AI::Brains& table) {
         w.U8(b.struck_by_player ? 1 : 0);
         w.U64(static_cast<uint64_t>(b.helped_ms));
         PutPod(w, b.foe);
+        w.U64(static_cast<uint64_t>(b.defense_gathered_ms));
         PutGroup(w, b.boat_attack);
         PutPods(w, b.explorers);
         PutPods(w, b.gathering);
@@ -536,6 +537,7 @@ void GetBrains(Reader& r, AI::Brains& table) {
         b.struck_by_player = r.U8() != 0;
         b.helped_ms = static_cast<int64_t>(r.U64());
         GetPod(r, b.foe);
+        b.defense_gathered_ms = static_cast<int64_t>(r.U64());
         GetGroup(r, b.boat_attack);
         GetPods(r, b.explorers);
         GetPods(r, b.gathering);

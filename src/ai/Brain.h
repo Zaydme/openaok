@@ -85,6 +85,8 @@ struct Brain {
     // things its attack groups go for first.
     int64_t helped_ms = -1;
     Core::PlayerId foe = 0;
+    // When the idle soldiers were last gathered (sn-gather-defense-units).
+    int64_t defense_gathered_ms = -1;
     Group boat_attack;            // boat attack group
     std::vector<entt::entity> explorers;   // villagers sent exploring
     // Blows the player's things have taken from each ally: at
