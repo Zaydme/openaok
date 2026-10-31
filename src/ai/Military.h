@@ -50,8 +50,8 @@ void Run(Turn& turn);
 bool Attacking(const Turn& turn, entt::entity unit);
 bool InAttackGroup(const Turn& turn, entt::entity unit);
 
-// The land soldiers in attack groups on their way to fight, and the warships
-// in boat attack groups attacking.
+// The land soldiers in attack groups, and the warships in boat attack groups,
+// whatever the groups are doing (attack-soldier-count, attack-warboat-count).
 int AttackingSoldiers(const Turn& turn);
 int AttackingBoats(const Turn& turn);
 

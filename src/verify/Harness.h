@@ -238,7 +238,8 @@ bool CheckBoats();
 // A computer player's attack groups as the game runs them: made, filled,
 // gathered and sent without attack-now once the enemy is known, none while
 // it is not, none with sn-number-attack-groups 0, and none before the initial
-// attack delay. Prints "attackgroups=".
+// attack delay; attack-soldier-count counting a group still at home. Prints
+// "attackgroups=".
 bool CheckAttackGroups();
 
 // The game's target evaluation, which a computer player's attack group goes

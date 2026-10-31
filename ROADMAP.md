@@ -38,8 +38,8 @@ and campaigns, the computer players' finer play, and polish.
    - Defend groups and what they guard (the defend priorities), which only
      players' own scripts ask for: the game's scripts leave
      sn-number-defend-groups at 0.
-   - Their economy on water maps: more wood in the Feudal Age, more warships
-     and transports.
+   - Their economy on water maps: more wood in the Feudal Age, and more
+     warships.
 2. **Performance**: eight players on a giant map, late game, at a steady
    60 Hz, measured by a stress scenario in the self-check.
 3. **Windows**: a build, and its packaging.

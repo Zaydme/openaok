@@ -995,13 +995,13 @@ bool InAttackGroup(const Turn& turn, entt::entity unit) { return GroupOf(turn, u
 
 int AttackingSoldiers(const Turn& turn) {
     int n = 0;
-    for (const Group& g : turn.brain->attack_groups) n += Out(g) ? static_cast<int>(g.units.size()) : 0;
+    for (const Group& g : turn.brain->attack_groups) n += static_cast<int>(g.units.size());
     return n;
 }
 
 int AttackingBoats(const Turn& turn) {
     int n = 0;
-    for (const Group& g : turn.brain->boat_groups) n += g.task == kAttack ? static_cast<int>(g.units.size()) : 0;
+    for (const Group& g : turn.brain->boat_groups) n += static_cast<int>(g.units.size());
     return n;
 }
 

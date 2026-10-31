@@ -42,10 +42,10 @@ struct Town {
     AI::Brain* brain = nullptr;
     std::vector<entt::entity> spears;
 
-    // A Hardest computer player whose rules do nothing, with spearmen
-    // standing together by its Town Center; `known`, the enemy's town
-    // explored.
-    const char* Open(bool known) {
+    // A Hardest computer player whose rules are `rules` (by default doing
+    // nothing), with spearmen standing together by its Town Center; `known`,
+    // the enemy's town explored.
+    const char* Open(bool known, const char* rules = "(defrule (true) => (do-nothing))\n") {
         setup = Core::DefaultSetup();
         setup.difficulty = 0;
         setup.players[kComputer].computer = true;
@@ -56,8 +56,9 @@ struct Town {
         if (brains == nullptr || brains->brains.empty()) return "no brain for the computer seat";
         brain = &brains->brains.front();
         AI::Script::Environment env;
-        env.read = [](const std::string&, std::string& text) {
-            text = "(defrule (true) => (do-nothing))\n";
+        const std::string script = rules;
+        env.read = [&](const std::string&, std::string& text) {
+            text = script;
             return true;
         };
         env.percent = [] { return 0; };
@@ -298,6 +299,16 @@ bool CheckAttackGroups() {
             if (town.Attacking() != 0 || town.Strayed() > 0) {
                 verdict = "an attack group set out against an enemy the player had not found";
             }
+        }
+    }
+    // attack-soldier-count counts the soldiers of every attack group, one
+    // still waiting for an enemy to go for among them.
+    if (verdict == nullptr) {
+        Town town;
+        verdict = town.Open(false, "(defrule (attack-soldier-count >= 4) => (set-goal 1 1) (disable-self))\n");
+        if (verdict == nullptr) {
+            town.Run(40);
+            if (town.brain->mind.goals[1] != 1) verdict = "attack-soldier-count left out an attack group waiting at home";
         }
     }
     if (verdict == nullptr) {
