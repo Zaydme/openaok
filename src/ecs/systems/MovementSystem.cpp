@@ -78,7 +78,8 @@ bool Replan(const entt::registry& registry, const Physics::Grid& grid, entt::ent
 
 // Whoever stands on the goal, for a unit coming to it to stop as it comes up
 // against: the first body, other than its own, its own body at the goal
-// would overlap. Null for none.
+// would overlap, the bodies round as the standing spots are laid
+// (pathfinding/ApproachPlanner). Null for none.
 const Navigation::Body* OnTheGoal(const Navigation::Traffic& traffic, entt::entity self,
                                   Components::Vector2D goal, Core::Fixed32 radius) {
     const int gx = Physics::TileOf(goal.x);
@@ -92,7 +93,8 @@ const Navigation::Body* OnTheGoal(const Navigation::Traffic& traffic, entt::enti
             const Navigation::Body& b = traffic.bodies[static_cast<size_t>(i)];
             if (b.entity == self) continue;
             const Core::Fixed32 reach = b.radius + radius;
-            if (Core::FixedMath::Abs(b.x - goal.x) < reach && Core::FixedMath::Abs(b.y - goal.y) < reach) {
+            if (Core::FixedMath::Abs(b.x - goal.x) < reach && Core::FixedMath::Abs(b.y - goal.y) < reach &&
+                Core::FixedMath::Distance(b.x - goal.x, b.y - goal.y) < reach) {
                 return &b;
             }
         }

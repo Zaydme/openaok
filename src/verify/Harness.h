@@ -270,6 +270,12 @@ bool CheckMarch();
 // "aggression=".
 bool CheckAggression();
 
+// Villagers do not stand short of their places: four computer players for ten
+// minutes on Arabia and on Islands, their villagers standing still on their
+// way for ten seconds or more for only a few seconds in all. Prints
+// "walkers=".
+bool CheckWalkers();
+
 // The population limits the game setup offers, from 25 to 1000: the
 // original's among them, and a game at the largest supporting more than 200.
 // Prints "population=".

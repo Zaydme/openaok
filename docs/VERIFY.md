@@ -53,6 +53,7 @@ that the script reads.
 | `zoom` | The view's zoom, which the original does not have: a step keeps the point under the pointer, the limits hold, and a pinch zooms at once |
 | `march` | Soldiers keep their room: forty sent over open ground keep their width with none over another, through the town they squeeze without stacking, and twenty sent at one enemy stand round it |
 | `aggression` | Ten archers set at one enemy together loose their first arrows over a spread of ticks; an aggressive archer helps one of its side struck within its sight, a defensive one only within three tiles |
+| `walkers` | Villagers reach their places: four computer players for ten minutes on Arabia and on Islands, no villager stands still on its way to work for ten seconds |
 | `selection` | The selection limit, off by default: a box round sixty of the player's units selects them all, and forty things with the limit on, as in the original |
 | `population` | The population limits offered, 25 to 1000 with the original's 25 to 200 among them; a game at the largest supports more than 200, one at 200 stops there |
 | `stress` | A late game measured: eight computer players on a giant map in the Imperial Age, armies marching and fighting, fleets at sea, towers shooting; what each system costs a tick, on average and at worst, and the routes searched (`core/Costs`) |

@@ -210,12 +210,40 @@ Approach ApproachGround(entt::registry& registry, const Physics::Grid& grid,
         }
     };
     if (crew) EachMate(registry, self, target, mate_at);
+    const bool crew_there = !taken.empty();
     // Within reach and not standing over a crew mate at work: at work here.
     if (within && !crowded) return Approach::Arrived;
 
     const auto* route = registry.try_get<Components::Path>(self);
     if (route && route->current_waypoint_index < route->waypoints.size()) {
         return Approach::Walking;
+    }
+
+    // Whoever else stands still about the job holds its place too, as far
+    // as the two bodies reach: a spot under a unit of another job, or a
+    // soldier, would be walked up to and stopped short of again and again.
+    static std::vector<Core::Fixed32> room;
+    room.assign(taken.size(), spacing);
+    if (crew) {
+        if (const Navigation::Traffic* traffic = Navigation::TrafficOf(registry)) {
+            // Out to the ring a crew's extra stands by on, and a body beyond.
+            const Core::Fixed32 out = radius + range + spacing * (kWaitOut + Core::Fixed32(2));
+            const Buildings::Bounds about{ground.min_x - out, ground.min_y - out, ground.max_x + out, ground.max_y + out};
+            const int x0 = std::max(0, Physics::TileOf(about.min_x));
+            const int x1 = std::min(traffic->width - 1, Physics::TileOf(about.max_x));
+            const int y0 = std::max(0, Physics::TileOf(about.min_y));
+            const int y1 = std::min(traffic->height - 1, Physics::TileOf(about.max_y));
+            for (int y = y0; y <= y1 && x0 <= x1; ++y) {
+                const size_t row = static_cast<size_t>(y) * traffic->width;
+                for (int32_t i = traffic->first[row + x0]; i < traffic->first[row + x1 + 1]; ++i) {
+                    const Navigation::Body& b = traffic->bodies[static_cast<size_t>(i)];
+                    if (b.moving || b.entity == self || b.entity == target_entity) continue;
+                    if (about.DistanceFrom({b.x, b.y}).value != 0) continue;
+                    taken.push_back({b.x, b.y});
+                    room.push_back(Core::FixedMath::Max(spacing, b.radius + radius));
+                }
+            }
+        }
     }
 
     Pathfinding::ApproachRequest ask;
@@ -225,6 +253,7 @@ Approach ApproachGround(entt::registry& registry, const Physics::Grid& grid,
     ask.clearance = spacing;
     ask.taken = taken.empty() ? nullptr : taken.data();
     ask.taken_count = taken.size();
+    ask.taken_room = taken.empty() ? nullptr : room.data();
     ask.layer = Navigation::LayerOf(registry, grid, self);
 
     const Pathfinding::ApproachResult plan =
@@ -259,7 +288,7 @@ Approach ApproachGround(entt::registry& registry, const Physics::Grid& grid,
                                            target_entity, range);
     // No way through: round a crew at work, the crowd is in the way and it
     // stands by; with nobody there, the ground is.
-    if (path.waypoints.empty()) return taken.empty() ? Approach::Unreachable : Approach::Waiting;
+    if (path.waypoints.empty()) return crew_there ? Approach::Waiting : Approach::Unreachable;
 
     registry.emplace_or_replace<Components::Path>(self, std::move(path));
     return Approach::Walking;

@@ -29,6 +29,10 @@ struct ApproachRequest {
     // its destination, never its position, so the answer stays stable.
     const ECS::Components::Vector2D* taken = nullptr;
     size_t taken_count = 0;
+    // How near each of `taken` a spot may be, when they differ: for a body
+    // standing there, its radius and the caller's together. Null for
+    // `clearance` for all.
+    const Core::Fixed32* taken_room = nullptr;
     // Whose ground the spot has to be: land for a villager, the sea for a
     // ship come to a dock (physics/Grid's layers).
     Physics::Layer layer = Physics::kLand;

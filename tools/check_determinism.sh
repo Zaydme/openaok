@@ -18,7 +18,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TICKS=3000
-GOLDEN="entities=1970 ticks=3000 hash=7627c023a5957619"
+GOLDEN="entities=1970 ticks=3000 hash=221acd07913e73ac"
 
 # Build first; stop on failure.
 if ! "$ROOT/build.sh" >/dev/null 2>&1; then
@@ -85,6 +85,7 @@ ZOOM="$(echo "$OUTPUT" | grep '^zoom=')"
 SELECTION="$(echo "$OUTPUT" | grep '^selection=')"
 MARCH="$(echo "$OUTPUT" | grep '^march=')"
 AGGRESSION="$(echo "$OUTPUT" | grep '^aggression=')"
+WALKERS="$(echo "$OUTPUT" | grep '^walkers=')"
 POPULATION="$(echo "$OUTPUT" | grep '^population=')"
 STRESS="$(echo "$OUTPUT" | grep '^stress=')"
 LANDING="$(echo "$OUTPUT" | grep '^landing=')"
@@ -617,6 +618,12 @@ esac
 case "$AGGRESSION" in
     aggression=ok*) echo "aggression OK" ;;
     *) echo "AGGRESSION FAILED" >&2; echo "  $AGGRESSION" >&2; STATUS=1 ;;
+esac
+
+# Villagers reach their places rather than stand short of them.
+case "$WALKERS" in
+    walkers=ok*) echo "walkers OK" ;;
+    *) echo "WALKERS FAILED" >&2; echo "  $WALKERS" >&2; STATUS=1 ;;
 esac
 
 # The selection limit: none by default, the original's forty when on.

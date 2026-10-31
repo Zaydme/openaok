@@ -153,7 +153,7 @@ ApproachResult FindStandingSpot(const Physics::Grid& grid,
         for (size_t i = 0; i < request.taken_count; ++i) {
             const Core::Fixed32 gap = Core::FixedMath::Distance(
                 spot.x - request.taken[i].x, spot.y - request.taken[i].y);
-            if (gap < request.clearance) {
+            if (gap < (request.taken_room != nullptr ? request.taken_room[i] : request.clearance)) {
                 result.full = true;
                 return false;
             }
