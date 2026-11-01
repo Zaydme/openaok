@@ -250,6 +250,9 @@ bool CheckCrowdGoal();
 // A hundred soldiers sent to one place in one tick share their routes.
 // Prints "sharedwalk=".
 bool CheckSharedWalk();
+// An army's chases plan again over several ticks, not all in one. Prints
+// "replanspread=".
+bool CheckReplanSpread();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

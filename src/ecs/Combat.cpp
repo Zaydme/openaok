@@ -58,6 +58,17 @@ const Core::Fixed32 kDisengageSlack = Core::Fixed32(3) / Core::Fixed32(10);
 constexpr int32_t kChaseReplanMs = 500;
 // Empty routes to a target before the chase is given up.
 constexpr int kChaseGiveUp = 3;
+// How soon a chase plans again, by where it is: kChaseReplanMs at most, a
+// tick sooner for each of eight patches kChasePatch tiles square, so a block
+// standing together plans together and shares its routes while an army
+// spread over many patches plans over several ticks rather than in one.
+constexpr int kChasePatch = 4;
+constexpr int32_t kChaseStaggerMs = 16;
+int32_t ReplanWait(const Components::Vector2D& at) {
+    const int px = Physics::TileOf(at.x) / kChasePatch;
+    const int py = Physics::TileOf(at.y) / kChasePatch;
+    return kChaseReplanMs - ((px + 3 * py) & 7) * kChaseStaggerMs;
+}
 // A chase still walking, further than kChaseNear from its target, is planned
 // again only once the target has strayed kChaseDrift tiles from where the
 // walk is going -- at a building, never -- and then only if the walk's last
@@ -1208,12 +1219,13 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
             const bool walking = path != nullptr &&
                                  path->current_waypoint_index < path->waypoints.size();
             if (combat.chase_ms <= 0 || !walking) {
+                const int32_t wait = ReplanWait(registry.get<Components::Transform>(self).position);
                 if (walking && (StillThere(registry, self, combat.target, *path) ||
                                 TurnLastLeg(registry, grid, self, combat.target, *path))) {
-                    combat.chase_ms = kChaseReplanMs;
+                    combat.chase_ms = wait;
                     break;
                 }
-                combat.chase_ms = kChaseReplanMs;
+                combat.chase_ms = wait;
                 if (PlanChase(registry, grid, self, combat.target, *rules)) {
                     combat.chase_failures = 0;
                 } else if (++combat.chase_failures >= kChaseGiveUp) {

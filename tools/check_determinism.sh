@@ -50,6 +50,7 @@ WALLEDTREE="$(echo "$OUTPUT" | grep '^walledtree=')"
 SETOFF="$(echo "$OUTPUT" | grep '^setoff=')"
 CROWDGOAL="$(echo "$OUTPUT" | grep '^crowdgoal=')"
 SHAREDWALK="$(echo "$OUTPUT" | grep '^sharedwalk=')"
+REPLANSPREAD="$(echo "$OUTPUT" | grep '^replanspread=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -348,6 +349,12 @@ esac
 case "$SHAREDWALK" in
     sharedwalk=ok*) echo "sharedwalk OK: ${SHAREDWALK#sharedwalk=ok }" ;;
     *) echo "SHAREDWALK FAILED" >&2; echo "  $SHAREDWALK" >&2; STATUS=1 ;;
+esac
+
+# An army's chases plan again over several ticks, not all in one.
+case "$REPLANSPREAD" in
+    replanspread=ok*) echo "replanspread OK: ${REPLANSPREAD#replanspread=ok }" ;;
+    *) echo "REPLANSPREAD FAILED" >&2; echo "  $REPLANSPREAD" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

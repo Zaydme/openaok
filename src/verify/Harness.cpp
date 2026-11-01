@@ -86,6 +86,7 @@ int Run(int ticks) {
     if (runs("setoff")) ok &= CheckSetOff();
     if (runs("crowdgoal")) ok &= CheckCrowdGoal();
     if (runs("sharedwalk")) ok &= CheckSharedWalk();
+    if (runs("replanspread")) ok &= CheckReplanSpread();
     if (runs("wolves")) ok &= CheckWolves();
     if (runs("lobby")) ok &= CheckLobby();
     if (runs("formations")) ok &= CheckFormations();
