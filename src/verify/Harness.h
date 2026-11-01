@@ -229,6 +229,9 @@ bool CheckPocket();
 // A soldier sent into a clearing walled in by trees goes to the trees' edge.
 // Prints "clearing=".
 bool CheckClearing();
+// A soldier sent past an enemy archer that shoots at it walks on to where it
+// was sent. Prints "passing=".
+bool CheckPassing();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

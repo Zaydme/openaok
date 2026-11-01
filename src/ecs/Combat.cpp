@@ -273,6 +273,16 @@ entt::entity FindPrey(const entt::registry& registry, entt::entity self, const R
     return entt::null;
 }
 
+// Walking where a person's order sent it (Components::Path::sent). A
+// computer player's units answer to its own script on the way.
+bool Sent(const entt::registry& registry, entt::entity e) {
+    const auto* path = registry.try_get<Components::Path>(e);
+    if (path == nullptr || !path->sent || path->current_waypoint_index >= path->waypoints.size()) return false;
+    const auto* setup = registry.ctx().find<Core::GameSetup>();
+    const Core::PlayerId own = OwnerOf(registry, e);
+    return setup == nullptr || own >= Core::kMaxPlayers || !setup->players[own].computer;
+}
+
 bool IsVillager(const entt::registry& registry, entt::entity e) {
     const auto* worker = registry.try_get<Components::Worker>(e);
     return worker != nullptr && worker->gatherer < 0;
@@ -893,7 +903,8 @@ void Answer(entt::registry& registry, Physics::Grid& grid, entt::entity target, 
             const bool computer = setup != nullptr && own < Core::kMaxPlayers && setup->players[own].computer;
             const bool unsent = combat->state != CombatState::Idle && (!combat->ordered || computer) &&
                                 IsBuilding(registry, combat->target);
-            if ((combat->state == CombatState::Idle || unsent) && !busy &&
+            // On its way where it was sent, it keeps on, struck or not.
+            if ((combat->state == CombatState::Idle || unsent) && !busy && !Sent(registry, target) &&
                 combat->stance != Components::Stance::NoAttack &&
                 !IsBuilding(registry, target)) {
                 Engage(registry, target, attacker, false);
@@ -1039,6 +1050,8 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
         case CombatState::Idle: {
             if (combat.stance == Components::Stance::NoAttack) break;
             if (!SeeksFights(*rules, building)) break;
+            // On its way where it was sent, it pays no heed to what it passes.
+            if (Sent(registry, self)) break;
             combat.scan_ms -= dt_ms;
             if (combat.scan_ms > 0) break;
             if (Search::Hunts(registry, self)) {

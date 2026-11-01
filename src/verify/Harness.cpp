@@ -79,6 +79,7 @@ int Run(int ticks) {
     if (runs("answer")) ok &= CheckAnswer();
     if (runs("pocket")) ok &= CheckPocket();
     if (runs("clearing")) ok &= CheckClearing();
+    if (runs("passing")) ok &= CheckPassing();
     if (runs("wolves")) ok &= CheckWolves();
     if (runs("lobby")) ok &= CheckLobby();
     if (runs("formations")) ok &= CheckFormations();

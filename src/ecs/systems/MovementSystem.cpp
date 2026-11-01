@@ -60,6 +60,7 @@ void FinishOrder(Components::Path& path) {
     path.current_waypoint_index = 0;
     path.replans = 0;
     path.has_goal = false;
+    path.sent = false;
 }
 
 // Plans the way to the goal again from where the unit stands. False when

@@ -68,7 +68,7 @@ namespace C = ECS::Components;
 
 constexpr char kMagic[8] = {'A', 'O', 'K', 'C', 'S', 'A', 'V', 'E'};
 // The save format's version; a save of any other version is refused.
-constexpr uint32_t kVersion = 8;
+constexpr uint32_t kVersion = 9;
 
 // Plain data goes out as it lies in memory.
 template <typename T>
@@ -113,6 +113,7 @@ void Put(Writer& w, const C::Path& p) {
     w.Entity(p.target);
     w.Fixed(p.range);
     PutPod(w, p.replans);
+    w.U8(p.sent ? 1 : 0);
 }
 void Get(Reader& r, C::Path& p) {
     GetPods(r, p.waypoints);
@@ -123,6 +124,7 @@ void Get(Reader& r, C::Path& p) {
     p.target = r.Entity();
     p.range = r.Fixed();
     GetPod(r, p.replans);
+    p.sent = r.U8() != 0;
 }
 void Put(Writer& w, const C::Garrison& g) {
     PutPods(w, g.inside);

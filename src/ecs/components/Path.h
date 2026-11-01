@@ -34,6 +34,11 @@ struct Path {
     // Times it has moved on to another place round its goal, someone
     // standing where it was going (ecs/systems/MovementSystem).
     int8_t moved_on = 0;
+
+    // Sent there by an order -- moved, marched, rallied, on to a waypoint:
+    // a person's soldier on its way pays no heed to enemies until it gets
+    // there.
+    bool sent = false;
 };
 
 } // namespace ECS::Components

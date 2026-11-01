@@ -43,6 +43,7 @@ SHIPANGLES="$(echo "$OUTPUT" | grep '^shipangles=')"
 TURNING="$(echo "$OUTPUT" | grep '^turning=')"
 POCKET="$(echo "$OUTPUT" | grep '^pocket=')"
 CLEARING="$(echo "$OUTPUT" | grep '^clearing=')"
+PASSING="$(echo "$OUTPUT" | grep '^passing=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -299,6 +300,12 @@ fi
 case "$CLEARING" in
     clearing=ok*) echo "clearing OK: ${CLEARING#clearing=ok }" ;;
     *) echo "CLEARING FAILED" >&2; echo "  $CLEARING" >&2; STATUS=1 ;;
+esac
+
+# A soldier sent past an enemy that shoots at it walks on to where it was sent.
+case "$PASSING" in
+    passing=ok*) echo "passing OK: ${PASSING#passing=ok }" ;;
+    *) echo "PASSING FAILED" >&2; echo "  $PASSING" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and
