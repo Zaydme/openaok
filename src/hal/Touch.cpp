@@ -23,6 +23,9 @@ namespace {
 constexpr Uint32 kHoldMs = 300;
 constexpr float kSlop = 0.02f;
 constexpr int kMaxFingers = 10;
+// How long a finger of a pan may go unreported before a new one coming down
+// takes it for one the system let go of without a finger-up.
+constexpr Uint32 kLostMs = 200;
 
 enum class Mode : uint8_t {
     Idle,      // no finger down
@@ -37,6 +40,7 @@ struct Finger {
     SDL_FingerID id = 0;
     float x = 0.0f;   // window pixels
     float y = 0.0f;
+    Uint32 last = 0;  // when it was last reported, SDL's ticks
 };
 
 struct State {
@@ -56,6 +60,8 @@ struct State {
     float pan_dy = 0.0f;
     float spread = 0.0f;    // the fingers' distance from their middle, last seen
     float zoom = 1.0f;      // the pinch waiting for TakeZoom
+    int win_w = 0;          // the window, last time it could be asked
+    int win_h = 0;
 
     SDL_Haptic* haptic = nullptr;
     bool haptic_tried = false;
@@ -70,10 +76,21 @@ void Click(Uint8 button, float x, float y) {
     Pointer::Click(button);
 }
 
+// The window's size in pixels, kept from the last time it could be asked: a
+// finger's whole gesture has to be tracked through one of these, so an event
+// is never dropped for want of it.
 bool WindowSize(int& w, int& h) {
     Window* window = MainWindow();
-    if (window == nullptr || window->GetSDLWindow() == nullptr) return false;
-    SDL_GetWindowSize(window->GetSDLWindow(), &w, &h);
+    if (window != nullptr && window->GetSDLWindow() != nullptr) {
+        SDL_GetWindowSize(window->GetSDLWindow(), &w, &h);
+        if (w > 0 && h > 0) {
+            g.win_w = w;
+            g.win_h = h;
+            return true;
+        }
+    }
+    w = g.win_w;
+    h = g.win_h;
     return w > 0 && h > 0;
 }
 
@@ -81,7 +98,10 @@ bool WindowSize(int& w, int& h) {
 float FrameScale() {
     Window* window = MainWindow();
     int w = 0, h = 0;
-    if (!WindowSize(w, h) || window->GetWidth() <= 0 || window->GetHeight() <= 0) return 1.0f;
+    if (window == nullptr || !WindowSize(w, h) || window->GetWidth() <= 0 ||
+        window->GetHeight() <= 0) {
+        return 1.0f;
+    }
     return std::min(static_cast<float>(w) / window->GetWidth(),
                     static_cast<float>(h) / window->GetHeight());
 }
@@ -153,8 +173,25 @@ Uint32 HoldElapsed(Uint32, void* touch) {
     return 0;
 }
 
+// Forgets the fingers nobody has reported lately. The system can end a touch
+// without the app being told -- when a system gesture takes it over, say --
+// and a finger like that would otherwise stay down forever: the pan it was
+// part of would never end, and every later touch would join that pan instead
+// of starting a gesture, so the pointer would stop following the screen.
+// A single finger waiting for its hold is the one kind of rest that is not
+// that, and is left alone.
+void ForgetLostFingers(Uint32 now) {
+    if (g.mode != Mode::Panning && g.count <= 1) return;
+    for (int i = g.count - 1; i >= 0; --i) {
+        if (now - g.fingers[i].last < kLostMs) continue;
+        Remove(g.fingers[i].id);
+    }
+}
+
 void Down(SDL_FingerID id, float x, float y) {
-    if (Find(id) == nullptr && g.count < kMaxFingers) g.fingers[g.count++] = Finger{id, x, y};
+    const Uint32 now = SDL_GetTicks();
+    if (Find(id) == nullptr) ForgetLostFingers(now);
+    if (Find(id) == nullptr && g.count < kMaxFingers) g.fingers[g.count++] = Finger{id, x, y, now};
     if (g.count == 1) {
         g.primary = id;
         g.start_x = x;
@@ -192,6 +229,7 @@ void Motion(SDL_FingerID id, float x, float y, int window_h) {
     if (finger == nullptr) return;
     finger->x = x;
     finger->y = y;
+    finger->last = SDL_GetTicks();
     switch (g.mode) {
     case Mode::Pending:
         if (id != g.primary || std::hypot(x - g.start_x, y - g.start_y) <= kSlop * window_h) return;
