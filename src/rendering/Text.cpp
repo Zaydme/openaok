@@ -287,11 +287,10 @@ Face* FaceOf(int font) {
 
 // The face `font` names, made bold or not and at `percent` of its points'
 // size: one already open, or opened now after the table.
-int Derived(int font, bool bold, int percent) {
+int Derived(int font, bool bold, bool italic, int percent) {
     auto& faces = S().faces;
     const std::string family = faces[font].family;
     const int points = faces[font].points;
-    const bool italic = faces[font].italic;
     for (int i = 0; i < static_cast<int>(faces.size()); ++i) {
         if (faces[i].family == family && faces[i].points == points && faces[i].percent == percent &&
             faces[i].bold == bold && faces[i].italic == italic && faces[i].face != nullptr) {
@@ -524,7 +523,14 @@ int BoldOf(int font) {
     auto& faces = S().faces;
     if (font < 0 || font >= static_cast<int>(faces.size())) return font;
     if (faces[font].bold) return font;
-    return Derived(font, true, faces[font].percent);
+    return Derived(font, true, faces[font].italic, faces[font].percent);
+}
+
+int ItalicOf(int font) {
+    auto& faces = S().faces;
+    if (font < 0 || font >= static_cast<int>(faces.size())) return font;
+    if (faces[font].italic) return font;
+    return Derived(font, faces[font].bold, true, faces[font].percent);
 }
 
 int Scaled(int font, int percent) {
@@ -532,7 +538,7 @@ int Scaled(int font, int percent) {
     if (font < 0 || font >= static_cast<int>(faces.size()) || faces[font].face == nullptr) return font;
     percent = std::clamp(percent, 25, 400);
     if (faces[font].percent == percent) return font;
-    return Derived(font, faces[font].bold, percent);
+    return Derived(font, faces[font].bold, faces[font].italic, percent);
 }
 
 } // namespace Rendering::Text

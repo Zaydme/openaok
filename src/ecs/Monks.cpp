@@ -1,6 +1,9 @@
 #include "ecs/Monks.h"
 #include "ecs/Navigation.h"
 
+#include <algorithm>
+#include <array>
+#include <iterator>
 #include <vector>
 
 #include "core/ConfigManager.h"
@@ -76,11 +79,14 @@ bool NeverConverted(const entt::registry& registry, entt::entity target, int cls
     if (Listed(kNeverConvertedClasses, cls)) return true;
     const auto* identity = registry.try_get<Components::Identity>(target);
     if (identity == nullptr) return false;
-    auto& cfg = Core::ConfigManager::Get();
-    for (const char* name : kNeverConvertedUnits) {
-        if (cfg.GetUnitIdByName(name) == identity->unit_id) return true;
-    }
-    return false;
+    static const std::array<int, std::size(kNeverConvertedUnits)> ids = [] {
+        std::array<int, std::size(kNeverConvertedUnits)> out{};
+        for (size_t i = 0; i < out.size(); ++i) {
+            out[i] = Core::ConfigManager::Get().GetUnitIdByName(kNeverConvertedUnits[i]);
+        }
+        return out;
+    }();
+    return std::find(ids.begin(), ids.end(), identity->unit_id) != ids.end();
 }
 
 constexpr int32_t kChaseReplanMs = 500;
@@ -144,13 +150,14 @@ bool CanHeal(const entt::registry& registry, entt::entity monk, entt::entity tar
 
 } // namespace
 
-bool CanConvert(const entt::registry& registry, entt::entity monk, entt::entity target) {
-    if (monk == target || !Combat::Alive(registry, monk) || !Combat::Alive(registry, target)) {
-        return false;
-    }
+bool Converts(const entt::registry& registry, entt::entity monk) {
+    if (!Combat::Alive(registry, monk)) return false;
     const R::UnitRules* rules = RulesOf(registry, monk);
-    if (rules == nullptr || TaskOf(*rules, kConvert) == nullptr) return false;
-    const Core::PlayerId player = OwnerOf(registry, monk);
+    return rules != nullptr && TaskOf(*rules, kConvert) != nullptr;
+}
+
+bool Convertible(const entt::registry& registry, Core::PlayerId player, entt::entity target) {
+    if (!Combat::Alive(registry, target)) return false;
     const Core::PlayerId theirs = OwnerOf(registry, target);
     if (theirs == player || theirs == Core::PLAYER_GAIA) return false;
     // Never an ally's.
@@ -168,6 +175,10 @@ bool CanConvert(const entt::registry& registry, entt::entity monk, entt::entity 
         return false;
     }
     return true;
+}
+
+bool CanConvert(const entt::registry& registry, entt::entity monk, entt::entity target) {
+    return monk != target && Converts(registry, monk) && Convertible(registry, OwnerOf(registry, monk), target);
 }
 
 bool Convert(entt::registry& registry, entt::entity monk, entt::entity target) {

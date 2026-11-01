@@ -200,14 +200,13 @@ struct RenderEntry {
     int mark = -1;       // its SelectionMark, or -1
 
     int sort_bias;
-    int tex_w, tex_h;
 
     void* shadow_tex;
     bool shadow_flip;
     SDL_Rect shadow_src;
     SDL_FRect shadow_dest;
-    void* player_tex;
     void* outline_tex;
+    SDL_Rect outline_src;
     int outline_player;
 
     SDL_Rect src;
@@ -286,16 +285,7 @@ bool GroundLevel(int slp_id) {
 void DrawSprite(SDL_Renderer* sdl_r, const RenderEntry& e) {
     if (e.tex_ptr) {
         SDL_Texture* tex = static_cast<SDL_Texture*>(e.tex_ptr);
-        if (e.player_tex) {
-            SDL_Texture* pt = static_cast<SDL_Texture*>(e.player_tex);
-            if (e.flip_h) {
-                SDL_RenderCopyExF(sdl_r, tex, &e.src, &e.dest, 0.0, nullptr, SDL_FLIP_HORIZONTAL);
-                SDL_RenderCopyExF(sdl_r, pt, &e.src, &e.dest, 0.0, nullptr, SDL_FLIP_HORIZONTAL);
-            } else {
-                SDL_RenderCopyF(sdl_r, tex, &e.src, &e.dest);
-                SDL_RenderCopyF(sdl_r, pt, &e.src, &e.dest);
-            }
-        } else if (e.flip_h) {
+        if (e.flip_h) {
             SDL_RenderCopyExF(sdl_r, tex, &e.src, &e.dest, 0.0, nullptr, SDL_FLIP_HORIZONTAL);
         } else {
             SDL_RenderCopyF(sdl_r, tex, &e.src, &e.dest);
@@ -608,7 +598,9 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
                 const ECS::Components::SpritePiece& piece = pieces->piece[p];
                 const HAL::GraphicAtlas* piece_atlas =
                     graphics.GetAtlas(static_cast<uint32_t>(piece.slp_id));
-                if (!piece_atlas || !piece_atlas->base) continue;
+                if (!piece_atlas) continue;
+                const HAL::ArtPlace art = graphics.Art(static_cast<uint32_t>(piece.slp_id), owner_player);
+                if (art.page == nullptr) continue;
                 // Of n facings the first n/2 + 1 are stored, clockwise from
                 // south, and the rest mirror them.
                 const int n = std::max(1, piece.angles);
@@ -629,13 +621,11 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
                 if (first && (e.is_selected || flash)) {
                     part.mark = mark_of(entity, sx, sy, e.is_selected, flash);
                 }
-                part.tex_ptr = piece_atlas->base;
+                part.tex_ptr = art.page;
                 part.ground = GroundLevel(piece.slp_id);
                 part.atlas = piece_atlas;
                 part.frame = frame;
-                part.tex_w = piece_atlas->width;
-                part.tex_h = piece_atlas->height;
-                part.src = gf.rect;
+                part.src = art.On(gf.rect);
                 part.flip_h = flip;
                 const int anchor_x = flip ? (gf.rect.w - gf.hotspot_x) : gf.hotspot_x;
                 part.dest.x = sx + static_cast<float>(piece.offset_x - anchor_x);
@@ -643,10 +633,10 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
                               static_cast<float>(sprite.lift_px);
                 part.dest.w = static_cast<float>(gf.rect.w);
                 part.dest.h = static_cast<float>(gf.rect.h);
-                part.player_tex =
-                    graphics.GetPlayerLayer(static_cast<uint32_t>(piece.slp_id), owner_player);
                 part.outline_player = owner_player;
-                part.outline_tex = graphics.GetOutlineLayer(static_cast<uint32_t>(piece.slp_id));
+                const HAL::ArtPlace outline = graphics.Outline(static_cast<uint32_t>(piece.slp_id));
+                part.outline_tex = outline.page;
+                part.outline_src = outline.On(gf.rect);
                 first = false;
                 entries.push_back(part);
             }
@@ -678,7 +668,6 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
         }
         
         e.flip_h = sprite.flip_h;
-        e.player_tex = nullptr;
         e.outline_tex = nullptr;
         e.outline_player = 1;
         e.tex_ptr = nullptr;
@@ -686,15 +675,15 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
         // A shadow sprite draws its graphic's shadow layer and nothing else, so
         // it lands in the shadow pass beneath every piece of the building.
         if (sprite.is_shadow) {
-            SDL_Texture* sh_tex = atlas
-                ? graphics.GetShadowLayer(static_cast<uint32_t>(sprite.slp_id))
-                : nullptr;
-            if (sh_tex && !atlas->frames.empty()) {
+            const HAL::ArtPlace shadow = atlas
+                ? graphics.Shadow(static_cast<uint32_t>(sprite.slp_id))
+                : HAL::ArtPlace{};
+            if (shadow.page && !atlas->frames.empty()) {
                 const HAL::GraphicFrame& sgf = atlas->frames[0];
                 if (sgf.rect.w > 0) {
                     // Cropping to a sub-rectangle moves the anchor with it: the
                     // hotspot is expressed against the full frame.
-                    SDL_Rect src = sgf.rect;
+                    SDL_Rect src = shadow.On(sgf.rect);
                     int hx = sgf.hotspot_x;
                     int hy = sgf.hotspot_y;
                     if (sprite.sub_w > 0) {
@@ -706,7 +695,7 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
                         hy -= sprite.sub_y;
                     }
                     const int ax = e.flip_h ? (src.w - hx) : hx;
-                    e.shadow_tex = sh_tex;
+                    e.shadow_tex = shadow.page;
                     e.shadow_src = src;
                     e.shadow_flip = e.flip_h;
                     e.shadow_dest.x = sx - static_cast<float>(ax);
@@ -719,17 +708,18 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
             return;
         }
 
-        if (atlas && atlas->base && sprite.slp_frame >= 0
+        const int owner_player = ColourOf(registry, entity);
+        const HAL::ArtPlace art = atlas ? graphics.Art(static_cast<uint32_t>(sprite.slp_id), owner_player)
+                                        : HAL::ArtPlace{};
+        if (art.page && sprite.slp_frame >= 0
             && static_cast<size_t>(sprite.slp_frame) < atlas->frames.size()
             && atlas->frames[sprite.slp_frame].rect.w > 0) {
             const HAL::GraphicFrame& gf = atlas->frames[sprite.slp_frame];
-            e.tex_ptr = atlas->base;
+            e.tex_ptr = art.page;
             e.ground = GroundLevel(sprite.slp_id);
             e.atlas = atlas;
             e.frame = sprite.slp_frame;
-            e.tex_w = atlas->width;
-            e.tex_h = atlas->height;
-            e.src = gf.rect;
+            e.src = art.On(gf.rect);
             // The hotspot is the texel that sits on the tile, from the SLP
             // frame header. Mirroring a frame mirrors its hotspot too, so a
             // flipped frame anchors at (width - hotspot_x).
@@ -740,11 +730,10 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
             e.dest.w = static_cast<float>(gf.rect.w);
             e.dest.h = static_cast<float>(gf.rect.h);
             
-            const int owner_player = ColourOf(registry, entity);
-            e.player_tex = graphics.GetPlayerLayer(
-                static_cast<uint32_t>(sprite.slp_id), owner_player);
             e.outline_player = owner_player;
-            e.outline_tex = graphics.GetOutlineLayer(static_cast<uint32_t>(sprite.slp_id));
+            const HAL::ArtPlace outline = graphics.Outline(static_cast<uint32_t>(sprite.slp_id));
+            e.outline_tex = outline.page;
+            e.outline_src = outline.On(gf.rect);
             
             // Companion shadow graphic, resolved once per graphic.
             if (!sprite.shadow_resolved) {
@@ -754,15 +743,15 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
             if (sprite.shadow_slp >= 0) {
                 const HAL::GraphicAtlas* sh_atlas =
                     graphics.GetAtlas(static_cast<uint32_t>(sprite.shadow_slp));
-                SDL_Texture* sh_tex =
-                    graphics.GetShadowLayer(static_cast<uint32_t>(sprite.shadow_slp));
-                if (sh_atlas && sh_tex && !sh_atlas->frames.empty()) {
+                const HAL::ArtPlace shadow = sh_atlas ? graphics.Shadow(static_cast<uint32_t>(sprite.shadow_slp))
+                                                      : HAL::ArtPlace{};
+                if (shadow.page && !sh_atlas->frames.empty()) {
                     const size_t sf = static_cast<size_t>(sprite.slp_frame) < sh_atlas->frames.size()
                                     ? static_cast<size_t>(sprite.slp_frame) : 0;
                     const HAL::GraphicFrame& sgf = sh_atlas->frames[sf];
                     if (sgf.rect.w > 0) {
-                        e.shadow_tex = sh_tex;
-                        e.shadow_src = sgf.rect;
+                        e.shadow_tex = shadow.page;
+                        e.shadow_src = shadow.On(sgf.rect);
                         e.shadow_dest.x = sx - static_cast<float>(sgf.hotspot_x);
                         e.shadow_dest.y = sy - static_cast<float>(sgf.hotspot_y);
                         e.shadow_dest.w = static_cast<float>(sgf.rect.w);
@@ -790,7 +779,9 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
             const auto info = cfg.GetGraphic(graphic);
             if (!info.Valid()) return;
             const HAL::GraphicAtlas* atlas = graphics.GetAtlas(static_cast<uint32_t>(info.slp_id));
-            if (!atlas || !atlas->base || frame >= atlas->frames.size()) return;
+            if (!atlas || frame >= atlas->frames.size()) return;
+            const HAL::ArtPlace art = graphics.Art(static_cast<uint32_t>(info.slp_id), player);
+            if (art.page == nullptr) return;
             const HAL::GraphicFrame& gf = atlas->frames[frame];
             if (gf.rect.w <= 1) return;
             const float mx = (wx - wy) * (Core::IsometricMath::TILE_WIDTH / 2.0f) - cx;
@@ -800,17 +791,14 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
             RenderEntry e{};
             e.depth = wx + wy;
             e.ent = entt::null;
-            e.tex_ptr = atlas->base;
+            e.tex_ptr = art.page;
             e.atlas = atlas;
             e.frame = static_cast<int>(frame);
-            e.tex_w = atlas->width;
-            e.tex_h = atlas->height;
-            e.src = gf.rect;
+            e.src = art.On(gf.rect);
             e.dest = {mx - static_cast<float>(gf.hotspot_x), my - static_cast<float>(gf.hotspot_y),
                       static_cast<float>(gf.rect.w), static_cast<float>(gf.rect.h)};
             e.sel_sx = mx;
             e.sel_sy = my;
-            e.player_tex = graphics.GetPlayerLayer(static_cast<uint32_t>(info.slp_id), player);
             entries.push_back(e);
         };
         // A move's arrows play through once and are gone.
@@ -899,17 +887,14 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
                 RenderEntry e{};
                 e.depth = piece.wx + piece.wy;
                 e.ent = entt::null;
-                e.tex_ptr = piece.atlas->base;
+                e.tex_ptr = piece.art.page;
                 e.atlas = piece.atlas;
                 e.frame = piece.frame;
-                e.tex_w = piece.atlas->width;
-                e.tex_h = piece.atlas->height;
-                e.src = gf.rect;
+                e.src = piece.art.On(gf.rect);
                 e.dest = {px - static_cast<float>(gf.hotspot_x), py - static_cast<float>(gf.hotspot_y),
                           static_cast<float>(gf.rect.w), static_cast<float>(gf.rect.h)};
                 e.sel_sx = px;
                 e.sel_sy = py;
-                e.player_tex = piece.player;
                 e.ghost = piece.clear ? kGhostClear : piece.primary ? kGhostBlockedMain : kGhostBlocked;
                 entries.push_back(e);
             }
@@ -996,7 +981,9 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
                 if (!info.Valid()) return;
                 const HAL::GraphicAtlas* atlas =
                     graphics.GetAtlas(static_cast<uint32_t>(info.slp_id));
-                if (!atlas || !atlas->base || atlas->frames.empty()) return;
+                if (!atlas || atlas->frames.empty()) return;
+                const HAL::ArtPlace art = graphics.Art(static_cast<uint32_t>(info.slp_id), ColourOf(registry, b));
+                if (art.page == nullptr) return;
                 const int frame_ms = std::max(1, cfg.GetFrameMs(graphic, 100));
                 const size_t frame = (now / static_cast<uint32_t>(frame_ms) +
                                       static_cast<uint32_t>(phase)) % atlas->frames.size();
@@ -1008,16 +995,13 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
                 e.sort_bias = 1000;
                 e.ent = b;
                 e.fogged = in_fog(b);
-                e.tex_ptr = atlas->base;
-                e.tex_w = atlas->width;
-                e.tex_h = atlas->height;
-                e.src = gf.rect;
+                e.tex_ptr = art.page;
+                e.src = art.On(gf.rect);
                 e.dest = {bx + static_cast<float>(ox - gf.hotspot_x),
                           by + static_cast<float>(oy - gf.hotspot_y),
                           static_cast<float>(gf.rect.w), static_cast<float>(gf.rect.h)};
                 e.sel_sx = bx;
                 e.sel_sy = by;
-                e.player_tex = graphics.GetPlayerLayer(static_cast<uint32_t>(info.slp_id), ColourOf(registry, b));
                 entries.push_back(e);
             };
 
@@ -1142,7 +1126,6 @@ void EntityRenderer::DrawStanding(Renderer& renderer, SDL_Renderer* sdl_r) {
                 if (e.ground || !e.tex_ptr) continue;
                 const bool wipe = e.ghost != kind;
                 DrawInto(sdl_r, static_cast<SDL_Texture*>(e.tex_ptr), e, wipe);
-                if (e.player_tex) DrawInto(sdl_r, static_cast<SDL_Texture*>(e.player_tex), e, wipe);
             }
             SDL_Color colour{0, 0, 0, 255};
             if (kind != kGhostClear) {
@@ -1186,7 +1169,6 @@ void EntityRenderer::DrawStanding(Renderer& renderer, SDL_Renderer* sdl_r) {
                 continue;
             }
             DrawInto(sdl_r, static_cast<SDL_Texture*>(e.tex_ptr), e, wipe);
-            if (e.player_tex) DrawInto(sdl_r, static_cast<SDL_Texture*>(e.player_tex), e, wipe);
         }
         FogRenderer::EndObjects(renderer, sdl_r);
     }
@@ -1198,9 +1180,9 @@ void EntityRenderer::DrawStanding(Renderer& renderer, SDL_Renderer* sdl_r) {
         const HAL::PaletteColor pc = graphics.GetPlayerColor(e.outline_player);
         SDL_SetTextureColorMod(ol, pc.r, pc.g, pc.b);
         if (e.flip_h) {
-            SDL_RenderCopyExF(sdl_r, ol, &e.src, &e.dest, 0.0, nullptr, SDL_FLIP_HORIZONTAL);
+            SDL_RenderCopyExF(sdl_r, ol, &e.outline_src, &e.dest, 0.0, nullptr, SDL_FLIP_HORIZONTAL);
         } else {
-            SDL_RenderCopyF(sdl_r, ol, &e.src, &e.dest);
+            SDL_RenderCopyF(sdl_r, ol, &e.outline_src, &e.dest);
         }
     }
 

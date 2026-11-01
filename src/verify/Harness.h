@@ -226,6 +226,42 @@ bool CheckHunt();
 // "answer=".
 bool CheckAnswer();
 bool CheckPocket();
+// A soldier sent into a clearing walled in by trees goes to the trees' edge.
+// Prints "clearing=".
+bool CheckClearing();
+// A soldier sent past an enemy archer that shoots at it walks on to where it
+// was sent. Prints "passing=".
+bool CheckPassing();
+// Soldiers set on an enemy that falls before they reach it carry on to where
+// it fell. Prints "carryon=".
+bool CheckCarryOn();
+// A route across the tile a unit stands on, someone standing in the straight
+// way, is found. Prints "step=".
+bool CheckStep();
+// A lumberjack whose tree runs out goes on to the nearest it can come up to,
+// not a nearer one walled in. Prints "walledtree=".
+bool CheckWalledTree();
+// A hundred soldiers set on one enemy all have their routes the tick after
+// the order, and all come up to it. Prints "setoff=".
+bool CheckSetOff();
+// A route to a spot inside a crowd standing there goes straight in without
+// searching far for a way round. Prints "crowdgoal=".
+bool CheckCrowdGoal();
+// A hundred soldiers sent to one place in one tick share their routes.
+// Prints "sharedwalk=".
+bool CheckSharedWalk();
+// An army's chases plan again over several ticks, not all in one. Prints
+// "replanspread=".
+bool CheckReplanSpread();
+// Many graphics' art shares a page or two, and a villager drawn from its page
+// is its SLP frame in its player's colours, before and after the page grows.
+// Prints "pages=".
+bool CheckPages();
+// A soldier struck down leaves the minimap as it falls. Prints
+// "minimapdead=".
+bool CheckMinimapDead();
+// A command button's rollover help ends with its hotkey. Prints "help=".
+bool CheckHelp();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

@@ -204,6 +204,52 @@ bool CheckApproachPlanner() {
         }
     }
 
+    // A spot the caller can walk to: with a pocket of open ground walled in
+    // by trees right where the nearest spot would be, the caller is sent
+    // round it, not into it.
+    if (std::strcmp(planner, "ok") == 0) {
+        auto& ground_grid = headless.GetGrid();
+        // Open ground ten tiles every way.
+        int qx = 0, qy = 0;
+        for (int y = 12; y < 200 && qx == 0; ++y) {
+            for (int x = 12; x < 200; ++x) {
+                bool clear = true;
+                for (int oy = -10; oy <= 10 && clear; ++oy) {
+                    for (int ox = -10; ox <= 10; ++ox) {
+                        if (!ground_grid.IsWalkable(x + ox, y + oy)) { clear = false; break; }
+                    }
+                }
+                if (clear) { qx = x; qy = y; break; }
+            }
+        }
+        const int px = qx - 3, py = qy;
+        for (int oy = -1; oy <= 1; ++oy) {
+            for (int ox = -1; ox <= 1; ++ox) {
+                if (ox != 0 || oy != 0) ground_grid.SetWalkable(px + ox, py + oy, false);
+            }
+        }
+        Pathfinding::ApproachRequest r;
+        r.target = ECS::Buildings::Bounds{Core::Fixed32(qx) - Core::Fixed32(1) / Core::Fixed32(2),
+                                          Core::Fixed32(qy) - Core::Fixed32(1) / Core::Fixed32(2),
+                                          Core::Fixed32(qx) + Core::Fixed32(1) / Core::Fixed32(2),
+                                          Core::Fixed32(qy) + Core::Fixed32(1) / Core::Fixed32(2)};
+        r.from = {Core::Fixed32(qx - 9), Core::Fixed32(qy)};
+        r.standoff = Core::Fixed32(5) / Core::Fixed32(2);
+        r.clearance = clearance;
+        const auto spot = Pathfinding::FindStandingSpot(ground_grid, r);
+        const int region = Pathfinding::RegionAt(ground_grid, qx - 9, qy, Physics::kLand);
+        if (qx == 0) {
+            planner = "no open ground for the pocket";
+        } else if (!spot.found) {
+            planner = "no spot beside a pocket in the trees";
+        } else if (Pathfinding::RegionAt(ground_grid, Physics::TileOf(spot.spot.x), Physics::TileOf(spot.spot.y),
+                                         Physics::kLand) != region) {
+            planner = "a spot handed out in a pocket the caller cannot reach";
+        }
+        for (int oy = -1; oy <= 1; ++oy) {
+            for (int ox = -1; ox <= 1; ++ox) ground_grid.SetWalkable(px + ox, py + oy, true);
+        }
+    }
     std::printf("planner=%s\n", planner);
     return std::strcmp(planner, "ok") == 0;
 }

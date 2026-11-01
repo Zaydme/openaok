@@ -32,6 +32,7 @@
 #include "ecs/components/Sight.h"
 #include "ecs/components/Sprite.h"
 #include "ecs/components/Transform.h"
+#include "pathfinding/Pathfinder.h"
 #include "scenario/Scenario.h"
 
 namespace ECS::ScenarioWorld {
@@ -516,6 +517,8 @@ void Simulation::InitScenario() {
     // for the triggers, whose definitions it holds.
     registry.ctx().insert_or_assign(std::move(file));
     CalculateVision();
+    // The route search's landmarks, before the first tick.
+    Pathfinding::Prepare(grid);
     std::cout << "[Simulation] Scenario world initialized." << std::endl;
 }
 

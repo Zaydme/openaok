@@ -141,8 +141,11 @@ passability layers from the dat first.
 
 `rendering/` draws the simulation's state each frame, interpolating positions
 between ticks. Sprites come straight from the SLPs in `graphics.drs` through
-`hal/GraphicCache`, one atlas per graphic; player colour, shadows and outlines
-are the SLP's own pixel classes. Terrain is drawn in chunks and blended with the
+`hal/GraphicCache`, each graphic's frames a block packed onto texture pages
+that many graphics share, so the sprites on screen draw in a few batches;
+player colour, shadows and outlines are the SLP's own pixel classes, a graphic
+drawn once for each colour worn, its colour pixels and player colour
+together. Terrain is drawn in chunks and blended with the
 blendomatic masks. The fog of war is a checkerboard over explored ground with
 the TileEdge and BlkEdge masks at its edges.
 

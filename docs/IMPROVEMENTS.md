@@ -42,6 +42,9 @@ out of the way of the original's own look and rules.
 - **Volleys spread out.** Soldiers set on an enemy in the same moment begin
   their first blow or shot up to six tenths of a second apart, so a line of
   archers does not loose every arrow on the same instant.
+- **An army carries on.** Soldiers ordered to attack something that falls
+  before they reach it walk on to where it fell, rather than stopping where
+  they were going, and take on whatever they find there.
 
 ## Where it runs
 

@@ -42,6 +42,18 @@ COLLAPSE="$(echo "$OUTPUT" | grep '^collapse=')"
 SHIPANGLES="$(echo "$OUTPUT" | grep '^shipangles=')"
 TURNING="$(echo "$OUTPUT" | grep '^turning=')"
 POCKET="$(echo "$OUTPUT" | grep '^pocket=')"
+CLEARING="$(echo "$OUTPUT" | grep '^clearing=')"
+PASSING="$(echo "$OUTPUT" | grep '^passing=')"
+CARRYON="$(echo "$OUTPUT" | grep '^carryon=')"
+STEP="$(echo "$OUTPUT" | grep '^step=')"
+WALLEDTREE="$(echo "$OUTPUT" | grep '^walledtree=')"
+SETOFF="$(echo "$OUTPUT" | grep '^setoff=')"
+CROWDGOAL="$(echo "$OUTPUT" | grep '^crowdgoal=')"
+SHAREDWALK="$(echo "$OUTPUT" | grep '^sharedwalk=')"
+REPLANSPREAD="$(echo "$OUTPUT" | grep '^replanspread=')"
+PAGES="$(echo "$OUTPUT" | grep '^pages=')"
+MINIMAPDEAD="$(echo "$OUTPUT" | grep '^minimapdead=')"
+HELP="$(echo "$OUTPUT" | grep '^help=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -293,6 +305,78 @@ else
     echo "  $POCKET" >&2
     STATUS=1
 fi
+
+# A soldier sent into a clearing walled in by trees goes to the trees' edge.
+case "$CLEARING" in
+    clearing=ok*) echo "clearing OK: ${CLEARING#clearing=ok }" ;;
+    *) echo "CLEARING FAILED" >&2; echo "  $CLEARING" >&2; STATUS=1 ;;
+esac
+
+# A soldier sent past an enemy that shoots at it walks on to where it was sent.
+case "$PASSING" in
+    passing=ok*) echo "passing OK: ${PASSING#passing=ok }" ;;
+    *) echo "PASSING FAILED" >&2; echo "  $PASSING" >&2; STATUS=1 ;;
+esac
+
+# Soldiers whose target falls before they reach it carry on to where it fell.
+case "$CARRYON" in
+    carryon=ok*) echo "carryon OK: ${CARRYON#carryon=ok }" ;;
+    *) echo "CARRYON FAILED" >&2; echo "  $CARRYON" >&2; STATUS=1 ;;
+esac
+
+# A route across the tile a unit stands on, someone in the straight way.
+case "$STEP" in
+    step=ok*) echo "step OK" ;;
+    *) echo "STEP FAILED" >&2; echo "  $STEP" >&2; STATUS=1 ;;
+esac
+
+# A lumberjack goes on to a tree it can come up to, not a nearer walled-in one.
+case "$WALLEDTREE" in
+    walledtree=ok*) echo "walledtree OK" ;;
+    *) echo "WALLEDTREE FAILED" >&2; echo "  $WALLEDTREE" >&2; STATUS=1 ;;
+esac
+
+# Soldiers set on one enemy all set off at once and all come up to it.
+case "$SETOFF" in
+    setoff=ok*) echo "setoff OK: ${SETOFF#setoff=ok }" ;;
+    *) echo "SETOFF FAILED" >&2; echo "  $SETOFF" >&2; STATUS=1 ;;
+esac
+
+# A route into the crowd its destination stands in goes straight in.
+case "$CROWDGOAL" in
+    crowdgoal=ok*) echo "crowdgoal OK: ${CROWDGOAL#crowdgoal=ok }" ;;
+    *) echo "CROWDGOAL FAILED" >&2; echo "  $CROWDGOAL" >&2; STATUS=1 ;;
+esac
+
+# Soldiers sent to one place in one tick share their routes.
+case "$SHAREDWALK" in
+    sharedwalk=ok*) echo "sharedwalk OK: ${SHAREDWALK#sharedwalk=ok }" ;;
+    *) echo "SHAREDWALK FAILED" >&2; echo "  $SHAREDWALK" >&2; STATUS=1 ;;
+esac
+
+# An army's chases plan again over several ticks, not all in one.
+case "$REPLANSPREAD" in
+    replanspread=ok*) echo "replanspread OK: ${REPLANSPREAD#replanspread=ok }" ;;
+    *) echo "REPLANSPREAD FAILED" >&2; echo "  $REPLANSPREAD" >&2; STATUS=1 ;;
+esac
+
+# Graphics' art shares texture pages, each graphic's pixels its own.
+case "$PAGES" in
+    pages=ok*) echo "pages OK: ${PAGES#pages=ok }" ;;
+    *) echo "PAGES FAILED" >&2; echo "  $PAGES" >&2; STATUS=1 ;;
+esac
+
+# A soldier struck down leaves the minimap as it falls.
+case "$MINIMAPDEAD" in
+    minimapdead=ok*) echo "minimapdead OK: ${MINIMAPDEAD#minimapdead=ok }" ;;
+    *) echo "MINIMAPDEAD FAILED" >&2; echo "  $MINIMAPDEAD" >&2; STATUS=1 ;;
+esac
+
+# A command button's rollover help ends with its hotkey.
+case "$HELP" in
+    help=ok*) echo "help OK" ;;
+    *) echo "HELP FAILED" >&2; echo "  $HELP" >&2; STATUS=1 ;;
+esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and
 # bring it home.

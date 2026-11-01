@@ -218,17 +218,17 @@ void DrawPlacing(State& s, SDL_Renderer* r) {
         const auto art = Core::ConfigManager::Get().GetUnitGraphicById(unit_id, "idle_graphic0");
         auto& graphics = HAL::GraphicCache::Get();
         const HAL::GraphicAtlas* atlas = art.Valid() ? graphics.GetAtlas(static_cast<uint32_t>(art.slp_id)) : nullptr;
-        if (atlas != nullptr && atlas->base != nullptr && !atlas->frames.empty()) {
+        const HAL::ArtPlace place = atlas != nullptr ? graphics.Art(static_cast<uint32_t>(art.slp_id), s.unit_player)
+                                                     : HAL::ArtPlace{};
+        if (place.page != nullptr && !atlas->frames.empty()) {
             const HAL::GraphicFrame& f = atlas->frames[0];
             const SDL_FPoint p = at(ex.ToFloat(), ey.ToFloat());
             const float z = s.view.camera_zoom;
             const SDL_FRect dst = {p.x - f.hotspot_x * z, p.y - f.hotspot_y * z, f.rect.w * z, f.rect.h * z};
-            for (SDL_Texture* layer : {atlas->base, graphics.GetPlayerLayer(static_cast<uint32_t>(art.slp_id), s.unit_player)}) {
-                if (layer == nullptr) continue;
-                SDL_SetTextureAlphaMod(layer, 160);
-                SDL_RenderCopyF(r, layer, &f.rect, &dst);
-                SDL_SetTextureAlphaMod(layer, 255);
-            }
+            const SDL_Rect src = place.On(f.rect);
+            SDL_SetTextureAlphaMod(place.page, 160);
+            SDL_RenderCopyF(r, place.page, &src, &dst);
+            SDL_SetTextureAlphaMod(place.page, 255);
         }
     }
     SDL_RenderSetClipRect(r, nullptr);

@@ -553,6 +553,9 @@ using ECS::Components::Vector2D;
 // short, and through it when it is not.
 constexpr int32_t kBesideClosed = 4;
 constexpr int32_t kPastStanding = 40;
+// The most tiles a crowd about a route's destination may cover and still be
+// gone round to its open side.
+constexpr size_t kGoRoundCrowd = 32;
 
 // The least step there is: a body only touching a tile's edge is not on it.
 const Fixed32 kHair(1, true);
@@ -818,8 +821,12 @@ ECS::Components::Path AStar::FindRoute(const Physics::Grid& grid, Vector2D from,
         path.has_goal = true;
         return path;
     };
-    // In plain sight: straight there.
+    // In plain sight: straight there. Within the tile it stands on, someone
+    // standing in the straight way, straight there all the same: there is no
+    // way round them to search for across one tile, and on the way its body
+    // is kept clear of theirs (MovementSystem).
     if (walker.Clear(from, to)) return finish({to});
+    if (start_x == end_x && start_y == end_y && grid.Passable(layer, end_x, end_y)) return finish({to});
     if (!grid.Passable(layer, end_x, end_y)) return path;
     {
         const auto& region = RegionsOf(grid, layer);
@@ -859,6 +866,36 @@ ECS::Components::Path AStar::FindRoute(const Physics::Grid& grid, Vector2D from,
         ++sc.cells[tile].standing;
     }
     auto standing_on = [&](int32_t tile) { return sc.cells[tile].crowded == sc.generation ? sc.cells[tile].standing : 0; };
+    // A big crowd the destination stands in -- an army gathered where this
+    // one is going -- costs nothing to cross: there is no way round it to
+    // look for, and on arriving the body stops against those it comes to.
+    // Round a small one -- villagers at a mine -- the route still finds the
+    // open side. The crowd is every tile with someone on it joined to the
+    // destination's, or to a tile beside it.
+    if (!crowd.empty()) {
+        static std::vector<int32_t> joined;
+        joined.clear();
+        // Marked joined by its count turned negative.
+        auto join = [&](int x, int y) {
+            if (x < 0 || y < 0 || x >= w || y >= h) return;
+            const int32_t tile = index_of(x, y);
+            if (standing_on(tile) <= 0) return;
+            sc.cells[tile].standing = -sc.cells[tile].standing;
+            joined.push_back(tile);
+        };
+        for (int oy = -1; oy <= 1; ++oy) {
+            for (int ox = -1; ox <= 1; ++ox) join(end_x + ox, end_y + oy);
+        }
+        for (size_t i = 0; i < joined.size(); ++i) {
+            const int cx = joined[i] % w;
+            const int cy = joined[i] / w;
+            for (int oy = -1; oy <= 1; ++oy) {
+                for (int ox = -1; ox <= 1; ++ox) join(cx + ox, cy + oy);
+            }
+        }
+        const bool big = joined.size() > kGoRoundCrowd;
+        for (const int32_t tile : joined) sc.cells[tile].standing = big ? 0 : -sc.cells[tile].standing;
+    }
 
     // The open list: a node's f, h and index packed into one key, so that a
     // single comparison orders nodes as Node does; its g is f less h.

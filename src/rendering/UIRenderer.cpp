@@ -17,6 +17,7 @@
 #include "ecs/Diplomacy.h"
 #include "ecs/Garrisons.h"
 #include "ecs/Market.h"
+#include "ecs/components/Mortal.h"
 #include "ecs/components/Formation.h"
 #include "ecs/components/Garrison.h"
 #include "ecs/components/Building.h"
@@ -538,14 +539,61 @@ struct Run {
     std::string text;
     int font;
 };
+// The rollover help's text in its box: from the box's left and top, and its
+// lines' pitch, in the 1024x768 frame's pixels.
+constexpr int kHelpInsetX = 6;
+constexpr int kHelpInsetY = 2;
+constexpr int kHelpLinePitch = 18;
+// "(Hotkey: %s)", after a button's help.
+constexpr int kHotkeyHelp = 19732;
+
+// The map darkened within `box` as the original's see-through panels darken
+// it: every other pixel black, the fog's checkerboard (x + y even), fixed to
+// the frame.
+void Darken(SDL_Renderer* sdl_r, const SDL_Rect& box) {
+    constexpr int kTile = 64;
+    static SDL_Texture* tile = nullptr;
+    static SDL_Renderer* made_for = nullptr;
+    if (tile == nullptr || made_for != sdl_r) {
+        std::vector<uint32_t> pixels(static_cast<size_t>(kTile) * kTile);
+        for (int y = 0; y < kTile; ++y) {
+            for (int x = 0; x < kTile; ++x) {
+                pixels[static_cast<size_t>(y) * kTile + static_cast<size_t>(x)] = ((x + y) & 1) == 0 ? 0xFF000000u : 0u;
+            }
+        }
+        SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormatFrom(pixels.data(), kTile, kTile, 32, kTile * 4,
+                                                                  SDL_PIXELFORMAT_ARGB8888);
+        tile = surface != nullptr ? SDL_CreateTextureFromSurface(sdl_r, surface) : nullptr;
+        if (surface != nullptr) SDL_FreeSurface(surface);
+        if (tile == nullptr) return;
+        SDL_SetTextureBlendMode(tile, SDL_BLENDMODE_BLEND);
+        made_for = sdl_r;
+    }
+    // Tiles laid from the frame's origin, so the pattern stays on its pixels.
+    auto floor_to = [](int v) { return v >= 0 ? v - v % kTile : v - ((v % kTile) + kTile) % kTile; };
+    for (int ty = floor_to(box.y); ty < box.y + box.h; ty += kTile) {
+        for (int tx = floor_to(box.x); tx < box.x + box.w; tx += kTile) {
+            const SDL_Rect cell{tx, ty, kTile, kTile};
+            SDL_Rect part;
+            if (!SDL_IntersectRect(&cell, &box, &part)) continue;
+            const SDL_Rect from{part.x - tx, part.y - ty, part.w, part.h};
+            SDL_RenderCopy(sdl_r, tile, &from, &part);
+        }
+    }
+}
+
 void LayoutRich(const std::string& text, int base_font, int width,
                 std::vector<std::vector<Run>>& lines) {
     lines.clear();
     lines.emplace_back();
     bool bold = false;
+    bool italic = false;
     int pen = 0;
     std::string word;
-    auto font_now = [&]() { return bold ? Text::BoldOf(base_font) : base_font; };
+    auto font_now = [&]() {
+        const int f = bold ? Text::BoldOf(base_font) : base_font;
+        return italic ? Text::ItalicOf(f) : f;
+    };
     auto flush_word = [&]() {
         if (word.empty()) return;
         const int f = font_now();
@@ -570,6 +618,7 @@ void LayoutRich(const std::string& text, int base_font, int width,
                 if (tag == "b" || tag == "i") {
                     flush_word();
                     if (tag == "b") bold = !bold;
+                    if (tag == "i") italic = !italic;
                     i = close + 1;
                     continue;
                 }
@@ -1151,7 +1200,7 @@ void UIRenderer::DrawMinimapIn(ECS::Simulation& sim, Renderer& renderer, SDL_Ren
     auto owned = registry.view<ECS::Components::Transform, ECS::Components::Owner>();
     for (auto entity : owned) {
         const int player = owned.get<ECS::Components::Owner>(entity).player_id;
-        if (player == Core::PLAYER_GAIA) continue;
+        if (player == Core::PLAYER_GAIA || !OnMinimap(registry, entity)) continue;
         if (!ECS::Vision::Shows(registry, LocalViewer(), entity)) continue;
         const bool building = registry.all_of<ECS::Components::Building>(entity);
         const bool worker = registry.all_of<ECS::Components::Worker>(entity);
@@ -1918,6 +1967,10 @@ int UIRenderer::Refusal(ECS::Simulation& sim, const Command& command) {
     return -1;
 }
 
+bool UIRenderer::OnMinimap(const entt::registry& registry, entt::entity entity) {
+    return !registry.any_of<ECS::Components::Dying, ECS::Components::Corpse>(entity);
+}
+
 bool UIRenderer::ShowsGarrison(const entt::registry& registry, entt::entity selected) {
     const auto* owner = registry.try_get<ECS::Components::Owner>(selected);
     return owner != nullptr && owner->player_id == LocalViewer() &&
@@ -2272,6 +2325,51 @@ const UIRenderer::Command* HoveredCommand(const UIRenderer::Command* commands, i
 
 } // namespace
 
+std::string UIRenderer::CommandHelp(ECS::Simulation& sim, const Command& command) {
+    auto& cfg = Core::ConfigManager::Get();
+    std::string text;
+    if (command.kind == CommandKind::Research) {
+        const auto& texts = Core::Rules::Get().tech_text;
+        const auto* player = ECS::Players::Find(sim.GetRegistry(), LocalViewer());
+        if (command.tech_id >= 0 && command.tech_id < static_cast<int>(texts.size()) && player != nullptr) {
+            Core::ConfigManager::HelpValues values;
+            const auto& status = player->techs[command.tech_id];
+            StockpileCosts(status.costs, status.cost_count, values.costs);
+            // Spies has help of its own, its price as it stands now.
+            const std::string help = ECS::Techs::Spies(command.tech_id)
+                ? Core::Strings::Get(kSpiesHelp) : texts[command.tech_id].help;
+            text = cfg.ExpandHelp(help, values, true);
+        }
+    } else if (command.kind == CommandKind::Produce) {
+        const auto* ui = cfg.GetUnitInterface(command.unit_id);
+        const auto* rules = ECS::Players::UnitOf(sim.GetRegistry(), LocalViewer(), command.unit_id);
+        // The help text is a template; the numbers in it are the player's
+        // own, after whatever its technologies and civ changed.
+        if (ui && !ui->help.empty() && rules) {
+            text = cfg.ExpandHelp(ui->help, HelpValuesFor(*rules), true);
+        }
+    } else if (command.kind == CommandKind::Sell || command.kind == CommandKind::Buy) {
+        // "Click to sell 100 wood for %d gold": the price on the button.
+        const std::string help = Core::Strings::Get(command.name_string);
+        const size_t at = help.find("%d");
+        text = at == std::string::npos
+            ? help
+            : help.substr(0, at) + std::to_string(command.label) + help.substr(at + 2);
+    } else if (command.name_string >= 0) {
+        text = Core::Strings::Get(command.name_string);
+    }
+    // And the key that presses it, as the game spells it: "(Hotkey: B)".
+    if (!text.empty() && command.hotkey_group >= 0) {
+        const std::string letter = Core::Hotkeys::Letter(command.hotkey_group, command.hotkey_item);
+        const std::string hotkey = Core::Strings::Get(kHotkeyHelp);
+        const size_t at = hotkey.find("%s");
+        if (!letter.empty() && at != std::string::npos) {
+            text += " " + hotkey.substr(0, at) + letter + hotkey.substr(at + 2);
+        }
+    }
+    return text;
+}
+
 void UIRenderer::DrawHelpText(ECS::Simulation& sim, SDL_Renderer* sdl_r, int win_w, int win_h) {
     Hud& hud = HudState();
     int fx = 0, fy = 0;
@@ -2286,43 +2384,11 @@ void UIRenderer::DrawHelpText(ECS::Simulation& sim, SDL_Renderer* sdl_r, int win
 
     // What the help says: the button under the cursor, or else what a
     // right-click would do in the world.
-    auto& cfg = Core::ConfigManager::Get();
     std::string text;
     Command commands[kCommandSlots];
     const int n = BuildCommands(sim, panel.w, win_h, commands, kCommandSlots);
     if (const Command* hovered = HoveredCommand(commands, n, mx, my)) {
-        if (hovered->kind == CommandKind::Research) {
-            const auto& texts = Core::Rules::Get().tech_text;
-            const auto* player = ECS::Players::Find(sim.GetRegistry(), LocalViewer());
-            if (hovered->tech_id >= 0 && hovered->tech_id < static_cast<int>(texts.size()) &&
-                player != nullptr) {
-                Core::ConfigManager::HelpValues values;
-                const auto& status = player->techs[hovered->tech_id];
-                StockpileCosts(status.costs, status.cost_count, values.costs);
-                // Spies has help of its own, its price as it stands now.
-                const std::string help = ECS::Techs::Spies(hovered->tech_id)
-                    ? Core::Strings::Get(kSpiesHelp) : texts[hovered->tech_id].help;
-                text = cfg.ExpandHelp(help, values, true);
-            }
-        } else if (hovered->kind == CommandKind::Produce) {
-            const auto* ui = cfg.GetUnitInterface(hovered->unit_id);
-            const auto* rules =
-                ECS::Players::UnitOf(sim.GetRegistry(), LocalViewer(), hovered->unit_id);
-            // The help text is a template; the numbers in it are the player's
-            // own, after whatever its technologies and civ changed.
-            if (ui && !ui->help.empty() && rules) {
-                text = cfg.ExpandHelp(ui->help, HelpValuesFor(*rules), true);
-            }
-        } else if (hovered->kind == CommandKind::Sell || hovered->kind == CommandKind::Buy) {
-            // "Click to sell 100 wood for %d gold": the price on the button.
-            const std::string help = Core::Strings::Get(hovered->name_string);
-            const size_t at = help.find("%d");
-            text = at == std::string::npos
-                ? help
-                : help.substr(0, at) + std::to_string(hovered->label) + help.substr(at + 2);
-        } else if (hovered->name_string >= 0) {
-            text = Core::Strings::Get(hovered->name_string);
-        }
+        text = CommandHelp(sim, *hovered);
     } else if (const int bar = BarButtonAt(top.w, tx, ty); bar >= 0) {
         static const int kBarHelp[kBarButtonCount] = {4945, 41101, 4913, 4914, 4915};
         text = Core::Strings::Get(kBarHelp[bar]);
@@ -2344,20 +2410,34 @@ void UIRenderer::DrawHelpText(ECS::Simulation& sim, SDL_Renderer* sdl_r, int win
     hud.world_hint = -1;
     if (text.empty() || !hud.help) return;
 
-    // White on the world with a shadow, wrapped to the view, its last line
-    // just above the panel -- at the Text size, above the panel at its own.
+    // In its box over the map just above the panel, the map darkened through
+    // it: white with a shadow, from the box's top down, wrapped to its width,
+    // all at the panel's size. A help longer than the box holds takes the
+    // box's top up with it.
     const HudLayout& layout = Lay(panel.w);
-    const int font = Text::Scaled(Text::kGeorgia9B, TextPercent());
-    const int left = static_cast<int>(std::lround(layout.help_x * panel.scale));
+    const int font = Text::Scaled(Text::kGeorgia9, static_cast<int>(std::lround(panel.scale * 100.0f)));
+    const int box_top = static_cast<int>(std::lround(panel.FrameY(static_cast<float>(layout.help.y))));
+    const int box_bottom =
+        static_cast<int>(std::lround(panel.FrameY(static_cast<float>(layout.help.y + layout.help.h))));
+    SDL_Rect box{static_cast<int>(std::lround(layout.help.x * panel.scale)), box_top,
+                 static_cast<int>(std::lround(layout.help.w * panel.scale)), box_bottom - box_top};
+    const int inset_x = static_cast<int>(std::lround(kHelpInsetX * panel.scale));
+    const int inset_y = static_cast<int>(std::lround(kHelpInsetY * panel.scale));
     std::vector<std::vector<Run>> lines;
-    LayoutRich(text, font, win_w - left * 2, lines);
-    const int line_h = Text::Height(font);
-    int y = static_cast<int>(std::lround(panel.FrameY(static_cast<float>(layout.help_bottom)))) -
-            static_cast<int>(lines.size()) * line_h;
+    LayoutRich(text, font, box.w - 2 * inset_x, lines);
+    while (!lines.empty() && lines.back().empty()) lines.pop_back();
+    const int line_h = static_cast<int>(std::lround(kHelpLinePitch * panel.scale));
+    const int needed = static_cast<int>(lines.size()) * line_h + 2 * inset_y;
+    if (needed > box.h) {
+        box.y -= needed - box.h;
+        box.h = needed;
+    }
+    Darken(sdl_r, box);
+    int y = box.y + inset_y;
     for (const auto& line : lines) {
-        int x = left;
+        int x = box.x + inset_x;
         for (const Run& run : line) {
-            Text::DrawOutlined(sdl_r, run.font, x, y, run.text, kWhite, kBlack);
+            Text::DrawShadowed(sdl_r, run.font, x, y, run.text, kWhite, kBlack);
             x += Text::Width(run.font, run.text);
         }
         y += line_h;

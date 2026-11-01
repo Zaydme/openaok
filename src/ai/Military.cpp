@@ -1,6 +1,7 @@
 #include "ai/Military.h"
 
 #include <algorithm>
+#include <tuple>
 
 #include "ai/Catalog.h"
 #include "ai/Knowledge.h"
@@ -214,17 +215,54 @@ Core::Fixed32 HitPoints(const entt::registry& registry, entt::entity e) {
     return health == nullptr ? Core::Fixed32{} : Core::Fixed32(health->current_hp) - health->wound;
 }
 
-// How much of `target` `unit` takes away a second: a blow's damage over its
-// reload, or for a Monk that could convert it, a tenth of its hit points.
-Core::Fixed32 Rate(const entt::registry& registry, entt::entity unit, entt::entity target) {
-    const auto* rules = ECS::Combat::FightingRules(registry, unit);
-    const auto* defender = ECS::Combat::DefendingRules(registry, target);
-    if (rules == nullptr || defender == nullptr) return {};
-    if (rules->attack_count > 0 && rules->reload > Core::Fixed32(0)) {
-        return Core::Fixed32(ECS::Combat::Damage(rules->attacks, rules->attack_count, *defender)) / rules->reload;
+// How much of a thing a fighter takes away a second: a blow's damage over its
+// reload, for one that strikes; a tenth of its hit points, for a Monk that
+// could convert it.
+bool Strikes(const Core::Rules::UnitRules& rules) {
+    return rules.attack_count > 0 && rules.reload > Core::Fixed32(0);
+}
+
+Core::Fixed32 StrikeRate(const Core::Rules::UnitRules& rules, const Core::Rules::UnitRules& defender) {
+    return Core::Fixed32(ECS::Combat::Damage(rules.attacks, rules.attack_count, defender)) / rules.reload;
+}
+
+// How many of something there are, by what tells them apart.
+template <typename Key>
+void Count(std::vector<std::pair<Key, int>>& counts, Key key, int n = 1) {
+    for (auto& c : counts) {
+        if (c.first == key) {
+            c.second += n;
+            return;
+        }
     }
-    if (ECS::Monks::CanConvert(registry, unit, target)) return HitPoints(registry, target) / Core::Fixed32(10);
-    return {};
+    counts.emplace_back(key, n);
+}
+
+// Fighters as the target evaluation sums them: how many strike by each
+// table, and how many Monks of each player's could convert. A rate summed
+// over them one by one is the same as over these counts.
+struct Force {
+    std::vector<std::pair<const Core::Rules::UnitRules*, int>> strikers;
+    std::vector<std::pair<Core::PlayerId, int>> converters;
+};
+
+void Enlist(const entt::registry& registry, Force& force, entt::entity e) {
+    const auto* rules = ECS::Combat::FightingRules(registry, e);
+    if (rules == nullptr) return;
+    if (Strikes(*rules)) {
+        Count(force.strikers, rules);
+    } else if (ECS::Monks::Converts(registry, e)) {
+        const auto* owner = registry.try_get<ECS::Components::Owner>(e);
+        Count(force.converters, owner != nullptr ? owner->player_id : Core::PLAYER_GAIA);
+    }
+}
+
+// How much of `target`, defending by `defender`, the force's strikers take
+// away a second.
+Core::Fixed32 StrikersRate(const Force& force, const Core::Rules::UnitRules& defender) {
+    Core::Fixed32 rate{};
+    for (const auto& [rules, n] : force.strikers) rate = rate + Core::Fixed32(n) * StrikeRate(*rules, defender);
+    return rate;
 }
 
 // One enemy thing as the target evaluation weighs it.
@@ -286,11 +324,13 @@ std::vector<Prospect> Weigh(const Turn& turn, const Group& group, bool sea, Core
     const ECS::Victory::Outcome* outcome = ECS::Victory::Read(registry);
     const Ground ground = GroundOf(turn, Lead(turn, group));
     std::vector<entt::entity> units;
+    Force force;
     Vector2D middle{};
     int placed = 0;
     for (entt::entity u : group.units) {
         if (!ECS::Combat::Alive(registry, u)) continue;
         units.push_back(u);
+        Enlist(registry, force, u);
         if (!registry.all_of<ECS::Components::Transform>(u)) continue;
         middle.x = middle.x + Where(registry, u).x;
         middle.y = middle.y + Where(registry, u).y;
@@ -301,13 +341,21 @@ std::vector<Prospect> Weigh(const Turn& turn, const Group& group, bool sea, Core
     middle.y = middle.y / Core::Fixed32(placed);
 
     std::vector<Prospect> out;
-    // What could shoot at a spot: each known enemy thing, its box and reach.
+    // What could shoot at a spot: each known enemy thing, its box and reach,
+    // and what it fights the group with: the striking table it is counted
+    // under (an index into `striking`), or the player whose Monk it is.
     struct Defender {
         entt::entity e;
         ECS::Buildings::Bounds box;
         Core::Fixed32 range;
+        int striker = -1;
+        int converter = -1;   // an index into `converting`
     };
     std::vector<Defender> defenders;
+    std::vector<const Core::Rules::UnitRules*> striking;
+    std::vector<Core::PlayerId> converting;
+    // The group's strikers' rate against each defending table met.
+    std::vector<std::pair<const Core::Rules::UnitRules*, Core::Fixed32>> struck;
     auto all = registry.view<const ECS::Components::Transform, const ECS::Components::Owner>();
     for (auto e : all) {
         if (!Hostile(turn, e) || !ECS::Combat::Alive(registry, e)) continue;
@@ -318,7 +366,17 @@ std::vector<Prospect> Weigh(const Turn& turn, const Group& group, bool sea, Core
         const int x = Physics::TileOf(at.x), y = Physics::TileOf(at.y);
         if (building ? !Knowledge::Explored(turn, x, y) : !Knowledge::Sees(turn, e)) continue;
         if (const auto* fights = ECS::Combat::FightingRules(registry, e)) {
-            defenders.push_back({e, ECS::Combat::BoxOf(registry, e), fights->max_range});
+            Defender d{e, ECS::Combat::BoxOf(registry, e), fights->max_range};
+            if (Strikes(*fights)) {
+                const auto known = std::find(striking.begin(), striking.end(), fights);
+                d.striker = static_cast<int>(known - striking.begin());
+                if (known == striking.end()) striking.push_back(fights);
+            } else if (ECS::Monks::Converts(registry, e)) {
+                const auto known = std::find(converting.begin(), converting.end(), owner);
+                d.converter = static_cast<int>(known - converting.begin());
+                if (known == converting.end()) converting.push_back(owner);
+            }
+            defenders.push_back(d);
         }
         if (only != 0 && owner != only) continue;
         const auto* rules = ECS::Combat::DefendingRules(registry, e);
@@ -344,7 +402,19 @@ std::vector<Prospect> Weigh(const Turn& turn, const Group& group, bool sea, Core
                      Listed(kEconomicUnits, std::size(kEconomicUnits), id);
         p.wall = cls == kWallClass || cls == kGateClass;
         Core::Fixed32 rate{};
-        for (entt::entity u : units) rate = rate + Rate(registry, u, e);
+        if (rules != nullptr) {
+            auto known = std::find_if(struck.begin(), struck.end(), [&](const auto& s) { return s.first == rules; });
+            if (known == struck.end()) {
+                struck.emplace_back(rules, StrikersRate(force, *rules));
+                known = struck.end() - 1;
+            }
+            rate = known->second;
+            for (const auto& [player, n] : force.converters) {
+                if (ECS::Monks::Convertible(registry, player, e)) {
+                    rate = rate + Core::Fixed32(n) * (HitPoints(registry, e) / Core::Fixed32(10));
+                }
+            }
+        }
         p.kill = rate > Core::Fixed32(0) ? HitPoints(registry, e) / rate : kNever;
         p.distance = ECS::Combat::BoxOf(registry, e).DistanceFrom(middle);
         out.push_back(p);
@@ -352,26 +422,92 @@ std::vector<Prospect> Weigh(const Turn& turn, const Group& group, bool sea, Core
     if (out.empty()) return out;
 
     // How long what could shoot at each prospect's spot would take to kill
-    // the group, one soldier after another.
+    // the group, one soldier after another. The soldiers alike in their
+    // defending table, hit points and whose Monks could convert them (a bit
+    // for each of `converting`) are taken together.
+    struct Body {
+        int table;   // an index into `tables`
+        Core::Fixed32 hp;
+        uint32_t convertible;
+        int count;
+    };
+    std::vector<const Core::Rules::UnitRules*> tables;
+    std::vector<Body> bodies;
+    for (entt::entity u : units) {
+        const auto* defends = ECS::Combat::DefendingRules(registry, u);
+        if (defends == nullptr) continue;
+        const auto known = std::find(tables.begin(), tables.end(), defends);
+        Body b{static_cast<int>(known - tables.begin()), HitPoints(registry, u), 0, 1};
+        if (known == tables.end()) tables.push_back(defends);
+        for (size_t c = 0; c < converting.size(); ++c) {
+            if (ECS::Monks::Convertible(registry, converting[c], u)) b.convertible |= 1u << c;
+        }
+        bodies.push_back(b);
+    }
+    std::sort(bodies.begin(), bodies.end(), [](const Body& a, const Body& b) {
+        return std::tie(a.table, a.hp, a.convertible) < std::tie(b.table, b.hp, b.convertible);
+    });
+    size_t kept = 0;
+    for (size_t i = 0; i < bodies.size(); ++i) {
+        if (kept > 0 && bodies[kept - 1].table == bodies[i].table && bodies[kept - 1].hp == bodies[i].hp &&
+            bodies[kept - 1].convertible == bodies[i].convertible) {
+            ++bodies[kept - 1].count;
+        } else {
+            bodies[kept++] = bodies[i];
+        }
+    }
+    bodies.resize(kept);
+    // Each striking table's rate against each of the group's, filled as met.
+    std::vector<Core::Fixed32> rates(striking.size() * tables.size());
+    std::vector<uint8_t> rated(rates.size(), 0);
+
     const Core::Fixed32 zero{};
-    std::vector<entt::entity> near;
+    std::vector<int> near(striking.size(), 0);
+    std::vector<int> near_monks(converting.size(), 0);
+    std::vector<int> met;
+    std::vector<Core::Fixed32> base(tables.size());
     for (Prospect& p : out) {
         const Vector2D& at = Where(registry, p.e);
-        near.clear();
+        for (int k : met) near[static_cast<size_t>(k)] = 0;
+        met.clear();
+        std::fill(near_monks.begin(), near_monks.end(), 0);
+        bool any = false;
         for (const Defender& d : defenders) {
             const Core::Fixed32 dx = std::max(zero, std::max(d.box.min_x - at.x, at.x - d.box.max_x));
             const Core::Fixed32 dy = std::max(zero, std::max(d.box.min_y - at.y, at.y - d.box.max_y));
             if (dx > d.range || dy > d.range) continue;
-            if (dx * dx + dy * dy <= d.range * d.range) near.push_back(d.e);
+            if (dx * dx + dy * dy > d.range * d.range) continue;
+            any = true;
+            if (d.striker >= 0) {
+                if (near[static_cast<size_t>(d.striker)]++ == 0) met.push_back(d.striker);
+            } else if (d.converter >= 0) {
+                ++near_monks[static_cast<size_t>(d.converter)];
+            }
         }
-        if (near.empty()) {
+        if (!any) {
             p.defence = kNever;
             continue;
         }
-        for (entt::entity u : units) {
+        for (size_t t = 0; t < tables.size(); ++t) {
             Core::Fixed32 rate{};
-            for (entt::entity d : near) rate = rate + Rate(registry, d, u);
-            if (rate > Core::Fixed32(0)) p.defence = p.defence + HitPoints(registry, u) / rate;
+            for (int k : met) {
+                const size_t cell = static_cast<size_t>(k) * tables.size() + t;
+                if (!rated[cell]) {
+                    rates[cell] = StrikeRate(*striking[static_cast<size_t>(k)], *tables[t]);
+                    rated[cell] = 1;
+                }
+                rate = rate + Core::Fixed32(near[static_cast<size_t>(k)]) * rates[cell];
+            }
+            base[t] = rate;
+        }
+        for (const Body& b : bodies) {
+            int monks = 0;
+            for (size_t c = 0; c < converting.size(); ++c) {
+                if (b.convertible & (1u << c)) monks += near_monks[c];
+            }
+            Core::Fixed32 rate = base[static_cast<size_t>(b.table)];
+            if (monks > 0) rate = rate + Core::Fixed32(monks) * (b.hp / Core::Fixed32(10));
+            if (rate > Core::Fixed32(0)) p.defence = p.defence + Core::Fixed32(b.count) * (b.hp / rate);
         }
     }
 
@@ -429,12 +565,24 @@ void Charge(Turn& turn, Group& group, bool idle_only) {
     }
 }
 
+// Each of `units` sent walking to `at` together, in turn: none plans round
+// the others, which set off with it.
+void SendTogether(Turn& turn, const std::vector<entt::entity>& units, Vector2D at) {
+    static std::vector<entt::entity> group;
+    group.assign(units.begin(), units.end());
+    std::sort(group.begin(), group.end());
+    ECS::Navigation::Marching(&group);
+    for (entt::entity u : units) Give(*turn.registry, *turn.grid, Core::MoveCommand{u, at.x, at.y, turn.player});
+    ECS::Navigation::Marching(nullptr);
+}
+
 void Disband(Turn& turn, Group& group) {
-    const Vector2D at = Muster(turn);
+    static std::vector<entt::entity> sent;
+    sent.clear();
     for (entt::entity u : group.units) {
-        if (!turn.registry->all_of<ECS::Components::Transform>(u)) continue;
-        Give(*turn.registry, *turn.grid, Core::MoveCommand{u, at.x, at.y, turn.player});
+        if (turn.registry->all_of<ECS::Components::Transform>(u)) sent.push_back(u);
     }
+    SendTogether(turn, sent, Muster(turn));
     group.units.clear();
     group.ships.clear();
     group.target = entt::null;
@@ -704,11 +852,14 @@ void Gather(Turn& turn, Group& g) {
     if (lead == entt::null) return;
     const Vector2D at = Where(registry, lead);
     const Core::Fixed32 spacing(Sn(turn, Lang::SN::AttackGroupGatherSpacing));
+    static std::vector<entt::entity> sent;
+    sent.clear();
     for (entt::entity u : g.units) {
         if (u == lead || !registry.all_of<ECS::Components::Transform>(u) || !Idle(registry, u)) continue;
         if (Distance(Where(registry, u), at) - Core::Fixed32(1) <= spacing) continue;
-        Give(*turn.registry, *turn.grid, Core::MoveCommand{u, at.x, at.y, turn.player});
+        sent.push_back(u);
     }
+    SendTogether(turn, sent, at);
 }
 
 bool Gathered(const Turn& turn, const Group& g) {
@@ -994,12 +1145,15 @@ void GatherDefense(Turn& turn) {
         return;
     }
     const Ground home = GroundOf(turn, c.town_center);
+    static std::vector<entt::entity> sent;
+    sent.clear();
     for (entt::entity e : Defenders(turn)) {
         if (GroupOf(turn, e) != nullptr || !Idle(registry, e)) continue;
         if (Distance(Where(registry, e), c.home) <= kDefendedReach) continue;
         if (home.region >= 0 && GroundOf(turn, e).region != home.region) continue;
-        Give(*turn.registry, *turn.grid, Core::MoveCommand{e, c.home.x, c.home.y, turn.player});
+        sent.push_back(e);
     }
+    SendTogether(turn, sent, c.home);
 }
 
 } // namespace

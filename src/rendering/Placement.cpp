@@ -76,14 +76,15 @@ bool Collect(ECS::Simulation& sim, const Renderer& renderer, std::vector<Piece>&
 
     auto add = [&](int slp, int frame, float wx, float wy, bool clear, bool primary) {
         const HAL::GraphicAtlas* atlas = graphics.GetAtlas(static_cast<uint32_t>(slp));
-        if (atlas == nullptr || atlas->base == nullptr || frame < 0 ||
-            static_cast<size_t>(frame) >= atlas->frames.size() ||
+        if (atlas == nullptr || frame < 0 || static_cast<size_t>(frame) >= atlas->frames.size() ||
             atlas->frames[static_cast<size_t>(frame)].rect.w == 0) {
             return;
         }
+        const HAL::ArtPlace art = graphics.Art(static_cast<uint32_t>(slp), viewer);
+        if (art.page == nullptr) return;
         Piece piece;
         piece.atlas = atlas;
-        piece.player = graphics.GetPlayerLayer(static_cast<uint32_t>(slp), viewer);
+        piece.art = art;
         piece.frame = frame;
         piece.wx = wx;
         piece.wy = wy;

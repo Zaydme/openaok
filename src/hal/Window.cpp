@@ -1,4 +1,5 @@
 #include "Window.h"
+#include "GraphicCache.h"
 #include "Pad.h"
 #include "TextInput.h"
 #include "Touch.h"
@@ -180,6 +181,7 @@ void Window::Present() {
     SDL_SetTextureScaleMode(frame, whole ? SDL_ScaleModeNearest : SDL_ScaleModeLinear);
     SDL_RenderCopy(renderer, frame, nullptr, &dest);
     SDL_RenderPresent(renderer);
+    GraphicCache::Get().EndFrame();
     // The controller's pointer, and the system keyboard when a line is due
     // (Switch), once a frame.
     Pad::Update();

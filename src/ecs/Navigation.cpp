@@ -105,9 +105,24 @@ void SortKeys(std::vector<std::pair<uint64_t, uint32_t>>& keys, const std::vecto
     for (size_t i = 0; i < keys.size(); ++i) previous[i] = bodies[keys[i].second].entity;
 }
 
+// The walks planned this tick, for RouteBeside.
+struct SharedWalk {
+    Components::Vector2D from, to;
+    Physics::Layer layer;
+    Core::Fixed32 radius;
+    Components::Path path;
+};
+struct SharedWalks {
+    std::vector<SharedWalk> walks;
+};
+// Within this many tiles of a shared walk's start, across and along, a unit
+// takes it.
+const Core::Fixed32 kShareReach(2);
+
 } // namespace
 
 void Survey(entt::registry& registry, const Physics::Grid& grid) {
+    registry.ctx().emplace<SharedWalks>().walks.clear();
     auto& traffic = registry.ctx().emplace<Traffic>();
     traffic.width = grid.GetWidth();
     traffic.height = grid.GetHeight();
@@ -221,14 +236,42 @@ Components::Path Route(const entt::registry& registry, const Physics::Grid& grid
     return path;
 }
 
+Components::Path RouteBeside(entt::registry& registry, const Physics::Grid& grid,
+                             entt::entity entity, Components::Vector2D from,
+                             Components::Vector2D to) {
+    const Physics::Layer layer = LayerOf(registry, grid, entity);
+    const Core::Fixed32 radius = RadiusOf(registry, entity);
+    auto& walks = registry.ctx().emplace<SharedWalks>().walks;
+    for (const SharedWalk& s : walks) {
+        if (s.to.x != to.x || s.to.y != to.y || s.layer != layer || s.radius < radius) continue;
+        if (Core::FixedMath::Abs(s.from.x - from.x) > kShareReach ||
+            Core::FixedMath::Abs(s.from.y - from.y) > kShareReach) {
+            continue;
+        }
+        if (!Pathfinding::AStar::BodyClear(grid, from, s.path.waypoints.front(), layer, radius)) continue;
+        Components::Path path;
+        path.waypoints = s.path.waypoints;
+        path.goal = s.path.goal;
+        path.has_goal = s.path.has_goal;
+        return path;
+    }
+    Components::Path path = Route(registry, grid, entity, from, to);
+    if (!path.waypoints.empty()) walks.push_back({from, to, layer, radius, path});
+    return path;
+}
+
 Components::Vector2D Toward(const entt::registry& registry, const Physics::Grid& grid,
                             entt::entity entity, Components::Vector2D to) {
-    if (CanStand(registry, grid, entity, to)) return to;
     const auto* at = registry.try_get<Components::Transform>(entity);
-    if (at == nullptr) return to;
     const Physics::Layer layer = LayerOf(registry, grid, entity);
-    const int region = RegionOf(registry, grid, entity);
-    if (region < 0) return to;
+    const int region = at != nullptr ? RegionOf(registry, grid, entity) : -1;
+    // Somewhere it can stand and get to -- not a pocket of open ground walled
+    // in by trees: there.
+    if (CanStand(registry, grid, entity, to) &&
+        (region < 0 || Pathfinding::RegionAt(grid, Physics::TileOf(to.x), Physics::TileOf(to.y), layer) == region)) {
+        return to;
+    }
+    if (at == nullptr || region < 0) return to;
     // The nearest tile of the unit's own ground, ring by ring out from the
     // spot -- the nearest to the unit among those as near.
     constexpr int kReach = 32;

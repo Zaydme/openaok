@@ -51,9 +51,9 @@ struct HudLayout {
     uint32_t minimap_slp;
     SDL_Point minimap_button[8];
 
-    // Rollover help: left edge, and the bottom of its last line.
-    int help_x;
-    int help_bottom;
+    // Rollover help: the box it is shown in, over the map's lower left just
+    // above the panel. At 800 and 1280 the 1024 box's figures in proportion.
+    SDL_Rect help;
 };
 
 // The buttons round the mini-map, in kLayouts' order.
@@ -99,7 +99,7 @@ constexpr HudLayout kLayouts[] = {
      {511, 465, 265, 133}, 50789,
      {{516, 477}, {516, 554}, {719, 477}, {749, 477}, {768, 499}, {768, 542},
       {719, 565}, {748, 563}},
-     4, 441},
+     {3, 362, 422, 90}},
     // 1024x768.
     {1024, 768, 51121, 25, 593,
      {75, 152, 229, 306, 383}, 5, 5, 384, 722,
@@ -111,7 +111,7 @@ constexpr HudLayout kLayouts[] = {
      {690, 600, 322, 163}, 50788,
      {{716, 614}, {715, 719}, {928, 612}, {955, 606}, {964, 631}, {963, 709},
       {922, 729}, {950, 733}},
-     6, 577},
+     {4, 475, 540, 115}},
     // 1280x1024. The readout's icons and numbers sit six rows lower than at
     // 1024; the age's box stays at y 3 on every size. The object panel is
     // 1024's size, so its contents keep their offsets in it.
@@ -125,7 +125,7 @@ constexpr HudLayout kLayouts[] = {
      {870, 818, 390, 197}, 50790,
      {{887, 829}, {886, 956}, {1148, 826}, {1187, 826}, {1210, 856}, {1211, 946},
       {1145, 979}, {1186, 975}},
-     8, 790},
+     {5, 650, 675, 153}},
 };
 
 // The frame being drawn, as the renderer last set it. At the three 4:3 sizes

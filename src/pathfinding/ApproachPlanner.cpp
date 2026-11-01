@@ -1,6 +1,7 @@
 #include "pathfinding/ApproachPlanner.h"
 
 #include "core/FixedMath.h"
+#include "pathfinding/Pathfinder.h"
 
 namespace Pathfinding {
 
@@ -145,11 +146,15 @@ ApproachResult FindStandingSpot(const Physics::Grid& grid,
     Core::Fixed32 face_hi(0);
     edge.FaceSpan(nearest, face_lo, face_hi);
 
+    // Ground the caller can walk to: in the region it stands in, when it
+    // stands in one -- not a pocket of open ground walled in by trees.
+    const int region = RegionAt(grid, Physics::TileOf(request.from.x), Physics::TileOf(request.from.y), request.layer);
     ApproachResult result;
     auto usable = [&](const Vector2D& spot) {
-        if (!grid.Passable(request.layer, Physics::TileOf(spot.x), Physics::TileOf(spot.y))) {
-            return false;
-        }
+        const int x = Physics::TileOf(spot.x);
+        const int y = Physics::TileOf(spot.y);
+        if (!grid.Passable(request.layer, x, y)) return false;
+        if (region >= 0 && RegionAt(grid, x, y, request.layer) != region) return false;
         for (size_t i = 0; i < request.taken_count; ++i) {
             const Core::Fixed32 gap = Core::FixedMath::Distance(
                 spot.x - request.taken[i].x, spot.y - request.taken[i].y);

@@ -1,6 +1,7 @@
 #pragma once
 #include <entt/entt.hpp>
 
+#include "core/Types.h"
 #include "physics/Grid.h"
 
 // Monks: converting the enemy and healing their own side.
@@ -22,6 +23,11 @@ namespace ECS::Monks {
 // Whether `monk` may convert `target` now: a convert task, enemies, the
 // owner's resources, and full faith.
 bool CanConvert(const entt::registry& registry, entt::entity monk, entt::entity target);
+
+// CanConvert's two halves: whether `monk` is a living unit with a convert
+// task, and whether a monk of `player`'s may convert `target`.
+bool Converts(const entt::registry& registry, entt::entity monk);
+bool Convertible(const entt::registry& registry, Core::PlayerId player, entt::entity target);
 
 // Sends `monk` to convert `target`, or to heal one of its own side.
 bool Convert(entt::registry& registry, entt::entity monk, entt::entity target);

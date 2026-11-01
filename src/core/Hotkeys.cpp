@@ -17,6 +17,7 @@ struct Binding {
     bool alt = false;
     bool shift = false;
     int name_string = -1;
+    std::string letter;   // the key as LANGUAGE.DLL spells it
 };
 
 std::vector<Binding>& Table() {
@@ -88,6 +89,7 @@ bool Load(const std::string& path) {
         b.alt = d.value("alt", false);
         b.shift = d.value("shift", false);
         b.name_string = d.value("string", -1);
+        b.letter = d.value("letter", std::string());
         table.push_back(b);
     }
     // An empty table: the game's own copy keeps its code encrypted
@@ -124,6 +126,13 @@ int NameString(int group, int item) {
         if (b.group == group && b.item == item) return b.name_string;
     }
     return -1;
+}
+
+std::string Letter(int group, int item) {
+    for (const auto& b : Table()) {
+        if (b.group == group && b.item == item) return b.letter;
+    }
+    return {};
 }
 
 int Items(int group, int* out, int max_out) {
