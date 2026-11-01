@@ -146,7 +146,8 @@ bool CopyOne(NSURL* from, NSString* to, unsigned long& crc, long long& size,
     }
     [in open];
     if (in.streamStatus == NSStreamStatusError) {
-        NSString* reason = in.streamError.localizedDescription ?: @"the file is unavailable";
+        NSString* described = in.streamError.localizedDescription;
+        NSString* reason = described != nil ? described : @"the file is unavailable";
         *why = [NSString stringWithFormat:@"Cannot read %@: %@", from.lastPathComponent, reason];
         [in close];
         return false;
@@ -454,7 +455,7 @@ bool Install(NSURL* picked, const std::function<void(long long, long long)>& pro
     _bar.hidden = YES;
     _choose.hidden = NO;
     _status.textColor = [UIColor colorWithRed:1.0 green:0.55 blue:0.45 alpha:1.0];
-    _status.text = why ?: @"The folder could not be copied.";
+    _status.text = why != nil ? why : @"The folder could not be copied.";
 }
 
 @end

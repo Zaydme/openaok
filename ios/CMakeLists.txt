@@ -83,12 +83,11 @@ target_include_directories(OpenAoK PRIVATE ${REPO}/src)
 # includes: they are not ours to keep warning-clean.
 target_include_directories(OpenAoK SYSTEM PRIVATE ${REPO}/third_party)
 
-# The desktop build's warnings, as errors, on the engine's own code; on the
-# app's Objective-C++ the same warnings, shown. SDL and FreeType are SYSTEM
-# includes, as their packages are on a desktop.
+# The desktop build's warnings, as errors, on the engine's code and the app's
+# Objective-C++ alike. SDL and FreeType are SYSTEM includes, as their packages
+# are on a desktop.
 target_compile_options(OpenAoK PRIVATE
-    -O3 -Wall -Wextra -Wno-missing-designated-field-initializers
-    "$<$<COMPILE_LANGUAGE:CXX>:-Wpedantic;-Werror>")
+    -O3 -Wall -Wextra -Wpedantic -Werror -Wno-missing-designated-field-initializers)
 
 # The version of the game's data this build plays from: prepare_data.py's, as
 # android/app/build.gradle reads it. The folder ios/package.py makes carries it
