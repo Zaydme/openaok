@@ -241,6 +241,9 @@ bool CheckStep();
 // A lumberjack whose tree runs out goes on to the nearest it can come up to,
 // not a nearer one walled in. Prints "walledtree=".
 bool CheckWalledTree();
+// A hundred soldiers set on one enemy all have their routes the tick after
+// the order, and all come up to it. Prints "setoff=".
+bool CheckSetOff();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

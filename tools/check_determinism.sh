@@ -47,6 +47,7 @@ PASSING="$(echo "$OUTPUT" | grep '^passing=')"
 CARRYON="$(echo "$OUTPUT" | grep '^carryon=')"
 STEP="$(echo "$OUTPUT" | grep '^step=')"
 WALLEDTREE="$(echo "$OUTPUT" | grep '^walledtree=')"
+SETOFF="$(echo "$OUTPUT" | grep '^setoff=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -327,6 +328,12 @@ esac
 case "$WALLEDTREE" in
     walledtree=ok*) echo "walledtree OK" ;;
     *) echo "WALLEDTREE FAILED" >&2; echo "  $WALLEDTREE" >&2; STATUS=1 ;;
+esac
+
+# Soldiers set on one enemy all set off at once and all come up to it.
+case "$SETOFF" in
+    setoff=ok*) echo "setoff OK: ${SETOFF#setoff=ok }" ;;
+    *) echo "SETOFF FAILED" >&2; echo "  $SETOFF" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

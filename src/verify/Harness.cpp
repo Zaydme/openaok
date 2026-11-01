@@ -83,6 +83,7 @@ int Run(int ticks) {
     if (runs("carryon")) ok &= CheckCarryOn();
     if (runs("step")) ok &= CheckStep();
     if (runs("walledtree")) ok &= CheckWalledTree();
+    if (runs("setoff")) ok &= CheckSetOff();
     if (runs("wolves")) ok &= CheckWolves();
     if (runs("lobby")) ok &= CheckLobby();
     if (runs("formations")) ok &= CheckFormations();

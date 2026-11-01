@@ -58,16 +58,12 @@ const Core::Fixed32 kDisengageSlack = Core::Fixed32(3) / Core::Fixed32(10);
 constexpr int32_t kChaseReplanMs = 500;
 // Empty routes to a target before the chase is given up.
 constexpr int kChaseGiveUp = 3;
-// The chases planned in one pass at most: an army ordered at once plans its
-// routes over a few passes rather than all in one.
-constexpr int kChasePlansPerPass = 8;
-// And the tiles their searches expand in one pass at most, past the first
-// plan: an army's long marches are planned a few a pass.
-constexpr int64_t kChaseSearchPerPass = 6000;
 // A chase still walking, further than kChaseNear from its target, is planned
 // again only once the target has strayed kChaseDrift tiles from where the
-// walk is going -- at a building, never. Nearer, it is planned again as
-// often as ever, to find its place round the target among the others.
+// walk is going -- at a building, never -- and then only if the walk's last
+// leg cannot be turned straight to where the target is now. Nearer, it is
+// planned again as often as ever, to find its place round the target among
+// the others.
 const Core::Fixed32 kChaseDrift(1);
 const Core::Fixed32 kChaseNear(5);
 constexpr int32_t kScanMs = 500;
@@ -475,8 +471,6 @@ void Disengage(entt::registry& registry, const Physics::Grid& grid, entt::entity
     }
 }
 
-// Re-plans a chase toward the target: straight at a unit, or to a spot
-// against a building's wall. False when there is no route to it at all.
 // Whether a chase walking on, still far from its target, goes where the
 // target is: a building, which never moves, or a unit within kChaseDrift of
 // the walk's goal.
@@ -487,6 +481,30 @@ bool StillThere(const entt::registry& registry, entt::entity self, entt::entity 
     if (IsBuilding(registry, target)) return true;
     const auto& at = registry.get<Components::Transform>(target).position;
     return Core::FixedMath::Distance(at.x - path.goal.x, at.y - path.goal.y) <= kChaseDrift;
+}
+
+// A chase walking on, still far from a unit that has strayed from the walk's
+// goal: the walk's last leg turned to where the unit is now, when the body
+// can go straight there from the leg's start. False when it cannot, and the
+// chase is planned again.
+bool TurnLastLeg(const entt::registry& registry, const Physics::Grid& grid, entt::entity self,
+                 entt::entity target, Components::Path& path) {
+    if (path.target != target || !path.has_goal || path.waypoints.empty()) return false;
+    if (IsBuilding(registry, target) || Gap(registry, self, target) <= kChaseNear) return false;
+    const size_t last = path.waypoints.size() - 1;
+    if (path.current_waypoint_index > last) return false;
+    const auto& at = registry.get<Components::Transform>(target).position;
+    const Components::Vector2D start = path.current_waypoint_index == last
+                                           ? registry.get<Components::Transform>(self).position
+                                           : path.waypoints[last - 1];
+    const Physics::Layer layer = Navigation::LayerOf(registry, grid, self);
+    if (!Navigation::CanStand(registry, grid, self, at) ||
+        !Pathfinding::AStar::BodyClear(grid, start, at, layer, Radius(registry, self))) {
+        return false;
+    }
+    path.waypoints[last] = at;
+    path.goal = at;
+    return true;
 }
 
 // Within this many tiles of a unit it fights hand to hand, an attacker makes
@@ -597,11 +615,64 @@ void KeepLane(const entt::registry& registry, const Physics::Grid& grid, entt::e
     }
 }
 
+// A chase route planned this pass, before it was laid off into its lane, for
+// others setting off beside where it starts to take: one search serves a
+// block of soldiers set on the same far target at once. Kept for the pass
+// only.
+struct SharedChase {
+    entt::entity target;
+    Physics::Layer layer;
+    Core::Fixed32 radius;
+    Components::Vector2D from;
+    Components::Path path;
+};
+// Within this many tiles of a shared route's start, across and along, a unit
+// takes it, if it can walk straight to the route's first bend.
+const Core::Fixed32 kShareReach(2);
+
+std::vector<SharedChase>& SharedChases() {
+    static std::vector<SharedChase> shared;
+    return shared;
+}
+
+// A route from `from` to `target` planned this pass for a body at least as
+// wide on the same ground, starting near enough that the way to its first
+// bend is straight and open. Null when there is none.
+const Components::Path* SharedRoute(const Physics::Grid& grid, entt::entity target, Physics::Layer layer,
+                                    Core::Fixed32 radius, Components::Vector2D from) {
+    for (const SharedChase& s : SharedChases()) {
+        if (s.target != target || s.layer != layer || s.radius < radius) continue;
+        if (Core::FixedMath::Abs(s.from.x - from.x) > kShareReach ||
+            Core::FixedMath::Abs(s.from.y - from.y) > kShareReach) {
+            continue;
+        }
+        if (Pathfinding::AStar::BodyClear(grid, from, s.path.waypoints.front(), layer, radius)) return &s.path;
+    }
+    return nullptr;
+}
+
+// Re-plans a chase toward the target: straight at a unit, or to a spot
+// against a building's wall. False when there is no route to it at all.
 bool PlanChase(entt::registry& registry, const Physics::Grid& grid, entt::entity self,
                entt::entity target, const R::UnitRules& rules) {
     const auto& from = registry.get<Components::Transform>(self).position;
     const auto& at = registry.get<Components::Transform>(target).position;
     const Physics::Layer layer = Navigation::LayerOf(registry, grid, self);
+    // Far off, a route another planned this pass from beside it.
+    const bool far = Gap(registry, self, target) > kChaseNear;
+    if (far) {
+        if (const Components::Path* shared = SharedRoute(grid, target, layer, Radius(registry, self), from)) {
+            Components::Path path;
+            path.waypoints = shared->waypoints;
+            path.goal = shared->goal;
+            path.has_goal = shared->has_goal;
+            path.target = target;
+            path.range = Reach(rules);
+            KeepLane(registry, grid, self, target, from, layer, path);
+            registry.emplace_or_replace<Components::Path>(self, std::move(path));
+            return true;
+        }
+    }
     Components::Vector2D goal = at;
     // Near a unit it fights hand to hand: to a place of its own about it.
     const bool building_target = IsBuilding(registry, target);
@@ -649,6 +720,7 @@ bool PlanChase(entt::registry& registry, const Physics::Grid& grid, entt::entity
     // The walk ends once the target is within reach, wherever it has got to.
     auto path = Navigation::Route(registry, grid, self, from, goal, target, Reach(rules));
     if (path.waypoints.empty()) return false;
+    if (far) SharedChases().push_back({target, layer, Radius(registry, self), from, path});
     KeepLane(registry, grid, self, target, from, layer, path);
     registry.emplace_or_replace<Components::Path>(self, std::move(path));
     return true;
@@ -1026,8 +1098,7 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
     const auto& owners = registry.storage<Components::Owner>();
     const Players::Table* table = Players::TableOf(registry);
 
-    int plans = 0;
-    const int64_t searched_before = Pathfinding::AStar::Searched();
+    SharedChases().clear();
     auto fighters = registry.view<Combat, Components::Transform>();
     for (auto self : fighters) {
         auto& combat = fighters.get<Combat>(self);
@@ -1133,21 +1204,15 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
                 }
             }
             combat.chase_ms -= dt_ms;
-            const auto* path = registry.try_get<Components::Path>(self);
+            auto* path = registry.try_get<Components::Path>(self);
             const bool walking = path != nullptr &&
                                  path->current_waypoint_index < path->waypoints.size();
             if (combat.chase_ms <= 0 || !walking) {
-                if (walking && StillThere(registry, self, combat.target, *path)) {
+                if (walking && (StillThere(registry, self, combat.target, *path) ||
+                                TurnLastLeg(registry, grid, self, combat.target, *path))) {
                     combat.chase_ms = kChaseReplanMs;
                     break;
                 }
-                // Over the pass's plans, or the searching they may do, it
-                // waits for the next pass.
-                if (plans >= kChasePlansPerPass ||
-                    (plans > 0 && Pathfinding::AStar::Searched() - searched_before >= kChaseSearchPerPass)) {
-                    break;
-                }
-                ++plans;
                 combat.chase_ms = kChaseReplanMs;
                 if (PlanChase(registry, grid, self, combat.target, *rules)) {
                     combat.chase_failures = 0;
