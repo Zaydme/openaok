@@ -2,6 +2,10 @@
 
 #include <SDL2/SDL.h>
 
+#ifdef __IPHONEOS__
+#include "hal/PlatformiOS.h"
+#endif
+
 #ifdef __SWITCH__
 #include <arpa/inet.h>
 #include <switch.h>
@@ -273,6 +277,18 @@ std::string PrefPath(const char* kind) {
     mkdir(dir.c_str(), 0777);
     return Exists(dir) ? dir + "/" : std::string();
 }
+
+#elif defined(__IPHONEOS__)
+
+// The app's own part: the game's data in Documents, copied in from the
+// document picker on first start (ios/platform/PlatformiOS.mm).
+bool Start(int argc, char* argv[]) { return HAL::iOS::Start(argc, argv); }
+
+bool WarmArt() { return true; }
+
+void LogMemory(const char*) {}
+
+std::string PrefPath(const char* kind) { return HAL::iOS::PrefPath(kind); }
 
 #else
 

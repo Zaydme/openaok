@@ -2,6 +2,17 @@
 #include <string>
 #include <vector>
 
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#endif
+
+// A handheld: the Android phone, the Switch, the iPhone and the iPad.
+#if defined(__ANDROID__) || defined(__SWITCH__) || (defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE)
+#define OPENAOK_HANDHELD 1
+#else
+#define OPENAOK_HANDHELD 0
+#endif
+
 // The player's profile, kept between runs: the name the player plays under
 // and the Options screen's choices. A plain text file of `key value` lines in
 // the user's own preferences folder.
@@ -31,8 +42,8 @@ struct Options {
     bool no_selection_limit = true;
     // The game's frame as wide as the screen, the interface reaching its
     // edges (rendering/HudLayout.h). Off, the frame is 4:3.
-#if defined(__ANDROID__) || defined(__SWITCH__)
-    bool widescreen = true;      // a phone and the Switch are far wider than 4:3
+#if OPENAOK_HANDHELD
+    bool widescreen = true;      // a phone's and a tablet's screen are far wider than 4:3
 #else
     bool widescreen = false;
 #endif
@@ -41,7 +52,7 @@ struct Options {
     // (with the map and the help), and the text over the world (chat, the
     // game's messages, scores and timers). A bar grows only as far as the
     // frame has room for it (rendering/UIRenderer's HudSpace).
-#if defined(__ANDROID__) || defined(__SWITCH__)
+#if OPENAOK_HANDHELD
     int top_bar_size = 150;      // a handheld's screen is small and far off
     int panel_size = 125;
     int text_size = 150;

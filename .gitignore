@@ -16,6 +16,10 @@
 /android/app/build/
 /android/app/.cxx/
 /android/local.properties
+/ios/deps/
+/ios/data/
+/ios/build/
+/ios/build-sim/
 
 # Local tools and notes
 /scratch/

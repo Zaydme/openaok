@@ -8,11 +8,13 @@ extern "C" JNIEXPORT void JNICALL Java_org_libsdl_app_SDLActivity_onNativeMouse(
     JNIEnv* env, jclass cls, jint button, jint action, jfloat x, jfloat y, jboolean relative);
 #endif
 
-#ifdef __SWITCH__
+#if defined(__SWITCH__) || defined(__IPHONEOS__)
 #include "hal/Window.h"
-// SDL's own way in for a mouse (events/SDL_mouse_c.h), which its Switch port
-// uses for a USB mouse. SDL is linked in whole on the Switch, so these are
-// within reach. The mouse's id is SDL's SDL_MouseID.
+// SDL's own way in for a mouse (events/SDL_mouse_c.h): the Switch port uses
+// it for a USB mouse, and on iOS it is how the touch controls' made-up mouse
+// reaches what reads the mouse. SDL is linked in whole on the Switch and
+// statically on iOS, so these are within reach. The mouse's id is SDL's
+// SDL_MouseID.
 extern "C" int SDL_SendMouseMotion(SDL_Window* window, Uint32 mouse, int relative, int x, int y);
 extern "C" int SDL_SendMouseButton(SDL_Window* window, Uint32 mouse, Uint8 state, Uint8 button);
 #endif
@@ -40,7 +42,7 @@ int AndroidButton(Uint8 button) {
 }
 #endif
 
-#ifdef __SWITCH__
+#if defined(__SWITCH__) || defined(__IPHONEOS__)
 SDL_Window* Target() {
     Window* window = MainWindow();
     return window != nullptr ? window->GetSDLWindow() : nullptr;
@@ -55,7 +57,7 @@ void Move(float x, float y, bool by_finger) {
     g.by_finger = by_finger;
 #if defined(__ANDROID__)
     Java_org_libsdl_app_SDLActivity_onNativeMouse(nullptr, nullptr, g.held, kMove, x, y, JNI_FALSE);
-#elif defined(__SWITCH__)
+#elif defined(__SWITCH__) || defined(__IPHONEOS__)
     if (SDL_Window* window = Target()) {
         SDL_SendMouseMotion(window, 0, 0, static_cast<int>(x), static_cast<int>(y));
     }
@@ -66,7 +68,7 @@ void Press(Uint8 button) {
 #if defined(__ANDROID__)
     g.held |= AndroidButton(button);
     Java_org_libsdl_app_SDLActivity_onNativeMouse(nullptr, nullptr, g.held, kDown, g.x, g.y, JNI_FALSE);
-#elif defined(__SWITCH__)
+#elif defined(__SWITCH__) || defined(__IPHONEOS__)
     if (SDL_Window* window = Target()) SDL_SendMouseButton(window, 0, SDL_PRESSED, button);
 #else
     (void)button;
@@ -77,7 +79,7 @@ void Release(Uint8 button) {
 #if defined(__ANDROID__)
     g.held &= ~AndroidButton(button);
     Java_org_libsdl_app_SDLActivity_onNativeMouse(nullptr, nullptr, g.held, kUp, g.x, g.y, JNI_FALSE);
-#elif defined(__SWITCH__)
+#elif defined(__SWITCH__) || defined(__IPHONEOS__)
     if (SDL_Window* window = Target()) SDL_SendMouseButton(window, 0, SDL_RELEASED, button);
 #else
     (void)button;

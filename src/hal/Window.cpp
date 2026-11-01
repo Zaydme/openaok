@@ -3,6 +3,9 @@
 #include "Pad.h"
 #include "TextInput.h"
 #include "Touch.h"
+#ifdef __IPHONEOS__
+#include "PlatformiOS.h"
+#endif
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -40,6 +43,12 @@ bool Window::Init(const Config& config) {
         std::cerr << "[HAL] SDL_CreateWindow failed: " << SDL_GetError() << std::endl;
         return false;
     }
+#ifdef __IPHONEOS__
+    // SDL 2 makes its window with the application life cycle's
+    // initWithFrame:, which iOS 27 no longer shows: it must belong to the
+    // app's scene first.
+    HAL::iOS::AttachWindowToScene(window);
+#endif
 
     Uint32 render_flags = SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE;
     if (config.vsync) render_flags |= SDL_RENDERER_PRESENTVSYNC;
