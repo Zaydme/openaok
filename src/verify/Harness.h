@@ -260,6 +260,8 @@ bool CheckPages();
 // A soldier struck down leaves the minimap as it falls. Prints
 // "minimapdead=".
 bool CheckMinimapDead();
+// A command button's rollover help ends with its hotkey. Prints "help=".
+bool CheckHelp();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

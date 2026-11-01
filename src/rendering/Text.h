@@ -107,6 +107,8 @@ void Wrap(int font, std::string_view text, int width, std::vector<std::string_vi
 // The face with the same name and size, bold instead: what a <b> in the help
 // text switches to. The font itself when the table has no such face.
 int BoldOf(int font);
+// The same, italic: what an <i> switches to.
+int ItalicOf(int font);
 
 // The same face at `percent` of its size, rasterised afresh at that size the
 // way the rest are -- not the smaller one's pixels enlarged: the Options'

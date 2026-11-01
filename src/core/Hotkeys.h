@@ -131,6 +131,9 @@ int ItemOf(const SDL_KeyboardEvent& key, int group);
 // The item's name in LANGUAGE.DLL ("Go to Town Center"), or -1 when it has
 // no default.
 int NameString(int group, int item);
+// The item's key as LANGUAGE.DLL spells it ("B"), what the help names it by;
+// empty for a key that has no such spelling, or an item with no default.
+std::string Letter(int group, int item);
 // The items of `group` that have a default, in the table's order; returns how
 // many were written.
 int Items(int group, int* out, int max_out);

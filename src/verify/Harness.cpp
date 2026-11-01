@@ -89,6 +89,7 @@ int Run(int ticks) {
     if (runs("replanspread")) ok &= CheckReplanSpread();
     if (runs("pages")) ok &= CheckPages();
     if (runs("minimapdead")) ok &= CheckMinimapDead();
+    if (runs("help")) ok &= CheckHelp();
     if (runs("wolves")) ok &= CheckWolves();
     if (runs("lobby")) ok &= CheckLobby();
     if (runs("formations")) ok &= CheckFormations();

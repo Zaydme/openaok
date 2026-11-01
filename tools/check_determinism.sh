@@ -53,6 +53,7 @@ SHAREDWALK="$(echo "$OUTPUT" | grep '^sharedwalk=')"
 REPLANSPREAD="$(echo "$OUTPUT" | grep '^replanspread=')"
 PAGES="$(echo "$OUTPUT" | grep '^pages=')"
 MINIMAPDEAD="$(echo "$OUTPUT" | grep '^minimapdead=')"
+HELP="$(echo "$OUTPUT" | grep '^help=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -369,6 +370,12 @@ esac
 case "$MINIMAPDEAD" in
     minimapdead=ok*) echo "minimapdead OK: ${MINIMAPDEAD#minimapdead=ok }" ;;
     *) echo "MINIMAPDEAD FAILED" >&2; echo "  $MINIMAPDEAD" >&2; STATUS=1 ;;
+esac
+
+# A command button's rollover help ends with its hotkey.
+case "$HELP" in
+    help=ok*) echo "help OK" ;;
+    *) echo "HELP FAILED" >&2; echo "  $HELP" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

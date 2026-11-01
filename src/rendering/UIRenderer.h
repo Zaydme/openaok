@@ -187,6 +187,9 @@ public:
     // for one of the viewer's own that holds any, not an ally's or enemy's.
     static bool ShowsGarrison(const entt::registry& registry, entt::entity selected);
 
+    // What the rollover help says over a command button, its hotkey last.
+    static std::string CommandHelp(ECS::Simulation& sim, const Command& command);
+
     // Whether a player's unit or building has its dot on the minimap at all:
     // not once it is falling or lying dead.
     static bool OnMinimap(const entt::registry& registry, entt::entity entity);
