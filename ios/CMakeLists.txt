@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.25)
 
 # The iOS app: the engine's sources, with SDL 2 and FreeType built here from
 # source (ios/fetch_deps.sh), linked into OpenAoK.app.
@@ -22,7 +22,19 @@ endif()
 set(CMAKE_OSX_DEPLOYMENT_TARGET "15.0" CACHE STRING "The oldest iOS OpenAoK runs on")
 set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "The architectures to build")
 
-project(OpenAoK VERSION 0.1.0 LANGUAGES C CXX OBJC OBJCXX)
+project(OpenAoK LANGUAGES C CXX OBJC OBJCXX)
+
+# The app's version: OPENAOK_VERSION from the environment, as a release's
+# workflow gives it ("v0.6.0"), or 0.0.0 for a build of no release; and its
+# build number, the workflow run's, or 1.
+string(REGEX REPLACE "^v" "" OPENAOK_APP_VERSION "$ENV{OPENAOK_VERSION}")
+if(NOT OPENAOK_APP_VERSION MATCHES "^[0-9]+(\\.[0-9]+)*$")
+    set(OPENAOK_APP_VERSION "0.0.0")
+endif()
+set(OPENAOK_APP_BUILD "$ENV{GITHUB_RUN_NUMBER}")
+if(NOT OPENAOK_APP_BUILD MATCHES "^[0-9]+$")
+    set(OPENAOK_APP_BUILD "1")
+endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -49,7 +61,7 @@ set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 set(SDL_STATIC ON CACHE BOOL "" FORCE)
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
 set(SDL2_DISABLE_SDL2MAIN OFF CACHE BOOL "" FORCE)
-add_subdirectory(${SDL_DIR} SDL2 EXCLUDE_FROM_ALL)
+add_subdirectory(${SDL_DIR} SDL2 EXCLUDE_FROM_ALL SYSTEM)
 
 # FreeType, static, with none of its optional libraries: the game only reads
 # the CD's TrueType fonts.
@@ -59,7 +71,7 @@ set(FT_DISABLE_PNG ON CACHE BOOL "" FORCE)
 set(FT_DISABLE_HARFBUZZ ON CACHE BOOL "" FORCE)
 set(FT_DISABLE_BROTLI ON CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-add_subdirectory(${FREETYPE_DIR} freetype EXCLUDE_FROM_ALL)
+add_subdirectory(${FREETYPE_DIR} freetype EXCLUDE_FROM_ALL SYSTEM)
 
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS ${REPO}/src/*.cpp)
 file(GLOB IOS_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/platform/*.mm)
@@ -71,10 +83,12 @@ target_include_directories(OpenAoK PRIVATE ${REPO}/src)
 # includes: they are not ours to keep warning-clean.
 target_include_directories(OpenAoK SYSTEM PRIVATE ${REPO}/third_party)
 
-# The desktop build's warnings, but not as errors: this compiler is not the
-# one the code is kept warning-clean against.
+# The desktop build's warnings, as errors, on the engine's own code; on the
+# app's Objective-C++ the same warnings, shown. SDL and FreeType are SYSTEM
+# includes, as their packages are on a desktop.
 target_compile_options(OpenAoK PRIVATE
-    -O3 -Wall -Wextra -Wno-missing-designated-field-initializers)
+    -O3 -Wall -Wextra -Wno-missing-designated-field-initializers
+    "$<$<COMPILE_LANGUAGE:CXX>:-Wpedantic;-Werror>")
 
 # The version of the game's data this build plays from: prepare_data.py's, as
 # android/app/build.gradle reads it. The folder ios/package.py makes carries it
@@ -115,12 +129,12 @@ set_target_properties(OpenAoK PROPERTIES
     MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist"
     MACOSX_BUNDLE_BUNDLE_NAME "OpenAoK"
     MACOSX_BUNDLE_GUI_IDENTIFIER "org.openaok.game"
-    MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
-    MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+    MACOSX_BUNDLE_BUNDLE_VERSION "${OPENAOK_APP_BUILD}"
+    MACOSX_BUNDLE_SHORT_VERSION_STRING "${OPENAOK_APP_VERSION}"
     XCODE_ATTRIBUTE_PRODUCT_NAME "OpenAoK"
     XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "org.openaok.game"
-    XCODE_ATTRIBUTE_MARKETING_VERSION "${PROJECT_VERSION}"
-    XCODE_ATTRIBUTE_CURRENT_PROJECT_VERSION "1"
+    XCODE_ATTRIBUTE_MARKETING_VERSION "${OPENAOK_APP_VERSION}"
+    XCODE_ATTRIBUTE_CURRENT_PROJECT_VERSION "${OPENAOK_APP_BUILD}"
     XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
     XCODE_ATTRIBUTE_GENERATE_INFOPLIST_FILE "NO"
     XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC "YES"

@@ -5,22 +5,33 @@
 #   ios/build.sh               build for the simulator (no signing needed)
 #   ios/build.sh --device      build for a device; unsigned unless
 #                              OPENAOK_TEAM_ID names an Apple team
+#   ios/build.sh --device --ipa  and pack it as ios/build/OpenAoK.ipa
 #   ios/build.sh --project     only write the Xcode project
+#
+# OPENAOK_JOBS sets how many files compile at once (4 by default);
+# OPENAOK_VERSION the app's version ("v0.6.0"), 0.0.0 when unset.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TARGET="simulator"
 PROJECT_ONLY=0
+IPA=0
 
 for arg in "$@"; do
     case "$arg" in
         --simulator) TARGET="simulator" ;;
         --device)    TARGET="device" ;;
         --project)   PROJECT_ONLY=1 ;;
-        -h|--help)   sed -n '2,7p' "${BASH_SOURCE[0]}" | sed 's/^# \?//'; exit 0 ;;
+        --ipa)       IPA=1 ;;
+        -h|--help)   sed -n '2,12p' "${BASH_SOURCE[0]}" | sed -E 's/^# ?//'; exit 0 ;;
         *) echo "error: unknown option '$arg' (try --help)" >&2; exit 2 ;;
     esac
 done
+
+if [ "$IPA" -eq 1 ] && [ "$TARGET" != "device" ]; then
+    echo "error: --ipa packs a device build: add --device" >&2
+    exit 2
+fi
 
 if ! command -v cmake >/dev/null 2>&1; then
     echo "error: cmake not found. Install it with: brew install cmake" >&2
@@ -43,7 +54,7 @@ else
     SYSROOT="iphonesimulator"
 fi
 
-JOBS="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
+JOBS="${OPENAOK_JOBS:-4}"
 TEAM=()
 if [ -n "${OPENAOK_TEAM_ID:-}" ]; then
     TEAM=(-DOPENAOK_TEAM_ID="$OPENAOK_TEAM_ID")
@@ -74,4 +85,17 @@ else
     cmake --build "$BUILD_DIR" --config Release --parallel "$JOBS"
 fi
 
-echo "==> Built $BUILD_DIR/Release-$SYSROOT/OpenAoK.app"
+APP="$BUILD_DIR/Release-$SYSROOT/OpenAoK.app"
+echo "==> Built $APP"
+
+# An .ipa is the app in a Payload folder, zipped: what AltStore installs and
+# signs.
+if [ "$IPA" -eq 1 ]; then
+    STAGE="$(mktemp -d)"
+    mkdir "$STAGE/Payload"
+    cp -R "$APP" "$STAGE/Payload/"
+    rm -f "$BUILD_DIR/OpenAoK.ipa"
+    (cd "$STAGE" && zip -qry "$BUILD_DIR/OpenAoK.ipa" Payload)
+    rm -rf "$STAGE"
+    echo "==> Packed $BUILD_DIR/OpenAoK.ipa"
+fi
