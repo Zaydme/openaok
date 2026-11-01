@@ -207,8 +207,8 @@ copied to the device.
    `python3 ios/package.py`. It writes `ios/data/OpenAoK-data/`, about 350 MB.
 2. On a Mac with Xcode, run `ios/build.sh --device`, open
    `ios/build/OpenAoK.xcodeproj`, choose your team and your iPhone or iPad,
-   and Run. That command's unsigned build can be sideloaded with AltStore
-   instead.
+   and Run. Or sideload an unsigned build with AltStore: a release's
+   `OpenAoK-<version>.ipa`, or one made with `ios/build.sh --device --ipa`.
 3. Copy `OpenAoK-data` to the device -- with AirDrop, the Files app, or
    Finder's File Sharing -- open OpenAoK and choose the folder. The app copies
    it in; then the folder on the device can go.

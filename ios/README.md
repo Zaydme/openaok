@@ -11,7 +11,8 @@ so it can be put in the app's scene. `ios/platform/PlatformiOS.mm` is the
 platform layer: the scene delegate, the document picker, the checked copy into
 the sandbox, and the player's files' folder. Everything else -- SDL's
 `SDL_main` entry point, the touch controls -- is the same code the desktop and
-Android builds use.
+Android builds use, the touch controls with one part of their own on iOS (see
+How it is built).
 
 <p align="center">
   <img src="../docs/images/iphone-game.png" width="820" alt="OpenAoK running on an iPhone">
@@ -22,7 +23,7 @@ Android builds use.
 - A Mac with Xcode 15 or later, opened once so its licence is accepted.
   Xcode 27 and the iOS 27 SDK work: the app uses the UIKit scene life cycle,
   which that SDK requires.
-- CMake 3.20 or later (`brew install cmake`).
+- CMake 3.25 or later (`brew install cmake`).
 - Python 3 and `cabextract` to prepare the game's data, as for the desktop
   build (`brew install cabextract`).
 - An Apple ID for installing on a device: a free one works through Xcode, and
@@ -65,7 +66,8 @@ ios/build.sh --project     # only write the Xcode project
 ```
 
 It writes `ios/build-sim/OpenAoK.xcodeproj` and builds
-`ios/build-sim/Release-iphonesimulator/OpenAoK.app`.
+`ios/build-sim/Release-iphonesimulator/OpenAoK.app`. It compiles four files at
+a time; `OPENAOK_JOBS=8 ios/build.sh` compiles eight.
 
 For a device, whose project is `ios/build/OpenAoK.xcodeproj`:
 
@@ -147,13 +149,13 @@ AltStore installs an unsigned `.ipa` and signs it with your Apple ID. Make one
 from the device build:
 
 ```sh
-ios/build.sh --device
-cd ios/build/Release-iphoneos
-rm -rf Payload OpenAoK.ipa
-mkdir Payload
-cp -R OpenAoK.app Payload/
-zip -qry OpenAoK.ipa Payload
+ios/build.sh --device --ipa
 ```
+
+It writes `ios/build/OpenAoK.ipa`. A release's `OpenAoK-<version>.ipa` is the
+same unsigned build, made by the iOS workflow (`.github/workflows/ios.yml`),
+which also builds the simulator's app and the `.ipa` for every push to `main`
+and every pull request.
 
 Then, with AltStore on the device (and AltServer running on the Mac, the device
 on the same network): My Apps, `+`, and choose `OpenAoK.ipa` -- from Files if it
@@ -221,7 +223,10 @@ a line to type.
   launches on iOS 27 and still runs on iOS 15 and later.
 - `ios/package.py` lays the data out with `tools/data/package_data.py`, the
   same layout the Switch and Android builds use.
-- Touch controls are `src/hal/Touch.cpp` unchanged; `src/hal/Pointer.cpp`
+- Touch controls are `src/hal/Touch.cpp`'s, as on Android, with one part of
+  their own on iOS: a finger iOS lets go of without telling the app -- when a
+  system gesture takes the touch over -- is forgotten once it has gone
+  unreported a moment, so it cannot hold a pan open. `src/hal/Pointer.cpp`
   sends SDL the mouse it makes from the fingers, as its Switch port does.
 
 Nothing of the simulation, the fixed-point maths or the determinism checks is
@@ -239,9 +244,9 @@ iOS-specific; `bash tools/check_determinism.sh` still passes on the Mac.
   iOS 27.2), or run on a simulator of that version. This is not the
   "mismatched platform" message above.
 - **`Application failed to launch: UIScene life cycle is required...`** -- the
-  app was built from source before the scene adoption. Rebuild with this
-  source: `ios/Info.plist` declares the scene and `PlatformiOS.mm` attaches
-  SDL's window to it.
+  app was built without `ios/Info.plist`, which declares the scene that
+  `PlatformiOS.mm` attaches SDL's window to. Build it with `ios/build.sh` or
+  from `ios/CMakeLists.txt`.
 - **`Could not find a package configuration file ... SDL2`** -- the project
   was configured outside `ios/CMakeLists.txt`. Use `ios/build.sh`, or pass
   `-S ios`.
