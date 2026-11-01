@@ -33,7 +33,10 @@ jobs:
           sudo apt-get install -y -qq ccache
           echo "CCACHE_DIR=$GITHUB_WORKSPACE/.ccache" >> "$GITHUB_ENV"
           echo "CCACHE_BASEDIR=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
-          echo "CCACHE_MAXSIZE=500M" >> "$GITHUB_ENV"
+          echo "CCACHE_MAXSIZE=1G" >> "$GITHUB_ENV"
+          # The NDK is unpacked afresh every run, so its compiler is known by
+          # what it says it is, not by when its file was written.
+          echo "CCACHE_COMPILERCHECK=%compiler% -v" >> "$GITHUB_ENV"
       - uses: actions/cache@v4
         with:
           path: .ccache
