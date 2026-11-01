@@ -138,6 +138,9 @@ set_target_properties(OpenAoK PROPERTIES
     XCODE_ATTRIBUTE_GENERATE_INFOPLIST_FILE "NO"
     XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC "YES"
     XCODE_ATTRIBUTE_CLANG_ENABLE_MODULES "YES"
+    # Xcode's own warning on 64-to-32-bit conversions is not among the
+    # desktop's, which are the ones the code keeps to: off.
+    XCODE_ATTRIBUTE_GCC_WARN_64_TO_32_BIT_CONVERSION "NO"
     XCODE_ATTRIBUTE_CODE_SIGN_STYLE "Automatic"
     XCODE_ATTRIBUTE_ENABLE_BITCODE "NO"
     # A scheme of its own, so Xcode offers Run, Test and Profile for the app
