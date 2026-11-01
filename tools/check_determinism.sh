@@ -52,6 +52,7 @@ CROWDGOAL="$(echo "$OUTPUT" | grep '^crowdgoal=')"
 SHAREDWALK="$(echo "$OUTPUT" | grep '^sharedwalk=')"
 REPLANSPREAD="$(echo "$OUTPUT" | grep '^replanspread=')"
 PAGES="$(echo "$OUTPUT" | grep '^pages=')"
+MINIMAPDEAD="$(echo "$OUTPUT" | grep '^minimapdead=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -362,6 +363,12 @@ esac
 case "$PAGES" in
     pages=ok*) echo "pages OK: ${PAGES#pages=ok }" ;;
     *) echo "PAGES FAILED" >&2; echo "  $PAGES" >&2; STATUS=1 ;;
+esac
+
+# A soldier struck down leaves the minimap as it falls.
+case "$MINIMAPDEAD" in
+    minimapdead=ok*) echo "minimapdead OK: ${MINIMAPDEAD#minimapdead=ok }" ;;
+    *) echo "MINIMAPDEAD FAILED" >&2; echo "  $MINIMAPDEAD" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

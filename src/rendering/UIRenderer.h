@@ -187,6 +187,10 @@ public:
     // for one of the viewer's own that holds any, not an ally's or enemy's.
     static bool ShowsGarrison(const entt::registry& registry, entt::entity selected);
 
+    // Whether a player's unit or building has its dot on the minimap at all:
+    // not once it is falling or lying dead.
+    static bool OnMinimap(const entt::registry& registry, entt::entity entity);
+
     // Fills `out` with the commands the current selection offers, and returns
     // how many. Drawing and clicking both go through this, so a button is
     // always where it looks like it is.

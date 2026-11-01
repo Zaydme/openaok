@@ -257,6 +257,9 @@ bool CheckReplanSpread();
 // is its SLP frame in its player's colours, before and after the page grows.
 // Prints "pages=".
 bool CheckPages();
+// A soldier struck down leaves the minimap as it falls. Prints
+// "minimapdead=".
+bool CheckMinimapDead();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

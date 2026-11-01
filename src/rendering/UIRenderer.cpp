@@ -17,6 +17,7 @@
 #include "ecs/Diplomacy.h"
 #include "ecs/Garrisons.h"
 #include "ecs/Market.h"
+#include "ecs/components/Mortal.h"
 #include "ecs/components/Formation.h"
 #include "ecs/components/Garrison.h"
 #include "ecs/components/Building.h"
@@ -1151,7 +1152,7 @@ void UIRenderer::DrawMinimapIn(ECS::Simulation& sim, Renderer& renderer, SDL_Ren
     auto owned = registry.view<ECS::Components::Transform, ECS::Components::Owner>();
     for (auto entity : owned) {
         const int player = owned.get<ECS::Components::Owner>(entity).player_id;
-        if (player == Core::PLAYER_GAIA) continue;
+        if (player == Core::PLAYER_GAIA || !OnMinimap(registry, entity)) continue;
         if (!ECS::Vision::Shows(registry, LocalViewer(), entity)) continue;
         const bool building = registry.all_of<ECS::Components::Building>(entity);
         const bool worker = registry.all_of<ECS::Components::Worker>(entity);
@@ -1916,6 +1917,10 @@ int UIRenderer::Refusal(ECS::Simulation& sim, const Command& command) {
         }
     }
     return -1;
+}
+
+bool UIRenderer::OnMinimap(const entt::registry& registry, entt::entity entity) {
+    return !registry.any_of<ECS::Components::Dying, ECS::Components::Corpse>(entity);
 }
 
 bool UIRenderer::ShowsGarrison(const entt::registry& registry, entt::entity selected) {
