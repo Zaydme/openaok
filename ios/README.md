@@ -154,8 +154,7 @@ ios/build.sh --device --ipa
 
 It writes `ios/build/OpenAoK.ipa`. A release's `OpenAoK-<version>.ipa` is the
 same unsigned build, made by the iOS workflow (`.github/workflows/ios.yml`),
-which also builds the simulator's app and the `.ipa` for every push to `main`
-and every pull request.
+which builds the `.ipa` for every push to `main` and every pull request too.
 
 Then, with AltStore on the device (and AltServer running on the Mac, the device
 on the same network): My Apps, `+`, and choose `OpenAoK.ipa` -- from Files if it

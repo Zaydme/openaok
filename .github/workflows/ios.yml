@@ -1,7 +1,6 @@
-# Builds OpenAoK for iOS, which needs no game data: the simulator's app, to
-# keep that build working, and an unsigned OpenAoK.ipa for a device, for
-# AltStore to sign and install. On a version tag (v*) adds the .ipa to that
-# version's release (.github/publish.sh) as OpenAoK-<version>.ipa.
+# Builds OpenAoK for iOS, which needs no game data: an unsigned OpenAoK.ipa
+# for a device, for AltStore to sign and install. On a version tag (v*) adds
+# it to that version's release (.github/publish.sh) as OpenAoK-<version>.ipa.
 name: iOS
 
 on:
@@ -20,9 +19,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: SDL and FreeType
         run: ios/fetch_deps.sh
-      - name: Simulator
-        run: ios/build.sh
-      - name: Device
+      - name: Build
         run: ios/build.sh --device --ipa
       - name: Lay out
         run: |
