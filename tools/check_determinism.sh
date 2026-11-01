@@ -46,6 +46,7 @@ CLEARING="$(echo "$OUTPUT" | grep '^clearing=')"
 PASSING="$(echo "$OUTPUT" | grep '^passing=')"
 CARRYON="$(echo "$OUTPUT" | grep '^carryon=')"
 STEP="$(echo "$OUTPUT" | grep '^step=')"
+WALLEDTREE="$(echo "$OUTPUT" | grep '^walledtree=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -320,6 +321,12 @@ esac
 case "$STEP" in
     step=ok*) echo "step OK" ;;
     *) echo "STEP FAILED" >&2; echo "  $STEP" >&2; STATUS=1 ;;
+esac
+
+# A lumberjack goes on to a tree it can come up to, not a nearer walled-in one.
+case "$WALLEDTREE" in
+    walledtree=ok*) echo "walledtree OK" ;;
+    *) echo "WALLEDTREE FAILED" >&2; echo "  $WALLEDTREE" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

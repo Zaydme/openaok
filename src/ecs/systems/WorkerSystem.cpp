@@ -413,19 +413,42 @@ entt::entity NextSite(const entt::registry& registry, entt::entity self, entt::e
     return best;
 }
 
+// Whether open ground of `region` borders a side of `e`'s box: where the
+// approach planner stands a worker, which keeps off a box's corners. A tree
+// deep in a forest, or one with trees on every side and open ground only at
+// a corner, has none.
+bool OpenBeside(const entt::registry& registry, const Physics::Grid& grid, Physics::Layer layer, int region,
+                entt::entity e) {
+    const Buildings::Bounds box = Combat::BoxOf(registry, e);
+    const Core::Fixed32 in = Core::Fixed32(1) / Core::Fixed32(100);
+    const int x0 = Physics::TileOf(box.min_x + in), x1 = Physics::TileOf(box.max_x - in);
+    const int y0 = Physics::TileOf(box.min_y + in), y1 = Physics::TileOf(box.max_y - in);
+    auto open = [&](int x, int y) { return Pathfinding::RegionAt(grid, x, y, layer) == region; };
+    for (int y = y0; y <= y1; ++y) {
+        if (open(x0 - 1, y) || open(x1 + 1, y)) return true;
+    }
+    for (int x = x0; x <= x1; ++x) {
+        if (open(x, y0 - 1) || open(x, y1 + 1)) return true;
+    }
+    return false;
+}
+
 // A gatherer whose target is gone -- run dry, or finished by someone else --
 // does not stand idle: every gather task of the villager jobs and of the
 // fishing ship has AutoSearchTargets set, and finds another target of that
 // task within the gatherer's search radius (4 tiles a villager, 5 a male
 // hunter, 12 a fishing ship). The nearest to where the last one stood, of
-// what the player has explored; the map's or the player's own, never
+// what the player has explored and the gatherer can come up to (OpenBeside,
+// on the ground it stands on); the map's or the player's own, never
 // another's; a farm only finished and with nobody on it. The tasks name the
 // living animals, not the carcasses, so a shepherd goes on to the next sheep.
-entt::entity NextResource(const entt::registry& registry, entt::entity self,
+entt::entity NextResource(const entt::registry& registry, const Physics::Grid& grid, entt::entity self,
                           const Components::Worker& worker, Core::PlayerId owner,
                           const Components::Vector2D& near, entt::entity gone) {
     const Core::Rules::UnitRules* rules = GathererRules(registry, self, worker, owner);
     if (rules == nullptr || rules->search_radius.value <= 0) return entt::null;
+    const Physics::Layer layer = Navigation::LayerOf(registry, grid, self);
+    const int region = Navigation::RegionOf(registry, grid, self);
     const Core::Fixed32 reach = rules->search_radius;
     std::vector<entt::entity> worked;
     bool worked_known = false;
@@ -465,6 +488,7 @@ entt::entity NextResource(const entt::registry& registry, entt::entity self,
             if (std::binary_search(worked.begin(), worked.end(), e)) continue;
         }
         if (!Vision::Explored(registry, owner, Physics::TileOf(at.x), Physics::TileOf(at.y))) continue;
+        if (region >= 0 && !OpenBeside(registry, grid, layer, region, e)) continue;
         best = e;
         nearest = gap;
     }
@@ -641,7 +665,7 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                     // Finished by someone else on the way: the next of the
                     // same near where it stood, or stand.
                     TakeUp(registry, worker,
-                           NextResource(registry, entity, worker, OwnerOf(registry, entity),
+                           NextResource(registry, grid, entity, worker, OwnerOf(registry, entity),
                                         worker.resource_at, entt::null));
                     if (!registry.valid(worker.target_resource)) {
                         worker.state = Core::UnitState::Idle;
@@ -657,7 +681,7 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                 if (FarmTaken(registry, entity, worker.target_resource, false)) {
                     const entt::entity taken = worker.target_resource;
                     TakeUp(registry, worker,
-                           NextResource(registry, entity, worker, OwnerOf(registry, entity),
+                           NextResource(registry, grid, entity, worker, OwnerOf(registry, entity),
                                         worker.resource_at, taken));
                     registry.remove<Components::Path>(entity);
                     if (!registry.valid(worker.target_resource)) {
@@ -733,7 +757,7 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                     // Gone from under it: the next of the same, or home.
                     worker.working = false;
                     TakeUp(registry, worker,
-                           NextResource(registry, entity, worker, OwnerOf(registry, entity),
+                           NextResource(registry, grid, entity, worker, OwnerOf(registry, entity),
                                         worker.resource_at, entt::null));
                     worker.state = registry.valid(worker.target_resource)
                                  ? Core::UnitState::Moving
@@ -797,7 +821,7 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                     worker.gather_progress = Core::Fixed32(0);
                     const entt::entity taken = worker.target_resource;
                     TakeUp(registry, worker,
-                           NextResource(registry, entity, worker, owner, worker.resource_at, taken));
+                           NextResource(registry, grid, entity, worker, owner, worker.resource_at, taken));
                     worker.state = registry.valid(worker.target_resource) ? Core::UnitState::Moving
                                                                           : Core::UnitState::Idle;
                     break;
@@ -830,7 +854,7 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                         worker.resource_at = registry.get<Components::Transform>(gone).position;
                         ECS::Resources::Exhaust(registry, grid, gone);
                         TakeUp(registry, worker,
-                               NextResource(registry, entity, worker, owner, worker.resource_at, gone));
+                               NextResource(registry, grid, entity, worker, owner, worker.resource_at, gone));
                         const bool room = worker.carried[slot] < capacity;
                         worker.state = registry.valid(worker.target_resource) && room
                                      ? Core::UnitState::Moving
@@ -940,7 +964,7 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                                             worker.job != Components::VillagerJob::Base);
                     if (!registry.valid(worker.target_resource) && gathering) {
                         TakeUp(registry, worker,
-                               NextResource(registry, entity, worker, OwnerOf(registry, entity),
+                               NextResource(registry, grid, entity, worker, OwnerOf(registry, entity),
                                             worker.resource_at, entt::null));
                     }
                     worker.state = registry.valid(worker.target_resource)

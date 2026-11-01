@@ -238,6 +238,9 @@ bool CheckCarryOn();
 // A route across the tile a unit stands on, someone standing in the straight
 // way, is found. Prints "step=".
 bool CheckStep();
+// A lumberjack whose tree runs out goes on to the nearest it can come up to,
+// not a nearer one walled in. Prints "walledtree=".
+bool CheckWalledTree();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();
