@@ -49,6 +49,7 @@ STEP="$(echo "$OUTPUT" | grep '^step=')"
 WALLEDTREE="$(echo "$OUTPUT" | grep '^walledtree=')"
 SETOFF="$(echo "$OUTPUT" | grep '^setoff=')"
 CROWDGOAL="$(echo "$OUTPUT" | grep '^crowdgoal=')"
+SHAREDWALK="$(echo "$OUTPUT" | grep '^sharedwalk=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -341,6 +342,12 @@ esac
 case "$CROWDGOAL" in
     crowdgoal=ok*) echo "crowdgoal OK: ${CROWDGOAL#crowdgoal=ok }" ;;
     *) echo "CROWDGOAL FAILED" >&2; echo "  $CROWDGOAL" >&2; STATUS=1 ;;
+esac
+
+# Soldiers sent to one place in one tick share their routes.
+case "$SHAREDWALK" in
+    sharedwalk=ok*) echo "sharedwalk OK: ${SHAREDWALK#sharedwalk=ok }" ;;
+    *) echo "SHAREDWALK FAILED" >&2; echo "  $SHAREDWALK" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

@@ -565,12 +565,24 @@ void Charge(Turn& turn, Group& group, bool idle_only) {
     }
 }
 
+// Each of `units` sent walking to `at` together, in turn: none plans round
+// the others, which set off with it.
+void SendTogether(Turn& turn, const std::vector<entt::entity>& units, Vector2D at) {
+    static std::vector<entt::entity> group;
+    group.assign(units.begin(), units.end());
+    std::sort(group.begin(), group.end());
+    ECS::Navigation::Marching(&group);
+    for (entt::entity u : units) Give(*turn.registry, *turn.grid, Core::MoveCommand{u, at.x, at.y, turn.player});
+    ECS::Navigation::Marching(nullptr);
+}
+
 void Disband(Turn& turn, Group& group) {
-    const Vector2D at = Muster(turn);
+    static std::vector<entt::entity> sent;
+    sent.clear();
     for (entt::entity u : group.units) {
-        if (!turn.registry->all_of<ECS::Components::Transform>(u)) continue;
-        Give(*turn.registry, *turn.grid, Core::MoveCommand{u, at.x, at.y, turn.player});
+        if (turn.registry->all_of<ECS::Components::Transform>(u)) sent.push_back(u);
     }
+    SendTogether(turn, sent, Muster(turn));
     group.units.clear();
     group.ships.clear();
     group.target = entt::null;
@@ -840,11 +852,14 @@ void Gather(Turn& turn, Group& g) {
     if (lead == entt::null) return;
     const Vector2D at = Where(registry, lead);
     const Core::Fixed32 spacing(Sn(turn, Lang::SN::AttackGroupGatherSpacing));
+    static std::vector<entt::entity> sent;
+    sent.clear();
     for (entt::entity u : g.units) {
         if (u == lead || !registry.all_of<ECS::Components::Transform>(u) || !Idle(registry, u)) continue;
         if (Distance(Where(registry, u), at) - Core::Fixed32(1) <= spacing) continue;
-        Give(*turn.registry, *turn.grid, Core::MoveCommand{u, at.x, at.y, turn.player});
+        sent.push_back(u);
     }
+    SendTogether(turn, sent, at);
 }
 
 bool Gathered(const Turn& turn, const Group& g) {
@@ -1130,12 +1145,15 @@ void GatherDefense(Turn& turn) {
         return;
     }
     const Ground home = GroundOf(turn, c.town_center);
+    static std::vector<entt::entity> sent;
+    sent.clear();
     for (entt::entity e : Defenders(turn)) {
         if (GroupOf(turn, e) != nullptr || !Idle(registry, e)) continue;
         if (Distance(Where(registry, e), c.home) <= kDefendedReach) continue;
         if (home.region >= 0 && GroundOf(turn, e).region != home.region) continue;
-        Give(*turn.registry, *turn.grid, Core::MoveCommand{e, c.home.x, c.home.y, turn.player});
+        sent.push_back(e);
     }
+    SendTogether(turn, sent, c.home);
 }
 
 } // namespace

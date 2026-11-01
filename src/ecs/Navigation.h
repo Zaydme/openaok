@@ -78,6 +78,15 @@ Components::Path Route(const entt::registry& registry, const Physics::Grid& grid
                        Components::Vector2D to, entt::entity target = entt::null,
                        Core::Fixed32 range = Core::Fixed32(0));
 
+// `entity`'s route from `from` to `to` as Route plans it, or one planned this
+// tick to the same place from within a couple of tiles of `from`, for a body
+// at least as wide on the same ground, when `entity` can walk straight to its
+// first bend: one search serves a block of units sent off together. What
+// this tick planned is forgotten at the next Survey.
+Components::Path RouteBeside(entt::registry& registry, const Physics::Grid& grid,
+                             entt::entity entity, Components::Vector2D from,
+                             Components::Vector2D to);
+
 // How far apart a unit standing at `at` is from `target`, box to box: the
 // unit's box its radius each way, the target's Combat::BoxOf.
 Core::Fixed32 GapAt(const entt::registry& registry, entt::entity entity, Components::Vector2D at,

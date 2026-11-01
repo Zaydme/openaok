@@ -247,6 +247,9 @@ bool CheckSetOff();
 // A route to a spot inside a crowd standing there goes straight in without
 // searching far for a way round. Prints "crowdgoal=".
 bool CheckCrowdGoal();
+// A hundred soldiers sent to one place in one tick share their routes.
+// Prints "sharedwalk=".
+bool CheckSharedWalk();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

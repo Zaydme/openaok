@@ -121,8 +121,8 @@ void WalkTo(entt::registry& registry, const Physics::Grid& grid, entt::entity un
     // Sent somewhere it cannot stand -- a ship at the land, a villager at the
     // sea -- it goes as near as its own ground allows.
     registry.emplace_or_replace<Components::Path>(
-        unit, Navigation::Route(registry, grid, unit, at,
-                                Navigation::Toward(registry, grid, unit, to))).sent = true;
+        unit, Navigation::RouteBeside(registry, grid, unit, at,
+                                      Navigation::Toward(registry, grid, unit, to))).sent = true;
 }
 
 // Whether a worker that gathers as itself -- a fishing ship -- has a gather

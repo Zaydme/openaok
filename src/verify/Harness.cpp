@@ -85,6 +85,7 @@ int Run(int ticks) {
     if (runs("walledtree")) ok &= CheckWalledTree();
     if (runs("setoff")) ok &= CheckSetOff();
     if (runs("crowdgoal")) ok &= CheckCrowdGoal();
+    if (runs("sharedwalk")) ok &= CheckSharedWalk();
     if (runs("wolves")) ok &= CheckWolves();
     if (runs("lobby")) ok &= CheckLobby();
     if (runs("formations")) ok &= CheckFormations();
