@@ -17,7 +17,7 @@ FREETYPE_SHA256=0550350666d427c74daeb85d5ac7bb353acba5f76956395995311a9c6f063289
 mkdir -p "$WORK/deps" "$WINDOWS_PREFIX"
 cd "$WORK/deps"
 fetch() {   # url, file, sha256
-    [ -f "$2" ] || curl -sSfL -o "$2" "$1"
+    [ -f "$2" ] || curl -sSfL --retry 5 --retry-all-errors -o "$2" "$1"
     echo "$3  $2" | sha256sum -c --quiet -
 }
 
