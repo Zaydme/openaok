@@ -52,10 +52,11 @@ struct ApproachResult {
 //
 // Picks the face the caller is in front of, starts from the point on that face
 // nearest the caller (kept clear of the corners) and steps outward along the
-// edge, alternating sides, until it finds ground that is walkable and clear of
-// everyone already spoken for. The caller's own face is searched finely and in
-// full before anywhere else, so a crowd fills the wall in front of it before
-// anyone is sent round a corner.
+// edge, alternating sides, until it finds ground that is walkable, reachable
+// from where the caller stands (in its region, when it stands in one) and
+// clear of everyone already spoken for. The caller's own face is searched
+// finely and in full before anywhere else, so a crowd fills the wall in front
+// of it before anyone is sent round a corner.
 ApproachResult FindStandingSpot(const Physics::Grid& grid,
                                 const ApproachRequest& request);
 
