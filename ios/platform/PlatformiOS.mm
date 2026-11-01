@@ -16,6 +16,7 @@
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_syswm.h>
 
 #include <zlib.h>
 
@@ -458,15 +459,51 @@ bool Install(NSURL* picked, const std::function<void(long long, long long)>& pro
 
 @end
 
+// iOS 27, the SDK this app is built with, only launches apps that use the
+// scene life cycle. SDL 2 still uses the application life cycle and makes its
+// window with initWithFrame:, so the app adopts scenes itself: Info.plist
+// declares one scene and names this delegate, and the setup screen's window
+// and SDL's game window are made in the scene that delegate is given. Without
+// a scene they would not be shown. One scene only, as the game always was.
+@interface OpenAoKSceneDelegate : UIResponder <UIWindowSceneDelegate>
+@end
+
 namespace {
 
+UIWindowScene* g_scene = nil;
 UIWindow* g_setup_window = nil;
 OpenAoKSetupViewController* g_setup_controller = nil;
+// SDL's window, kept weak: SDL owns it and destroys it with its SDL_Window.
+__weak UIWindow* g_game_window = nil;
+
+// The scene the app's windows belong to: the one this delegate was given, or
+// while it is being connected, the one UIKit already has.
+UIWindowScene* ActiveScene() {
+    if (g_scene != nil && g_scene.activationState != UISceneActivationStateUnattached) {
+        return g_scene;
+    }
+    UIWindowScene* inactive = nil;
+    for (UIScene* scene in [UIApplication sharedApplication].connectedScenes) {
+        if (![scene isKindOfClass:[UIWindowScene class]]) continue;
+        UIWindowScene* window_scene = (UIWindowScene*)scene;
+        if (window_scene.activationState == UISceneActivationStateForegroundActive) return window_scene;
+        if (window_scene.activationState == UISceneActivationStateForegroundInactive) inactive = window_scene;
+    }
+    return inactive;
+}
 
 void PresentSetupScreen() {
     if (g_setup_window == nil) {
         g_setup_controller = [[OpenAoKSetupViewController alloc] init];
-        g_setup_window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
+        UIWindowScene* scene = ActiveScene();
+        if (scene != nil) {
+            g_setup_window = [[UIWindow alloc] initWithWindowScene:scene];
+            g_setup_window.frame = scene.coordinateSpace.bounds;
+        } else {
+            // The scene delegate will attach this window when its scene is
+            // active, if the scene is not ready quite yet.
+            g_setup_window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
+        }
         g_setup_window.backgroundColor = [UIColor blackColor];
         g_setup_window.rootViewController = g_setup_controller;
     }
@@ -481,10 +518,59 @@ void HideSetupScreen() {
 
 } // namespace
 
+@implementation OpenAoKSceneDelegate
+
+- (void)scene:(UIScene*)scene
+    willConnectToSession:(UISceneSession*)session
+                 options:(UISceneConnectionOptions*)connectionOptions {
+    if (![scene isKindOfClass:[UIWindowScene class]]) return;
+    g_scene = (UIWindowScene*)scene;
+}
+
+- (void)sceneDidBecomeActive:(UIScene*)scene {
+    if (![scene isKindOfClass:[UIWindowScene class]]) return;
+    g_scene = (UIWindowScene*)scene;
+    // A window made before the scene was ready belongs to it now.
+    if (g_setup_window != nil && g_setup_window.windowScene == nil) {
+        g_setup_window.windowScene = g_scene;
+        [g_setup_window makeKeyAndVisible];
+    }
+    UIWindow* game = g_game_window;
+    if (game != nil && game.windowScene == nil) {
+        game.windowScene = g_scene;
+        [game makeKeyAndVisible];
+    }
+}
+
+- (void)sceneDidDisconnect:(UIScene*)scene {
+    if (g_scene == scene) g_scene = nil;
+}
+
+@end
+
 namespace HAL::iOS {
+
+void AttachWindowToScene(SDL_Window* window) {
+    @autoreleasepool {
+        SDL_SysWMinfo info;
+        SDL_VERSION(&info.version);
+        if (!SDL_GetWindowWMInfo(window, &info)) return;
+        UIWindow* ui_window = info.info.uikit.window;
+        if (ui_window == nil) return;
+        g_game_window = ui_window;
+        UIWindowScene* scene = ActiveScene();
+        if (scene != nil && ui_window.windowScene != scene) {
+            ui_window.windowScene = scene;
+            [ui_window makeKeyAndVisible];
+        }
+    }
+}
 
 bool Start(int, char*[]) {
     @autoreleasepool {
+        // The class is named only by Info.plist's scene manifest; naming it
+        // here as well keeps it in the app's image.
+        (void)[OpenAoKSceneDelegate class];
         if (!DataReady()) {
             PresentSetupScreen();
             // SDL's main runs on the main thread: the run loop is spun here so

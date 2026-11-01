@@ -5,20 +5,33 @@ Xcode for `arm64`. The app holds none of the game: on its first start it asks
 for a folder of the game's data, made on a computer from your own CD, and
 copies it into its Documents folder.
 
-The engine's own sources are unchanged. `ios/platform/PlatformiOS.mm` is the
-platform layer: the document picker, the checked copy into the sandbox, and the
-player's files' folder. Everything else -- SDL's `SDL_main` entry point, the
-touch controls -- is the same code the desktop and Android builds use.
+The engine's sources are the same ones the desktop and Android builds use, with
+one iOS hook: `src/hal/Window.cpp` tells the platform layer about SDL's window
+so it can be put in the app's scene. `ios/platform/PlatformiOS.mm` is the
+platform layer: the scene delegate, the document picker, the checked copy into
+the sandbox, and the player's files' folder. Everything else -- SDL's
+`SDL_main` entry point, the touch controls -- is the same code the desktop and
+Android builds use.
+
+<p align="center">
+  <img src="../docs/images/iphone-game.png" width="820" alt="OpenAoK running on an iPhone">
+</p>
 
 ## What you need
 
 - A Mac with Xcode 15 or later, opened once so its licence is accepted.
+  Xcode 27 and the iOS 27 SDK work: the app uses the UIKit scene life cycle,
+  which that SDK requires.
 - CMake 3.20 or later (`brew install cmake`).
 - Python 3 and `cabextract` to prepare the game's data, as for the desktop
   build (`brew install cabextract`).
 - An Apple ID for installing on a device: a free one works through Xcode, and
   AltStore with a free one too. A paid team is needed only for App Store
   distribution.
+- For a device, use an Xcode whose iOS SDK matches or is newer than the iOS
+  version the device runs. If the iPhone is newer than that SDK and Xcode
+  refuses it as an unsupported OS, update Xcode; the "mismatched platform"
+  message in Troubleshooting is a different thing.
 
 ## 1. Fetch SDL2 and FreeType
 
@@ -63,6 +76,11 @@ ios/build.sh --device
 and the app is `ios/build/Release-iphoneos/OpenAoK.app`. Without
 `OPENAOK_TEAM_ID` set it is left unsigned, for AltStore to sign.
 
+`ios/build-sim` and `ios/build` are not interchangeable. The simulator project
+is built for `iphonesimulator`, and Xcode marks a connected iPhone or iPad as
+"mismatched platform" when it is the open project. For a phone or iPad, open
+`ios/build/OpenAoK.xcodeproj`, the one `--device` writes.
+
 Both are ordinary Xcode projects: open one, choose the OpenAoK scheme and a
 destination, and Run. To build from Xcode with signing, select the project's
 target, Signing & Capabilities, and choose your team; or set the team for the
@@ -94,8 +112,8 @@ xcrun simctl install booted ios/build-sim/Release-iphonesimulator/OpenAoK.app
 xcrun simctl launch booted org.openaok.game
 ```
 
-The simulator has no Files app to choose the folder from, so put the game's
-data in the app's own folder and launch it:
+The simulator's Files app cannot easily reach a folder on the Mac, so put the
+game's data in the app's own folder and launch it:
 
 ```sh
 xcrun simctl install booted ios/build-sim/Release-iphonesimulator/OpenAoK.app
@@ -110,6 +128,10 @@ The app finds it there on start -- its `OpenAoK-data` folder, holding
 the game.
 
 ## 5. Install on an iPhone or iPad with Xcode
+
+Use `ios/build/OpenAoK.xcodeproj`, the device project. The simulator project,
+`ios/build-sim/OpenAoK.xcodeproj`, targets the iOS Simulator only and Xcode
+will not run it on a connected iPhone or iPad.
 
 1. `ios/build.sh --device`, or open `ios/build/OpenAoK.xcodeproj` and set your
    team under Signing & Capabilities.
@@ -182,14 +204,21 @@ a line to type.
   FreeType built from `ios/deps`. SDL2 is static, and its uikit `main` starts
   the app and calls the engine's `main` as `SDL_main` -- the standard SDL2
   entry point.
-- `ios/Info.plist` keeps the app in landscape, hides the status bar, and makes
-  Documents visible to the Files app and Finder.
+- `ios/Info.plist` keeps the app in landscape, hides the status bar, makes
+  Documents visible to the Files app and Finder, and declares the app's single
+  `UIWindowScene` with `OpenAoKSceneDelegate` as its delegate.
 - `ios/platform/PlatformiOS.mm` implements `HAL::iOS`, which
   `src/hal/Platform.cpp` calls on iOS: it checks for the data, asks for it with
   `UIDocumentPickerViewController`, copies it with a CRC-32 check, enters
   `OpenAoK-data/build/` as the working directory (the engine names its files
   from `build/`, as `../assets/...`), and gives the player's files their
-  folders under Documents.
+  folders under Documents. Its `OpenAoKSceneDelegate` also owns the setup
+  screen's window and attaches SDL's game window to the app's scene, which
+  `src/hal/Window.cpp` asks it to do after `SDL_CreateWindow`.
+- The scene life cycle is required by apps built with the iOS 27 SDK, and SDL
+  2.32.10 predates it: SDL still makes its `UIWindow` with `initWithFrame:`.
+  The app adopts scenes itself, with no change to the vendored SDL, so the game
+  launches on iOS 27 and still runs on iOS 15 and later.
 - `ios/package.py` lays the data out with `tools/data/package_data.py`, the
   same layout the Switch and Android builds use.
 - Touch controls are `src/hal/Touch.cpp` unchanged; `src/hal/Pointer.cpp`
@@ -200,6 +229,19 @@ iOS-specific; `bash tools/check_determinism.sh` still passes on the Mac.
 
 ## Troubleshooting
 
+- **A connected iPhone or iPad shows "mismatched platform"** -- you are
+  looking at `ios/build-sim/OpenAoK.xcodeproj`, whose target is built for the
+  simulator (`SDKROOT = iphonesimulator`). Run `ios/build.sh --device` and open
+  `ios/build/OpenAoK.xcodeproj`; that project targets the device.
+- **Xcode says the iPhone's iOS is unsupported** -- the device runs a newer iOS
+  than the Xcode's iOS SDK, for example an iPhone on iOS 27.2 with Xcode 27.1.
+  Install the Xcode release that ships with a matching iOS SDK (Xcode 27.2 for
+  iOS 27.2), or run on a simulator of that version. This is not the
+  "mismatched platform" message above.
+- **`Application failed to launch: UIScene life cycle is required...`** -- the
+  app was built from source before the scene adoption. Rebuild with this
+  source: `ios/Info.plist` declares the scene and `PlatformiOS.mm` attaches
+  SDL's window to it.
 - **`Could not find a package configuration file ... SDL2`** -- the project
   was configured outside `ios/CMakeLists.txt`. Use `ios/build.sh`, or pass
   `-S ios`.
@@ -213,6 +255,10 @@ iOS-specific; `bash tools/check_determinism.sh` still passes on the Mac.
   source code. Run `python3 ios/package.py` with this release's.
 - **The game starts and stops at "Failed to open graphics.drs"** -- the copy in
   Documents is incomplete or of the wrong version; choose the folder again.
+- **The device build fails to link `libz.tbd` after installing a new Xcode** --
+  the build folder still records the old Xcode's SDK path. Delete `ios/build`
+  and run `ios/build.sh --device` again; likewise `ios/build-sim` after a
+  Simulator update.
 - **`ios/build-sim` and `ios/build` are stale after changing CMake options** --
   a different sysroot or deployment target needs its own build folder; delete
   the one in question and configure again.

@@ -25,9 +25,10 @@ bash tools/check_determinism.sh  # the gate: must pass before and after every ch
   21, SDK platform 36, NDK 28.2). See `android/README.md`.
 - Switch: `switch/build.sh` (devkitPro, or its Docker image) and
   `python3 switch/package.py` for the SD card's folder. See `switch/README.md`.
-- iOS: `ios/build.sh` (or `--simulator`) writes and builds
-  `ios/build/OpenAoK.xcodeproj`; `python3 ios/package.py` makes the data the
-  app is given on first start. See `ios/README.md`.
+- iOS: `ios/build.sh` writes and builds `ios/build-sim/OpenAoK.xcodeproj` for
+  the simulator; `ios/build.sh --device` builds `ios/build/OpenAoK.xcodeproj`
+  for a device. `python3 ios/package.py` makes the data the app is given on
+  first start. See `ios/README.md`.
 - Windows: `windows/build.sh` on Debian/Ubuntu with MinGW-w64 lays out the
   folder to unzip in `windows/build/OpenAoK`. See `windows/README.md`.
 

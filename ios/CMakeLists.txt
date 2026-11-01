@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
-# The iOS app: the engine's own sources, unchanged, with SDL 2 and FreeType
-# built here from source (ios/fetch_deps.sh), linked into OpenAoK.app.
+# The iOS app: the engine's sources, with SDL 2 and FreeType built here from
+# source (ios/fetch_deps.sh), linked into OpenAoK.app.
 # ios/build.sh configures this and writes ios/build/OpenAoK.xcodeproj.
 #
 #   cmake -G Xcode -S ios -B ios/build -DCMAKE_SYSTEM_NAME=iOS
@@ -94,12 +94,17 @@ set_source_files_properties(${IOS_SOURCES} PROPERTIES COMPILE_FLAGS "-fobjc-arc"
 target_link_libraries(OpenAoK PRIVATE SDL2::SDL2main SDL2::SDL2-static freetype)
 
 # zlib: the Indeo 5 decoder and the app's checking of the game's data against
-# its manifest. iOS ships it in the system library.
+# its manifest. iOS ships it in the system library. find_library caches an
+# absolute path inside the SDK; a new Xcode moves that SDK, so forget the old
+# path on each configure and look in the one being built against.
+unset(ZLIB_LIBRARY CACHE)
 find_library(ZLIB_LIBRARY z REQUIRED)
 target_link_libraries(OpenAoK PRIVATE ${ZLIB_LIBRARY})
 
-# The frameworks the app's own code uses; SDL's target links the rest.
+# The frameworks the app's own code uses; SDL's target links the rest. Their
+# cached paths move with the SDK too.
 foreach(framework Foundation UIKit CoreGraphics QuartzCore UniformTypeIdentifiers)
+    unset(FRAMEWORK_${framework} CACHE)
     find_library(FRAMEWORK_${framework} ${framework} REQUIRED)
     target_link_libraries(OpenAoK PRIVATE ${FRAMEWORK_${framework}})
 endforeach()

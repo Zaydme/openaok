@@ -17,8 +17,8 @@ kid. Microsoft was never going to make that happen, so I did it myself.
 
 OpenAoK is a new engine, written from scratch, that plays the original 1999
 game from your own copy of its CD: the same units, maps, art, sounds, music,
-movies and campaigns, on Windows, macOS, Linux, Android phones and the
-Nintendo Switch.
+movies and campaigns, on Windows, macOS, Linux, Android phones, iPhones and
+iPads, and the Nintendo Switch.
 
 ## What it is
 
@@ -57,9 +57,14 @@ Nintendo Switch.
   <img src="docs/images/phone-start.png" width="49%" alt="A new random map game on a phone">
 </p>
 
+<p align="center">
+  <img src="docs/images/iphone-game.png" width="820" alt="OpenAoK running on an iPhone">
+</p>
+
 On a touch screen the game is played as with a mouse, and the controls are
 surprisingly comfortable: tap to click, hold to right-click, drag one finger to
-select, two fingers to scroll the map, pinch to zoom. The top
+select, two fingers to scroll the map, pinch to zoom. This is the same on
+Android phones, iPhones and iPads. The top
 bar, the panel and the text can each be drawn larger (Options → Top Bar Size,
 Panel Size, Text Size), and in widescreen the interface reaches the screen's
 edges.
@@ -126,8 +131,9 @@ cp -R /Volumes/AOE2/. original_game_1999/
 The folder should then hold `GAME/`, `SYSTEM/` and `GOODIES/`. That's all: the
 build unpacks and converts what it needs. Everything taken from your copy stays
 on your machine and is ignored by git. Please don't share it, or the builds you
-make from it: a desktop build contains your game data. The Android APK and the
-Switch's `OpenAoK.nro` hold none of it; the data folders made for them do.
+make from it: a desktop build contains your game data. The Android APK, the
+iOS app and the Switch's `OpenAoK.nro` hold none of it; the data folders made
+for them do.
 
 The default hotkeys are read from the CD's `GAME/EMPIRES2.EXE`. On a CD
 protected by SafeDisc that file's code is encrypted, so they can't be: the
@@ -190,6 +196,25 @@ your own CD and copied to the phone.
 
 More, building the APK yourself included, in
 [android/README.md](android/README.md).
+
+## On iPhone and iPad
+
+OpenAoK runs on iPhones and iPads with iOS 15 or later. The app holds none of
+the game's data; the data is a folder made on a computer from your own CD and
+copied to the device.
+
+1. With this source code and your CD in `original_game_1999/`, run
+   `python3 ios/package.py`. It writes `ios/data/OpenAoK-data/`, about 350 MB.
+2. On a Mac with Xcode, run `ios/build.sh --device`, open
+   `ios/build/OpenAoK.xcodeproj`, choose your team and your iPhone or iPad,
+   and Run. That command's unsigned build can be sideloaded with AltStore
+   instead.
+3. Copy `OpenAoK-data` to the device -- with AirDrop, the Files app, or
+   Finder's File Sharing -- open OpenAoK and choose the folder. The app copies
+   it in; then the folder on the device can go.
+
+Building needs Xcode 15 or later, and Xcode 27's iOS 27 SDK is supported. More,
+the simulator and sideloading included, in [ios/README.md](ios/README.md).
 
 ## On the Nintendo Switch
 
@@ -290,6 +315,7 @@ water, trade, diplomacy, scenarios and the editor. See
 - [docs/VERIFY.md](docs/VERIFY.md): the self-check
 - [docs/MULTIPLAYER.md](docs/MULTIPLAYER.md): lockstep networking
 - [android/README.md](android/README.md): the Android build and touch controls
+- [ios/README.md](ios/README.md): the iPhone and iPad build, data and simulator
 - [switch/README.md](switch/README.md): the Switch build, the SD card and the controller
 - [ROADMAP.md](ROADMAP.md): what's next, and known issues
 
