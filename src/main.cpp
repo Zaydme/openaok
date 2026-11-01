@@ -1818,6 +1818,13 @@ int main(int argc, char* argv[]) {
     SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengles2");
     HAL::Touch::Enable();
     HAL::Pad::Enable();
+#elif defined(__IPHONEOS__)
+    // iOS has no desktop OpenGL: SDL picks its Metal renderer, or OpenGL ES,
+    // by itself. Held sideways, either way up, and played with the fingers as
+    // with a mouse (hal/Touch); hal/Platform has already entered the game's
+    // folder in the app's Documents.
+    SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
+    HAL::Touch::Enable();
 #else
     // Desktop: the OpenGL render driver.
     SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
