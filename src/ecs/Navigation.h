@@ -84,9 +84,11 @@ Core::Fixed32 GapAt(const entt::registry& registry, entt::entity entity, Compone
                     entt::entity target);
 
 // Where `entity` should make for when sent to `to`: `to` itself if it can
-// stand there, else the nearest point it can reach on its own ground -- a
-// transport sent at the land comes to the shore, a villager sent at the sea
-// to the water's edge -- searched out to a few tiles; `to` if there is none.
+// stand there and get there, else the nearest point it can reach on its own
+// ground -- a transport sent at the land comes to the shore, a villager sent
+// at the sea to the water's edge, a soldier sent into a pocket of open ground
+// walled in by trees to the trees' edge -- searched out to a few tiles; `to`
+// if there is none.
 Components::Vector2D Toward(const entt::registry& registry, const Physics::Grid& grid,
                             entt::entity entity, Components::Vector2D to);
 

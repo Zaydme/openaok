@@ -223,12 +223,16 @@ Components::Path Route(const entt::registry& registry, const Physics::Grid& grid
 
 Components::Vector2D Toward(const entt::registry& registry, const Physics::Grid& grid,
                             entt::entity entity, Components::Vector2D to) {
-    if (CanStand(registry, grid, entity, to)) return to;
     const auto* at = registry.try_get<Components::Transform>(entity);
-    if (at == nullptr) return to;
     const Physics::Layer layer = LayerOf(registry, grid, entity);
-    const int region = RegionOf(registry, grid, entity);
-    if (region < 0) return to;
+    const int region = at != nullptr ? RegionOf(registry, grid, entity) : -1;
+    // Somewhere it can stand and get to -- not a pocket of open ground walled
+    // in by trees: there.
+    if (CanStand(registry, grid, entity, to) &&
+        (region < 0 || Pathfinding::RegionAt(grid, Physics::TileOf(to.x), Physics::TileOf(to.y), layer) == region)) {
+        return to;
+    }
+    if (at == nullptr || region < 0) return to;
     // The nearest tile of the unit's own ground, ring by ring out from the
     // spot -- the nearest to the unit among those as near.
     constexpr int kReach = 32;

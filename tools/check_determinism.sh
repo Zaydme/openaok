@@ -42,6 +42,7 @@ COLLAPSE="$(echo "$OUTPUT" | grep '^collapse=')"
 SHIPANGLES="$(echo "$OUTPUT" | grep '^shipangles=')"
 TURNING="$(echo "$OUTPUT" | grep '^turning=')"
 POCKET="$(echo "$OUTPUT" | grep '^pocket=')"
+CLEARING="$(echo "$OUTPUT" | grep '^clearing=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -293,6 +294,12 @@ else
     echo "  $POCKET" >&2
     STATUS=1
 fi
+
+# A soldier sent into a clearing walled in by trees goes to the trees' edge.
+case "$CLEARING" in
+    clearing=ok*) echo "clearing OK: ${CLEARING#clearing=ok }" ;;
+    *) echo "CLEARING FAILED" >&2; echo "  $CLEARING" >&2; STATUS=1 ;;
+esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and
 # bring it home.
