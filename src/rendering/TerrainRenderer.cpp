@@ -58,14 +58,13 @@ constexpr int kNeighbourDx[8] = {-1,  0,  1, 1, 1, 0, -1, -1};
 constexpr int kNeighbourDy[8] = {-1, -1, -1, 0, 1, 1,  1,  0};
 
 SDL_Texture* g_masks = nullptr;
-SDL_Texture* g_scratch = nullptr;
 bool g_masks_tried = false;
 
 // How many mask sets the sheet holds: one 49-pixel row each.
 int g_mask_sets = 1;
 int MaskSets() { return g_mask_sets; }
 
-SDL_Texture* BlendMasks(SDL_Renderer* sdl_r) {
+SDL_Texture* BlendMasks() {
     if (!g_masks_tried) {
         g_masks_tried = true;
         HAL::TextureManager::Get().LoadTexture(
@@ -76,12 +75,59 @@ SDL_Texture* BlendMasks(SDL_Renderer* sdl_r) {
         if (g_masks && SDL_QueryTexture(g_masks, nullptr, nullptr, &w, &h) == 0) {
             g_mask_sets = std::max(1, h / kMaskH);
         }
-        g_scratch = SDL_CreateTexture(sdl_r, SDL_PIXELFORMAT_RGBA8888,
-                                      SDL_TEXTUREACCESS_TARGET, kMaskW, kMaskH);
-        if (g_scratch) SDL_SetTextureBlendMode(g_scratch, SDL_BLENDMODE_BLEND);
     }
     return g_masks;
 }
+
+// A chunk's blends are each drawn through their mask into a slot of the blend
+// sheet, and its tiles on hills drawn flat into slots of the hill sheet, all
+// before the chunk itself is drawn: the renderer changes target a few times
+// a chunk, not twice for every blend. A tile has at most eight blends, one
+// for each neighbour.
+constexpr int kBlendsAcross = 20;
+constexpr int kBlendSlots = TerrainRenderer::CHUNK_SIZE * TerrainRenderer::CHUNK_SIZE * 8;
+constexpr int kHillsAcross = TerrainRenderer::CHUNK_SIZE;
+constexpr int kHillW = Core::IsometricMath::TILE_WIDTH + 1;
+constexpr int kHillH = Core::IsometricMath::TILE_HEIGHT + 1;
+// Slots are kept apart, so a hill tile's sampling never reaches the next.
+constexpr int kHillGap = 2;
+
+SDL_Texture* g_blend_sheet = nullptr;
+SDL_Texture* g_hill_sheet = nullptr;
+
+SDL_Texture* Sheet(SDL_Renderer* sdl_r, SDL_Texture*& sheet, int w, int h) {
+    if (sheet == nullptr) {
+        sheet = SDL_CreateTexture(sdl_r, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, w, h);
+        if (sheet) SDL_SetTextureBlendMode(sheet, SDL_BLENDMODE_BLEND);
+    }
+    return sheet;
+}
+
+SDL_Texture* BlendSheet(SDL_Renderer* sdl_r) {
+    const int rows = (kBlendSlots + kBlendsAcross - 1) / kBlendsAcross;
+    return Sheet(sdl_r, g_blend_sheet, kBlendsAcross * (kMaskW + 1), rows * (kMaskH + 1));
+}
+
+SDL_Texture* HillSheet(SDL_Renderer* sdl_r) {
+    const int rows = TerrainRenderer::CHUNK_SIZE * TerrainRenderer::CHUNK_SIZE / kHillsAcross;
+    return Sheet(sdl_r, g_hill_sheet, kHillsAcross * (kHillW + kHillGap), rows * (kHillH + kHillGap));
+}
+
+SDL_Rect BlendSlot(size_t i) {
+    const int n = static_cast<int>(i);
+    return {(n % kBlendsAcross) * (kMaskW + 1), (n / kBlendsAcross) * (kMaskH + 1), kMaskW, kMaskH};
+}
+
+SDL_Rect HillSlot(int i) {
+    return {(i % kHillsAcross) * (kHillW + kHillGap), (i / kHillsAcross) * (kHillH + kHillGap), kHillW, kHillH};
+}
+
+// One blend: a terrain tile drawn through one of the masks.
+struct Blend {
+    TerrainRenderer::TerrainTile tile;
+    int mask = 0;
+    int mode = 0;
+};
 
 // Which masks a pattern of influencing neighbours selects. Adjacent edges pick
 // one of four interchangeable variants; each corner adds its own mask, but only
@@ -108,33 +154,31 @@ int AdjacentMask(uint8_t influence, int variant) {
     }
 }
 
-// Draws one terrain tile through one mask, by multiplying the tile's alpha by
-// the mask's in a scratch target and blitting the result.
-void DrawMasked(SDL_Renderer* sdl_r, const TerrainRenderer::TerrainTile& terrain,
-                SDL_Texture* masks, int mask_id, int mode, const SDL_FRect& dest) {
-    if (!g_scratch) return;
-
+// Draws each blend through its mask into its slot of the blend sheet, by
+// multiplying the tile's alpha by the mask's.
+void MaskBlends(SDL_Renderer* sdl_r, SDL_Texture* masks, const std::vector<Blend>& blends) {
     static const SDL_BlendMode multiply_alpha = SDL_ComposeCustomBlendMode(
         SDL_BLENDFACTOR_ZERO, SDL_BLENDFACTOR_ONE, SDL_BLENDOPERATION_ADD,
         SDL_BLENDFACTOR_ZERO, SDL_BLENDFACTOR_SRC_ALPHA, SDL_BLENDOPERATION_ADD);
+    for (size_t i = 0; i < blends.size() && i < static_cast<size_t>(kBlendSlots); ++i) {
+        const Blend& b = blends[i];
+        const SDL_Rect slot = BlendSlot(i);
+        SDL_SetTextureBlendMode(b.tile.atlas, SDL_BLENDMODE_NONE);
+        SDL_RenderCopy(sdl_r, b.tile.atlas, &b.tile.src, &slot);
+        const SDL_Rect msrc = {b.mask * kMaskW, b.mode * kMaskH, kMaskW, kMaskH};
+        SDL_SetTextureBlendMode(masks, multiply_alpha);
+        SDL_RenderCopy(sdl_r, masks, &msrc, &slot);
+        SDL_SetTextureBlendMode(masks, SDL_BLENDMODE_BLEND);
+        SDL_SetTextureBlendMode(b.tile.atlas, SDL_BLENDMODE_BLEND);
+    }
+}
 
-    SDL_Texture* prev = SDL_GetRenderTarget(sdl_r);
-    SDL_SetRenderTarget(sdl_r, g_scratch);
-    SDL_SetRenderDrawBlendMode(sdl_r, SDL_BLENDMODE_NONE);
-    SDL_SetRenderDrawColor(sdl_r, 0, 0, 0, 0);
-    SDL_RenderClear(sdl_r);
-
-    SDL_SetTextureBlendMode(terrain.atlas, SDL_BLENDMODE_NONE);
-    SDL_RenderCopy(sdl_r, terrain.atlas, &terrain.src, nullptr);
-
-    const SDL_Rect msrc = {mask_id * kMaskW, mode * kMaskH, kMaskW, kMaskH};
-    SDL_SetTextureBlendMode(masks, multiply_alpha);
-    SDL_RenderCopy(sdl_r, masks, &msrc, nullptr);
-    SDL_SetTextureBlendMode(masks, SDL_BLENDMODE_BLEND);
-    SDL_SetTextureBlendMode(terrain.atlas, SDL_BLENDMODE_BLEND);
-
-    SDL_SetRenderTarget(sdl_r, prev);
-    SDL_RenderCopyF(sdl_r, g_scratch, nullptr, &dest);
+// Draws blends [first, first + count) of the sheet over a tile at `dest`.
+void DrawBlends(SDL_Renderer* sdl_r, size_t first, size_t count, const SDL_FRect& dest) {
+    for (size_t i = first; i < first + count && i < static_cast<size_t>(kBlendSlots); ++i) {
+        const SDL_Rect slot = BlendSlot(i);
+        SDL_RenderCopyF(sdl_r, g_blend_sheet, &slot, &dest);
+    }
 }
 
 } // namespace
@@ -151,35 +195,34 @@ static Core::TerrainType TerrainAt(const Physics::Grid& grid, int x, int y) {
     return g_registry != nullptr ? ECS::Fog::GroundSeen(*g_registry, g_viewer, x, y, now) : now;
 }
 
-static void RenderBlendOverlays(
-    SDL_Renderer* sdl_r,
+// The blends drawn over a tile, in order: each higher-priority terrain
+// touching it, through the masks its neighbours' pattern picks.
+static void CollectBlends(
     const Physics::Grid& grid,
     int x, int y,
-    const SDL_FRect& dest,
     Core::TerrainType my_terrain,
-    uint8_t my_variant)
+    uint8_t my_variant,
+    std::vector<Blend>& out)
 {
-    SDL_Texture* masks = BlendMasks(sdl_r);
-    if (!masks) return;
-
     const int my_prio = GetTerrainPriority(my_terrain);
 
     // Collect the distinct higher-priority terrains touching this tile, and
     // which of the eight neighbours each one occupies.
-    std::vector<std::pair<Core::TerrainType, uint8_t>> influences;
+    std::pair<Core::TerrainType, uint8_t> influences[8];
+    int influence_count = 0;
     for (int n = 0; n < 8; ++n) {
         const int nx = x + kNeighbourDx[n];
         const int ny = y + kNeighbourDy[n];
         if (!grid.InBounds(nx, ny)) continue;
         const Core::TerrainType nt = TerrainAt(grid, nx, ny);
         if (GetTerrainPriority(nt) <= my_prio) continue;
-        auto it = std::find_if(influences.begin(), influences.end(),
-                               [nt](const auto& p) { return p.first == nt; });
-        if (it == influences.end()) influences.emplace_back(nt, uint8_t(1u << n));
+        auto* end = influences + influence_count;
+        auto* it = std::find_if(influences, end, [nt](const auto& p) { return p.first == nt; });
+        if (it == end) influences[influence_count++] = {nt, uint8_t(1u << n)};
         else it->second |= uint8_t(1u << n);
     }
 
-    std::sort(influences.begin(), influences.end(),
+    std::sort(influences, influences + influence_count,
               [](const auto& a, const auto& b) {
                   return GetTerrainPriority(a.first) < GetTerrainPriority(b.first);
               });
@@ -188,7 +231,8 @@ static void RenderBlendOverlays(
     // field of the same transition does not repeat one shape.
     const int variant = ((x * 7 + y * 13) & 3);
 
-    for (const auto& inf : influences) {
+    for (int k = 0; k < influence_count; ++k) {
+        const auto& inf = influences[k];
         const auto tile = TerrainRenderer::GetTerrainTile(inf.first, my_variant);
         if (!tile.atlas) continue;
 
@@ -197,7 +241,7 @@ static void RenderBlendOverlays(
         const int mode = GetBlendMode(my_terrain, inf.first, MaskSets());
 
         const int adj_mask = AdjacentMask(adjacent, variant);
-        if (adj_mask >= 0) DrawMasked(sdl_r, tile, masks, adj_mask, mode, dest);
+        if (adj_mask >= 0) out.push_back({tile, adj_mask, mode});
 
         // Corners, skipped where an edge beside them already blends.
         static const int kCornerBit[4]  = {2, 4, 0, 6};
@@ -208,7 +252,7 @@ static void RenderBlendOverlays(
             const uint8_t left = uint8_t(1u << ((bit + 7) % 8));
             const uint8_t right = uint8_t(1u << ((bit + 1) % 8));
             if (adjacent & (left | right)) continue;
-            DrawMasked(sdl_r, tile, masks, kCornerMask[c], mode, dest);
+            out.push_back({tile, kCornerMask[c], mode});
         }
     }
 }
@@ -238,15 +282,18 @@ std::unordered_map<uint64_t, TerrainChunk> TerrainRenderer::chunks;
 
 namespace {
 
-// Chunks are baked as the viewport first touches them, at most a few per
-// frame so scrolling never hitches, and chunks out of view are evicted once
-// the budget is exceeded: kMaxLiveChunks, or half as many again as are in
-// view when that is more.
-constexpr int kBakesPerFrame = 4;
+// Chunks are baked as the viewport first touches them, within a few
+// milliseconds a frame so scrolling never hitches, and chunks out of view are
+// evicted once the budget is exceeded: kMaxLiveChunks, or half as many again
+// as are in view when that is more.
+constexpr uint64_t kBakeBudgetUs = 4000;
 constexpr size_t kMaxLiveChunks = 64;
 // Zoomed out further than this, chunks are baked at half their size: a
 // quarter of the memory and the drawing, at no cost to what shows.
 constexpr float kHalfZoom = 0.6f;
+// Room above a chunk for hills: a tile on high ground is drawn higher up the
+// screen than its flat position.
+constexpr float kHeadroomPx = 8.0f * Ground::kLevelPx;
 
 uint64_t g_frame = 0;
 
@@ -284,12 +331,9 @@ static TerrainChunk BakeChunk(SDL_Renderer* sdl_r, const Physics::Grid& grid,
     auto bottom = Core::IsometricMath::WorldToScreen(Core::Fixed32(cx * CS + CS), Core::Fixed32(cy * CS + CS));
     auto left   = Core::IsometricMath::WorldToScreen(Core::Fixed32(cx * CS),      Core::Fixed32(cy * CS + CS));
 
-    // Room above for hills: a tile on high ground is drawn higher up the
-    // screen than its flat position.
-    constexpr float kHeadroom = 8.0f * Ground::kLevelPx;
     const float min_x = std::min({top.x, right.x, bottom.x, left.x});
     const float max_x = std::max({top.x, right.x, bottom.x, left.x});
-    const float min_y = std::min({top.y, right.y, bottom.y, left.y}) - kHeadroom;
+    const float min_y = std::min({top.y, right.y, bottom.y, left.y}) - kHeadroomPx;
     const float max_y = std::max({top.y, right.y, bottom.y, left.y});
 
     const int tex_w = static_cast<int>(std::ceil(max_x - min_x + Core::IsometricMath::TILE_WIDTH));
@@ -322,135 +366,171 @@ static TerrainChunk BakeChunk(SDL_Renderer* sdl_r, const Physics::Grid& grid,
         bake = full;
     }
 
-    // Baked at the scale of its own pixels, whatever the view's zoom.
-    float zoom = 1.0f, unused = 1.0f;
-    SDL_RenderGetScale(sdl_r, &zoom, &unused);
-    SDL_Texture* prev_target = SDL_GetRenderTarget(sdl_r);
-    SDL_SetRenderTarget(sdl_r, bake);
-    SetZoom(sdl_r, 1.0f);
-    SDL_SetRenderDrawColor(sdl_r, 0, 0, 0, 0);
-    SDL_RenderClear(sdl_r);
-
     const int start_x = cx * CS;
     const int start_y = cy * CS;
     const int end_x = std::min(start_x + CS, grid.GetWidth());
     const int end_y = std::min(start_y + CS, grid.GetHeight());
-
-    // A scratch tile for drawing one tile flat before it is laid onto a
-    // hillside.
-    static SDL_Texture* tile_scratch = nullptr;
     const int tw = Core::IsometricMath::TILE_WIDTH + 1;
     const int th = Core::IsometricMath::TILE_HEIGHT + 1;
-    if (!tile_scratch) {
-        tile_scratch = SDL_CreateTexture(sdl_r, SDL_PIXELFORMAT_RGBA8888,
-                                         SDL_TEXTUREACCESS_TARGET, tw, th);
-        if (tile_scratch) SDL_SetTextureBlendMode(tile_scratch, SDL_BLENDMODE_BLEND);
-    }
 
+    // What each tile lays: its ground, its blends (a run of `blends`), and on
+    // a hill, its slot in the hill sheet.
+    struct Laid {
+        int x, y;
+        TerrainRenderer::TerrainTile art;
+        float ox, oy;
+        bool flat;
+        size_t first_blend, blend_count;
+        SDL_Rect hill;
+    };
+    static std::vector<Laid> laid;
+    static std::vector<Blend> blends;
+    laid.clear();
+    blends.clear();
+    SDL_Texture* masks = BlendMasks();
+    SDL_Texture* blend_sheet = masks != nullptr ? BlendSheet(sdl_r) : nullptr;
+    SDL_Texture* hill_sheet = HillSheet(sdl_r);
+    int hills = 0;
     for (int y = start_y; y < end_y; ++y) {
         for (int x = start_x; x < end_x; ++x) {
             const auto& tile = grid.GetTile(x, y);
             const Core::TerrainType terrain = TerrainAt(grid, x, y);
             auto screen_pos = Core::IsometricMath::WorldToScreen(Core::Fixed32(x), Core::Fixed32(y));
-            const float ox = screen_pos.x - min_x;
-            const float oy = screen_pos.y - min_y;
-            const auto art = TerrainRenderer::GetTerrainTile(terrain, tile.texture_variant);
-
-            // The heights of the tile's corners and middle, in levels.
-            const float h_top = Ground::CornerLevel(grid, x, y);
-            const float h_right = Ground::CornerLevel(grid, x + 1, y);
-            const float h_bottom = Ground::CornerLevel(grid, x + 1, y + 1);
-            const float h_left = Ground::CornerLevel(grid, x, y + 1);
-            const float h_mid = static_cast<float>(tile.elevation);
-            const bool flat = h_top == 0.0f && h_right == 0.0f && h_bottom == 0.0f &&
-                              h_left == 0.0f && h_mid == 0.0f;
-
-            if (flat || !tile_scratch) {
-                SDL_FRect dest = {
-                    std::round(ox - (Core::IsometricMath::TILE_WIDTH / 2.0f)),
-                    std::round(oy),
-                    static_cast<float>(tw), static_cast<float>(th)
-                };
-                // Every tile gets an opaque base, including water, so blend
-                // overlays always paint onto something.
-                if (art.atlas) {
-                    SDL_SetTextureColorMod(art.atlas, 255, 255, 255);
-                    SDL_SetTextureAlphaMod(art.atlas, 255);
-                    SDL_RenderCopyF(sdl_r, art.atlas, &art.src, &dest);
-                }
-                RenderBlendOverlays(sdl_r, grid, x, y, dest, terrain, tile.texture_variant);
-                continue;
+            Laid l{x, y, TerrainRenderer::GetTerrainTile(terrain, tile.texture_variant),
+                   screen_pos.x - min_x, screen_pos.y - min_y, true, blends.size(), 0, {}};
+            l.flat = hill_sheet == nullptr ||
+                     (Ground::CornerLevel(grid, x, y) == 0.0f && Ground::CornerLevel(grid, x + 1, y) == 0.0f &&
+                      Ground::CornerLevel(grid, x + 1, y + 1) == 0.0f && Ground::CornerLevel(grid, x, y + 1) == 0.0f &&
+                      tile.elevation == 0);
+            if (blend_sheet != nullptr) {
+                CollectBlends(grid, x, y, l.flat ? terrain : tile.terrain, tile.texture_variant, blends);
             }
+            l.blend_count = blends.size() - l.first_blend;
+            if (!l.flat) l.hill = HillSlot(hills++);
+            laid.push_back(l);
+        }
+    }
 
-            // On a hill: the tile and its blends drawn flat, then laid onto the
-            // ground's shape -- each corner raised to its height, and shaded
-            // where the slope faces away from the light.
-            SDL_Texture* chunk_target = SDL_GetRenderTarget(sdl_r);
-            SDL_SetRenderTarget(sdl_r, tile_scratch);
-            SDL_SetRenderDrawColor(sdl_r, 0, 0, 0, 0);
-            SDL_RenderClear(sdl_r);
-            const SDL_FRect flat_dest = {0.0f, 0.0f, static_cast<float>(tw),
-                                         static_cast<float>(th)};
-            if (art.atlas) {
-                SDL_SetTextureColorMod(art.atlas, 255, 255, 255);
-                SDL_SetTextureAlphaMod(art.atlas, 255);
-                SDL_RenderCopyF(sdl_r, art.atlas, &art.src, &flat_dest);
-            }
-            RenderBlendOverlays(sdl_r, grid, x, y, flat_dest, tile.terrain,
-                                tile.texture_variant);
-            SDL_SetRenderTarget(sdl_r, chunk_target);
+    // Baked at the scale of its own pixels, whatever the view's zoom.
+    float zoom = 1.0f, unused = 1.0f;
+    SDL_RenderGetScale(sdl_r, &zoom, &unused);
+    SDL_BlendMode draw_mode = SDL_BLENDMODE_BLEND;
+    SDL_GetRenderDrawBlendMode(sdl_r, &draw_mode);
+    SDL_Texture* prev_target = SDL_GetRenderTarget(sdl_r);
 
-            const float half_w = Core::IsometricMath::TILE_WIDTH / 2.0f;
-            const float half_h = Core::IsometricMath::TILE_HEIGHT / 2.0f;
-            const float lift = Ground::kLevelPx;
-            // Shade by darkening the tile where the slope faces away from the
-            // light; the lit side is brightened in a second, added pass below.
-            constexpr float kDeepestShade = 0.45f;
-            constexpr float kBrightestLight = 70.0f;
-            auto shade = [](float light) {
-                const float dark = light < 0.0f ? 1.0f + light * kDeepestShade : 1.0f;
-                const Uint8 v = static_cast<Uint8>(std::clamp(dark, 0.0f, 1.0f) * 255.0f);
-                return SDL_Color{v, v, v, 255};
-            };
-            auto glow = [](float light) {
-                const Uint8 v = static_cast<Uint8>(
-                    std::clamp(light, 0.0f, 1.0f) * kBrightestLight);
-                return SDL_Color{v, v, v, 255};
-            };
-            const float l_top = Ground::Light(grid, x, y);
-            const float l_right = Ground::Light(grid, x + 1, y);
-            const float l_bottom = Ground::Light(grid, x + 1, y + 1);
-            const float l_left = Ground::Light(grid, x, y + 1);
-            const float l_mid = 0.25f * (l_top + l_right + l_bottom + l_left);
-            const float u_mid = half_w / static_cast<float>(tw);
-            const float v_mid = half_h / static_cast<float>(th);
-            // The outer corners pushed a pixel outward, so neighbouring tiles
-            // overlap the way flat ones do and no seam of background shows
-            // between them.
-            constexpr float kBleed = 1.0f;
-            const SDL_Vertex corners[5] = {
-                {{ox, oy - h_top * lift - kBleed}, shade(l_top), {u_mid, 0.0f}},
-                {{ox + half_w + kBleed * 2.0f, oy + half_h - h_right * lift}, shade(l_right),
-                 {(2.0f * half_w) / static_cast<float>(tw), v_mid}},
-                {{ox, oy + 2.0f * half_h - h_bottom * lift + kBleed}, shade(l_bottom),
-                 {u_mid, (2.0f * half_h) / static_cast<float>(th)}},
-                {{ox - half_w - kBleed * 2.0f, oy + half_h - h_left * lift}, shade(l_left),
-                 {0.0f, v_mid}},
-                {{ox, oy + half_h - h_mid * lift}, shade(l_mid), {u_mid, v_mid}},
-            };
-            static const int kFan[12] = {0, 1, 4, 1, 2, 4, 2, 3, 4, 3, 0, 4};
-            SDL_RenderGeometry(sdl_r, tile_scratch, corners, 5, kFan, 12);
-            if (l_top > 0.0f || l_right > 0.0f || l_bottom > 0.0f || l_left > 0.0f) {
-                SDL_Vertex lit[5];
-                const float lights[5] = {l_top, l_right, l_bottom, l_left, l_mid};
-                for (int k = 0; k < 5; ++k) {
-                    lit[k] = corners[k];
-                    lit[k].color = glow(lights[k]);
-                }
-                SDL_SetRenderDrawBlendMode(sdl_r, SDL_BLENDMODE_ADD);
-                SDL_RenderGeometry(sdl_r, nullptr, lit, 5, kFan, 12);
-                SDL_SetRenderDrawBlendMode(sdl_r, SDL_BLENDMODE_BLEND);
+    if (!blends.empty()) {
+        SDL_SetRenderTarget(sdl_r, blend_sheet);
+        SetZoom(sdl_r, 1.0f);
+        MaskBlends(sdl_r, masks, blends);
+    }
+    // A hill tile and its blends drawn flat, to be laid onto the ground's
+    // shape.
+    if (hills > 0) {
+        SDL_SetRenderTarget(sdl_r, hill_sheet);
+        SetZoom(sdl_r, 1.0f);
+        SDL_SetRenderDrawColor(sdl_r, 0, 0, 0, 0);
+        SDL_RenderClear(sdl_r);
+        for (const Laid& l : laid) {
+            if (l.flat) continue;
+            const SDL_FRect at = {static_cast<float>(l.hill.x), static_cast<float>(l.hill.y),
+                                  static_cast<float>(tw), static_cast<float>(th)};
+            if (l.art.atlas) {
+                SDL_SetTextureColorMod(l.art.atlas, 255, 255, 255);
+                SDL_SetTextureAlphaMod(l.art.atlas, 255);
+                SDL_RenderCopyF(sdl_r, l.art.atlas, &l.art.src, &at);
             }
+            DrawBlends(sdl_r, l.first_blend, l.blend_count, at);
+        }
+    }
+
+    SDL_SetRenderTarget(sdl_r, bake);
+    SetZoom(sdl_r, 1.0f);
+    SDL_SetRenderDrawColor(sdl_r, 0, 0, 0, 0);
+    SDL_RenderClear(sdl_r);
+
+    int hill_w = 0, hill_h = 0;
+    if (hill_sheet != nullptr) SDL_QueryTexture(hill_sheet, nullptr, nullptr, &hill_w, &hill_h);
+    for (const Laid& l : laid) {
+        const int x = l.x;
+        const int y = l.y;
+        const float ox = l.ox;
+        const float oy = l.oy;
+        if (l.flat) {
+            SDL_FRect dest = {
+                std::round(ox - (Core::IsometricMath::TILE_WIDTH / 2.0f)),
+                std::round(oy),
+                static_cast<float>(tw), static_cast<float>(th)
+            };
+            // Every tile gets an opaque base, including water, so blend
+            // overlays always paint onto something.
+            if (l.art.atlas) {
+                SDL_SetTextureColorMod(l.art.atlas, 255, 255, 255);
+                SDL_SetTextureAlphaMod(l.art.atlas, 255);
+                SDL_RenderCopyF(sdl_r, l.art.atlas, &l.art.src, &dest);
+            }
+            DrawBlends(sdl_r, l.first_blend, l.blend_count, dest);
+            continue;
+        }
+
+        // On a hill: the tile drawn flat in its slot, laid onto the ground's
+        // shape -- each corner raised to its height, and shaded where the
+        // slope faces away from the light.
+        const float h_top = Ground::CornerLevel(grid, x, y);
+        const float h_right = Ground::CornerLevel(grid, x + 1, y);
+        const float h_bottom = Ground::CornerLevel(grid, x + 1, y + 1);
+        const float h_left = Ground::CornerLevel(grid, x, y + 1);
+        const float h_mid = static_cast<float>(grid.GetTile(x, y).elevation);
+        const float half_w = Core::IsometricMath::TILE_WIDTH / 2.0f;
+        const float half_h = Core::IsometricMath::TILE_HEIGHT / 2.0f;
+        const float lift = Ground::kLevelPx;
+        // Shade by darkening the tile where the slope faces away from the
+        // light; the lit side is brightened in a second, added pass below.
+        constexpr float kDeepestShade = 0.45f;
+        constexpr float kBrightestLight = 70.0f;
+        auto shade = [](float light) {
+            const float dark = light < 0.0f ? 1.0f + light * kDeepestShade : 1.0f;
+            const Uint8 v = static_cast<Uint8>(std::clamp(dark, 0.0f, 1.0f) * 255.0f);
+            return SDL_Color{v, v, v, 255};
+        };
+        auto glow = [](float light) {
+            const Uint8 v = static_cast<Uint8>(
+                std::clamp(light, 0.0f, 1.0f) * kBrightestLight);
+            return SDL_Color{v, v, v, 255};
+        };
+        const float l_top = Ground::Light(grid, x, y);
+        const float l_right = Ground::Light(grid, x + 1, y);
+        const float l_bottom = Ground::Light(grid, x + 1, y + 1);
+        const float l_left = Ground::Light(grid, x, y + 1);
+        const float l_mid = 0.25f * (l_top + l_right + l_bottom + l_left);
+        // The slot's place in the sheet, as texture coordinates.
+        auto u = [&](float px) { return (static_cast<float>(l.hill.x) + px) / static_cast<float>(hill_w); };
+        auto v = [&](float px) { return (static_cast<float>(l.hill.y) + px) / static_cast<float>(hill_h); };
+        // The outer corners pushed a pixel outward, so neighbouring tiles
+        // overlap the way flat ones do and no seam of background shows
+        // between them.
+        constexpr float kBleed = 1.0f;
+        const SDL_Vertex corners[5] = {
+            {{ox, oy - h_top * lift - kBleed}, shade(l_top), {u(half_w), v(0.0f)}},
+            {{ox + half_w + kBleed * 2.0f, oy + half_h - h_right * lift}, shade(l_right),
+             {u(2.0f * half_w), v(half_h)}},
+            {{ox, oy + 2.0f * half_h - h_bottom * lift + kBleed}, shade(l_bottom),
+             {u(half_w), v(2.0f * half_h)}},
+            {{ox - half_w - kBleed * 2.0f, oy + half_h - h_left * lift}, shade(l_left),
+             {u(0.0f), v(half_h)}},
+            {{ox, oy + half_h - h_mid * lift}, shade(l_mid), {u(half_w), v(half_h)}},
+        };
+        static const int kFan[12] = {0, 1, 4, 1, 2, 4, 2, 3, 4, 3, 0, 4};
+        SDL_RenderGeometry(sdl_r, hill_sheet, corners, 5, kFan, 12);
+        if (l_top > 0.0f || l_right > 0.0f || l_bottom > 0.0f || l_left > 0.0f) {
+            SDL_Vertex lit[5];
+            const float lights[5] = {l_top, l_right, l_bottom, l_left, l_mid};
+            for (int k = 0; k < 5; ++k) {
+                lit[k] = corners[k];
+                lit[k].color = glow(lights[k]);
+            }
+            SDL_SetRenderDrawBlendMode(sdl_r, SDL_BLENDMODE_ADD);
+            SDL_RenderGeometry(sdl_r, nullptr, lit, 5, kFan, 12);
+            SDL_SetRenderDrawBlendMode(sdl_r, SDL_BLENDMODE_BLEND);
         }
     }
 
@@ -467,6 +547,7 @@ static TerrainChunk BakeChunk(SDL_Renderer* sdl_r, const Physics::Grid& grid,
     }
     SDL_SetRenderTarget(sdl_r, prev_target);
     SetZoom(sdl_r, zoom);
+    SDL_SetRenderDrawBlendMode(sdl_r, draw_mode);
     return chunk;
 }
 
@@ -547,7 +628,27 @@ void TerrainRenderer::DrawTerrain(ECS::Simulation& sim, Renderer& renderer, SDL_
     // Zoomed far out, the half-size bakes; a chunk not yet baked at the size
     // wanted is drawn at the other meanwhile, if it has one.
     const bool half = renderer.camera_zoom < kHalfZoom;
-    int baked = 0;
+    // What is in sight: the view, and the hills a chunk below it raises into
+    // it.
+    const float sight = kHeadroomPx + Core::IsometricMath::TILE_HEIGHT;
+    const float see_x0 = renderer.camera_x - sight;
+    const float see_y0 = renderer.camera_y - sight;
+    const float see_x1 = renderer.camera_x + view_w + sight;
+    const float see_y1 = renderer.camera_y + view_h + sight;
+    // Chunks are baked within a time budget a frame: those in sight as they
+    // are met, then those in the margin, to be ready as they scroll in.
+    const uint64_t bake_budget = SDL_GetPerformanceFrequency() * kBakeBudgetUs / 1000000;
+    uint64_t spent = 0;
+    auto bake = [&](int cx, int cy) {
+        const uint64_t start = SDL_GetPerformanceCounter();
+        TerrainChunk chunk = BakeChunk(sdl_r, grid, cx, cy, half);
+        spent += SDL_GetPerformanceCounter() - start;
+        if (!chunk.texture) return chunks.end();
+        chunk.last_used = g_frame;
+        return chunks.emplace(ChunkKey(cx, cy, half), chunk).first;
+    };
+    static std::vector<std::pair<int, int>> ahead;
+    ahead.clear();
     size_t in_view = 0;
     for (int cy = 0; cy < chunks_y; ++cy) {
         for (int cx = 0; cx < chunks_x; ++cx) {
@@ -555,22 +656,21 @@ void TerrainRenderer::DrawTerrain(ECS::Simulation& sim, Renderer& renderer, SDL_
             if (b.x + b.w < vis_x0 || b.x > vis_x1 || b.y + b.h < vis_y0 || b.y > vis_y1) {
                 continue;
             }
+            const bool seen = !(b.x + b.w < see_x0 || b.x > see_x1 || b.y + b.h < see_y0 || b.y > see_y1);
 
-            const uint64_t key = ChunkKey(cx, cy, half);
-            auto it = chunks.find(key);
-            if (it == chunks.end() && baked < kBakesPerFrame) {
-                // Spread the cost: a few chunks per frame, nearest first by
-                // virtue of the scan order, so scrolling never stalls.
-                TerrainChunk chunk = BakeChunk(sdl_r, grid, cx, cy, half);
-                if (chunk.texture) {
-                    ++baked;
-                    it = chunks.emplace(key, chunk).first;
+            auto it = chunks.find(ChunkKey(cx, cy, half));
+            if (it == chunks.end()) {
+                if (!seen) {
+                    ahead.emplace_back(cx, cy);
+                } else if (spent < bake_budget) {
+                    it = bake(cx, cy);
                 }
             }
             if (it == chunks.end()) it = chunks.find(ChunkKey(cx, cy, !half));
             if (it == chunks.end()) continue;
             it->second.last_used = g_frame;
             ++in_view;
+            if (!seen) continue;
 
             // Each tile's diamond is centred on its world position, the
             // convention every other part of the engine uses for a tile. The
@@ -583,6 +683,10 @@ void TerrainRenderer::DrawTerrain(ECS::Simulation& sim, Renderer& renderer, SDL_
             SDL_FRect dest = {sx, sy, it->second.screen_bounds.w, it->second.screen_bounds.h};
             SDL_RenderCopyF(sdl_r, it->second.texture, nullptr, &dest);
         }
+    }
+    for (const auto& [cx, cy] : ahead) {
+        if (spent >= bake_budget) break;
+        if (bake(cx, cy) != chunks.end()) ++in_view;
     }
 
     // Evict the least recently seen chunks once the cache is over budget.
