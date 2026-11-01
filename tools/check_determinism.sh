@@ -48,6 +48,7 @@ CARRYON="$(echo "$OUTPUT" | grep '^carryon=')"
 STEP="$(echo "$OUTPUT" | grep '^step=')"
 WALLEDTREE="$(echo "$OUTPUT" | grep '^walledtree=')"
 SETOFF="$(echo "$OUTPUT" | grep '^setoff=')"
+CROWDGOAL="$(echo "$OUTPUT" | grep '^crowdgoal=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -334,6 +335,12 @@ esac
 case "$SETOFF" in
     setoff=ok*) echo "setoff OK: ${SETOFF#setoff=ok }" ;;
     *) echo "SETOFF FAILED" >&2; echo "  $SETOFF" >&2; STATUS=1 ;;
+esac
+
+# A route into the crowd its destination stands in goes straight in.
+case "$CROWDGOAL" in
+    crowdgoal=ok*) echo "crowdgoal OK: ${CROWDGOAL#crowdgoal=ok }" ;;
+    *) echo "CROWDGOAL FAILED" >&2; echo "  $CROWDGOAL" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

@@ -244,6 +244,9 @@ bool CheckWalledTree();
 // A hundred soldiers set on one enemy all have their routes the tick after
 // the order, and all come up to it. Prints "setoff=".
 bool CheckSetOff();
+// A route to a spot inside a crowd standing there goes straight in without
+// searching far for a way round. Prints "crowdgoal=".
+bool CheckCrowdGoal();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();
