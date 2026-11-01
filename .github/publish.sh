@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Adds FILE to the release of the version tag being built ($GITHUB_REF_NAME),
-# making the release if it is not there yet: the Switch's and Android's
-# workflows each publish their own file, whichever finishes first. The
-# release's notes are written for it afterwards.
+# making the release if it is not there yet: each platform's workflow
+# publishes its own file, whichever finishes first making it. The release's
+# notes are written for it afterwards.
 set -euo pipefail
 file="$1"
 repo="$GITHUB_REPOSITORY"
