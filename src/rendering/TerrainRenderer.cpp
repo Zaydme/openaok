@@ -287,6 +287,9 @@ namespace {
 // evicted once the budget is exceeded: kMaxLiveChunks, or half as many again
 // as are in view when that is more.
 constexpr uint64_t kBakeBudgetUs = 4000;
+// The view counts as jumped when more than one in this many of the chunks in
+// sight have nothing baked.
+constexpr int kJumpedShare = 4;
 constexpr size_t kMaxLiveChunks = 64;
 // Zoomed out further than this, chunks are baked at half their size: a
 // quarter of the memory and the drawing, at no cost to what shows.
@@ -311,20 +314,14 @@ void TerrainRenderer::DrawWaterLayer(ECS::Simulation& sim, Renderer& renderer, S
     (void)sim; (void)renderer; (void)sdl_r;
 }
 
-void TerrainRenderer::InvalidateChunks() {
-    for (auto& entry : chunks) {
-        if (entry.second.texture) SDL_DestroyTexture(entry.second.texture);
-    }
-    chunks.clear();
-}
+// A chunk's box in the world's screen space: its tiles' images, with room
+// above for hills.
+struct ChunkBox {
+    float x, y;
+    int w, h;
+};
 
-// Bakes one chunk's tiles and blend overlays into its own texture.
-static TerrainChunk BakeChunk(SDL_Renderer* sdl_r, const Physics::Grid& grid,
-                              int cx, int cy, bool half) {
-    TerrainChunk chunk;
-    chunk.grid_x = cx;
-    chunk.grid_y = cy;
-
+static ChunkBox BoxOf(int cx, int cy) {
     const int CS = TerrainRenderer::CHUNK_SIZE;
     auto top    = Core::IsometricMath::WorldToScreen(Core::Fixed32(cx * CS),      Core::Fixed32(cy * CS));
     auto right  = Core::IsometricMath::WorldToScreen(Core::Fixed32(cx * CS + CS), Core::Fixed32(cy * CS));
@@ -335,37 +332,55 @@ static TerrainChunk BakeChunk(SDL_Renderer* sdl_r, const Physics::Grid& grid,
     const float max_x = std::max({top.x, right.x, bottom.x, left.x});
     const float min_y = std::min({top.y, right.y, bottom.y, left.y}) - kHeadroomPx;
     const float max_y = std::max({top.y, right.y, bottom.y, left.y});
+    return {min_x, min_y,
+            static_cast<int>(std::ceil(max_x - min_x + Core::IsometricMath::TILE_WIDTH)),
+            static_cast<int>(std::ceil(max_y - min_y + Core::IsometricMath::TILE_HEIGHT))};
+}
 
-    const int tex_w = static_cast<int>(std::ceil(max_x - min_x + Core::IsometricMath::TILE_WIDTH));
-    const int tex_h = static_cast<int>(std::ceil(max_y - min_y + Core::IsometricMath::TILE_HEIGHT));
-
-    chunk.screen_bounds = {min_x, min_y, static_cast<float>(tex_w), static_cast<float>(tex_h)};
-    const int shrink = half ? 2 : 1;
-    chunk.texture = SDL_CreateTexture(sdl_r, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET,
-                                      (tex_w + shrink - 1) / shrink, (tex_h + shrink - 1) / shrink);
-    if (!chunk.texture) return chunk;
-    SDL_SetTextureBlendMode(chunk.texture, SDL_BLENDMODE_BLEND);
-
-    // A half-size chunk is baked whole at full size into a scratch, then
-    // shrunk into its own texture, so it is as seamless as a full one.
-    SDL_Texture* bake = chunk.texture;
-    if (half) {
-        static SDL_Texture* full = nullptr;
-        static int full_w = 0, full_h = 0;
-        if (full == nullptr || full_w != tex_w || full_h != tex_h) {
-            if (full != nullptr) SDL_DestroyTexture(full);
-            full = SDL_CreateTexture(sdl_r, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, tex_w, tex_h);
-            full_w = tex_w;
-            full_h = tex_h;
-        }
-        if (full == nullptr) {
-            SDL_DestroyTexture(chunk.texture);
-            chunk.texture = nullptr;
-            return chunk;
-        }
-        bake = full;
+// A scratch a chunk is drawn into whole at full size, to be shrunk.
+static SDL_Texture* FullScratch(SDL_Renderer* sdl_r, int w, int h) {
+    static SDL_Texture* full = nullptr;
+    static int full_w = 0, full_h = 0;
+    if (full == nullptr || full_w != w || full_h != h) {
+        if (full != nullptr) SDL_DestroyTexture(full);
+        full = SDL_CreateTexture(sdl_r, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, w, h);
+        if (full != nullptr) SDL_SetTextureBlendMode(full, SDL_BLENDMODE_BLEND);
+        full_w = w;
+        full_h = h;
     }
+    return full;
+}
 
+// The renderer's target, scale and drawing blend mode, put back after a
+// bake: a chunk is baked at the scale of its own pixels, whatever the view's
+// zoom.
+struct RenderState {
+    SDL_Texture* target;
+    float zoom;
+    SDL_BlendMode mode;
+};
+
+static RenderState Save(SDL_Renderer* sdl_r) {
+    RenderState state{SDL_GetRenderTarget(sdl_r), 1.0f, SDL_BLENDMODE_BLEND};
+    float unused = 1.0f;
+    SDL_RenderGetScale(sdl_r, &state.zoom, &unused);
+    SDL_GetRenderDrawBlendMode(sdl_r, &state.mode);
+    return state;
+}
+
+static void Restore(SDL_Renderer* sdl_r, const RenderState& state) {
+    SDL_SetRenderTarget(sdl_r, state.target);
+    SetZoom(sdl_r, state.zoom);
+    SDL_SetRenderDrawBlendMode(sdl_r, state.mode);
+}
+
+// Draws one chunk's tiles and blend overlays at full size into `target`, the
+// box's top left at the target's, and leaves the target set.
+static void Compose(SDL_Renderer* sdl_r, const Physics::Grid& grid, int cx, int cy,
+                    const ChunkBox& box, SDL_Texture* target) {
+    const int CS = TerrainRenderer::CHUNK_SIZE;
+    const float min_x = box.x;
+    const float min_y = box.y;
     const int start_x = cx * CS;
     const int start_y = cy * CS;
     const int end_x = std::min(start_x + CS, grid.GetWidth());
@@ -411,13 +426,6 @@ static TerrainChunk BakeChunk(SDL_Renderer* sdl_r, const Physics::Grid& grid,
         }
     }
 
-    // Baked at the scale of its own pixels, whatever the view's zoom.
-    float zoom = 1.0f, unused = 1.0f;
-    SDL_RenderGetScale(sdl_r, &zoom, &unused);
-    SDL_BlendMode draw_mode = SDL_BLENDMODE_BLEND;
-    SDL_GetRenderDrawBlendMode(sdl_r, &draw_mode);
-    SDL_Texture* prev_target = SDL_GetRenderTarget(sdl_r);
-
     if (!blends.empty()) {
         SDL_SetRenderTarget(sdl_r, blend_sheet);
         SetZoom(sdl_r, 1.0f);
@@ -443,7 +451,7 @@ static TerrainChunk BakeChunk(SDL_Renderer* sdl_r, const Physics::Grid& grid,
         }
     }
 
-    SDL_SetRenderTarget(sdl_r, bake);
+    SDL_SetRenderTarget(sdl_r, target);
     SetZoom(sdl_r, 1.0f);
     SDL_SetRenderDrawColor(sdl_r, 0, 0, 0, 0);
     SDL_RenderClear(sdl_r);
@@ -534,6 +542,32 @@ static TerrainChunk BakeChunk(SDL_Renderer* sdl_r, const Physics::Grid& grid,
         }
     }
 
+}
+
+// Bakes one chunk's tiles and blend overlays into its own texture.
+static TerrainChunk BakeChunk(SDL_Renderer* sdl_r, const Physics::Grid& grid,
+                              int cx, int cy, bool half) {
+    TerrainChunk chunk;
+    chunk.grid_x = cx;
+    chunk.grid_y = cy;
+    const ChunkBox box = BoxOf(cx, cy);
+    chunk.screen_bounds = {box.x, box.y, static_cast<float>(box.w), static_cast<float>(box.h)};
+    const int shrink = half ? 2 : 1;
+    chunk.texture = SDL_CreateTexture(sdl_r, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET,
+                                      (box.w + shrink - 1) / shrink, (box.h + shrink - 1) / shrink);
+    if (!chunk.texture) return chunk;
+    SDL_SetTextureBlendMode(chunk.texture, SDL_BLENDMODE_BLEND);
+
+    // A half-size chunk is baked whole at full size into a scratch, then
+    // shrunk into its own texture, so it is as seamless as a full one.
+    SDL_Texture* bake = half ? FullScratch(sdl_r, box.w, box.h) : chunk.texture;
+    if (bake == nullptr) {
+        SDL_DestroyTexture(chunk.texture);
+        chunk.texture = nullptr;
+        return chunk;
+    }
+    const RenderState saved = Save(sdl_r);
+    Compose(sdl_r, grid, cx, cy, box, bake);
     if (half) {
         SDL_SetRenderTarget(sdl_r, chunk.texture);
         SetZoom(sdl_r, 1.0f);
@@ -545,10 +579,112 @@ static TerrainChunk BakeChunk(SDL_Renderer* sdl_r, const Physics::Grid& grid,
         SDL_SetTextureBlendMode(bake, SDL_BLENDMODE_BLEND);
         SDL_SetRenderDrawBlendMode(sdl_r, SDL_BLENDMODE_BLEND);
     }
-    SDL_SetRenderTarget(sdl_r, prev_target);
-    SetZoom(sdl_r, zoom);
-    SDL_SetRenderDrawBlendMode(sdl_r, draw_mode);
+    Restore(sdl_r, saved);
     return chunk;
+}
+
+// The whole map drawn once at a fraction of its size, under the chunks: what
+// shows where a chunk is not baked yet, as when the view jumps across the map
+// by the minimap. It is filled a chunk at a time with what is left of a
+// frame's budget, and a chunk of it drawn again where the ground changes.
+namespace {
+
+constexpr int kOverviewShrink = 8;
+
+struct Overview {
+    SDL_Texture* texture = nullptr;
+    const Physics::Grid* grid = nullptr;
+    int shrink = kOverviewShrink;
+    float x = 0.0f, y = 0.0f;    // its top left, in the world's screen space
+    int w = 0, h = 0;            // its size, in its own pixels
+    int across = 0, down = 0;    // in chunks
+    std::vector<uint8_t> drawn;  // by chunk: drawn into it as the ground is now
+    size_t next = 0;             // where filling it goes on from
+};
+Overview g_overview;
+
+// Ready for `grid`: made, the size its chunks need, when it is not.
+bool ReadyOverview(SDL_Renderer* sdl_r, const Physics::Grid& grid) {
+    const int CS = TerrainRenderer::CHUNK_SIZE;
+    const int across = (grid.GetWidth() + CS - 1) / CS;
+    const int down = (grid.GetHeight() + CS - 1) / CS;
+    Overview& o = g_overview;
+    if (o.texture != nullptr && o.grid == &grid && o.across == across && o.down == down) return true;
+    if (o.texture != nullptr) SDL_DestroyTexture(o.texture);
+    o = Overview{};
+    // The chunks' boxes together: from the left corner's to the right's, the
+    // top corner's (with its headroom) to the bottom's.
+    const ChunkBox top = BoxOf(0, 0);
+    const ChunkBox left = BoxOf(0, down - 1);
+    const ChunkBox right = BoxOf(across - 1, 0);
+    const ChunkBox bottom = BoxOf(across - 1, down - 1);
+    const float wide = right.x + static_cast<float>(right.w) - left.x;
+    const float high = bottom.y + static_cast<float>(bottom.h) - top.y;
+    SDL_RendererInfo info{};
+    SDL_GetRendererInfo(sdl_r, &info);
+    const int most_w = info.max_texture_width > 0 ? info.max_texture_width : 4096;
+    const int most_h = info.max_texture_height > 0 ? info.max_texture_height : 4096;
+    while (std::ceil(wide / static_cast<float>(o.shrink)) > static_cast<float>(most_w) ||
+           std::ceil(high / static_cast<float>(o.shrink)) > static_cast<float>(most_h)) {
+        o.shrink *= 2;
+    }
+    o.w = static_cast<int>(std::ceil(wide / static_cast<float>(o.shrink)));
+    o.h = static_cast<int>(std::ceil(high / static_cast<float>(o.shrink)));
+    o.texture = SDL_CreateTexture(sdl_r, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, o.w, o.h);
+    if (o.texture == nullptr) return false;
+    SDL_SetTextureBlendMode(o.texture, SDL_BLENDMODE_BLEND);
+    SDL_SetTextureScaleMode(o.texture, SDL_ScaleModeLinear);
+    const RenderState saved = Save(sdl_r);
+    SDL_SetRenderTarget(sdl_r, o.texture);
+    SDL_SetRenderDrawColor(sdl_r, 0, 0, 0, 0);
+    SDL_RenderClear(sdl_r);
+    Restore(sdl_r, saved);
+    o.grid = &grid;
+    o.x = left.x;
+    o.y = top.y;
+    o.across = across;
+    o.down = down;
+    o.drawn.assign(static_cast<size_t>(across) * static_cast<size_t>(down), 0);
+    return true;
+}
+
+// Draws one chunk into the overview, shrunk.
+void DrawIntoOverview(SDL_Renderer* sdl_r, const Physics::Grid& grid, int cx, int cy) {
+    Overview& o = g_overview;
+    const ChunkBox box = BoxOf(cx, cy);
+    SDL_Texture* bake = FullScratch(sdl_r, box.w, box.h);
+    if (bake == nullptr) return;
+    const RenderState saved = Save(sdl_r);
+    Compose(sdl_r, grid, cx, cy, box, bake);
+    SDL_SetRenderTarget(sdl_r, o.texture);
+    SetZoom(sdl_r, 1.0f);
+    const float s = static_cast<float>(o.shrink);
+    const SDL_FRect dest = {(box.x - o.x) / s, (box.y - o.y) / s,
+                            static_cast<float>(box.w) / s, static_cast<float>(box.h) / s};
+    SDL_ScaleMode was = SDL_ScaleModeNearest;
+    SDL_GetTextureScaleMode(bake, &was);
+    SDL_SetTextureScaleMode(bake, SDL_ScaleModeLinear);
+    SDL_RenderCopyF(sdl_r, bake, nullptr, &dest);
+    SDL_SetTextureScaleMode(bake, was);
+    Restore(sdl_r, saved);
+}
+
+// The chunk at (cx, cy) to be drawn into the overview again.
+void Unseen(int cx, int cy) {
+    Overview& o = g_overview;
+    if (cx < 0 || cy < 0 || cx >= o.across || cy >= o.down) return;
+    o.drawn[static_cast<size_t>(cy) * static_cast<size_t>(o.across) + static_cast<size_t>(cx)] = 0;
+}
+
+} // namespace
+
+void TerrainRenderer::InvalidateChunks() {
+    for (auto& entry : chunks) {
+        if (entry.second.texture) SDL_DestroyTexture(entry.second.texture);
+    }
+    chunks.clear();
+    if (g_overview.texture != nullptr) SDL_DestroyTexture(g_overview.texture);
+    g_overview = Overview{};
 }
 
 void TerrainRenderer::DrawTerrain(ECS::Simulation& sim, Renderer& renderer, SDL_Renderer* sdl_r) {
@@ -576,6 +712,7 @@ void TerrainRenderer::DrawTerrain(ECS::Simulation& sim, Renderer& renderer, SDL_
                         const int tx = change.x + dx;
                         const int ty = change.y + dy;
                         if (tx < 0 || ty < 0) continue;
+                        Unseen(tx / CHUNK_SIZE, ty / CHUNK_SIZE);
                         for (const bool half : {false, true}) {
                             auto stale = chunks.find(ChunkKey(tx / CHUNK_SIZE, ty / CHUNK_SIZE, half));
                             if (stale == chunks.end()) continue;
@@ -635,9 +772,34 @@ void TerrainRenderer::DrawTerrain(ECS::Simulation& sim, Renderer& renderer, SDL_
     const float see_y0 = renderer.camera_y - sight;
     const float see_x1 = renderer.camera_x + view_w + sight;
     const float see_y1 = renderer.camera_y + view_h + sight;
+    // The chunks in the view and its margin, and how many of those in sight
+    // have nothing baked.
+    struct Spot {
+        int cx, cy;
+        bool seen;
+    };
+    static std::vector<Spot> spots;
+    spots.clear();
+    int in_sight = 0, missing = 0;
+    for (int cy = 0; cy < chunks_y; ++cy) {
+        for (int cx = 0; cx < chunks_x; ++cx) {
+            const SDL_FRect b = chunk_bounds(cx, cy);
+            if (b.x + b.w < vis_x0 || b.x > vis_x1 || b.y + b.h < vis_y0 || b.y > vis_y1) {
+                continue;
+            }
+            const bool seen = !(b.x + b.w < see_x0 || b.x > see_x1 || b.y + b.h < see_y0 || b.y > see_y1);
+            spots.push_back({cx, cy, seen});
+            if (!seen) continue;
+            ++in_sight;
+            if (chunks.count(ChunkKey(cx, cy, half)) == 0 && chunks.count(ChunkKey(cx, cy, !half)) == 0) ++missing;
+        }
+    }
+
     // Chunks are baked within a time budget a frame: those in sight as they
-    // are met, then those in the margin, to be ready as they scroll in.
-    const uint64_t bake_budget = SDL_GetPerformanceFrequency() * kBakeBudgetUs / 1000000;
+    // are met, then those in the margin, to be ready as they scroll in. The
+    // view jumped, with much of it missing, the budget is doubled.
+    const uint64_t bake_budget = SDL_GetPerformanceFrequency() * kBakeBudgetUs / 1000000 *
+                                 (missing * kJumpedShare > in_sight ? 2 : 1);
     uint64_t spent = 0;
     auto bake = [&](int cx, int cy) {
         const uint64_t start = SDL_GetPerformanceCounter();
@@ -647,46 +809,62 @@ void TerrainRenderer::DrawTerrain(ECS::Simulation& sim, Renderer& renderer, SDL_
         chunk.last_used = g_frame;
         return chunks.emplace(ChunkKey(cx, cy, half), chunk).first;
     };
+
+    // What is missing shows the overview meanwhile, drawn under the chunks.
+    const bool overview = ReadyOverview(sdl_r, grid);
+    const float centre_up = Core::IsometricMath::TILE_HEIGHT / 2.0f;
+    if (overview && missing > 0) {
+        const float s = static_cast<float>(g_overview.shrink);
+        const SDL_FRect dest = {g_overview.x - renderer.camera_x, g_overview.y - renderer.camera_y - centre_up,
+                                static_cast<float>(g_overview.w) * s, static_cast<float>(g_overview.h) * s};
+        SDL_RenderCopyF(sdl_r, g_overview.texture, nullptr, &dest);
+    }
+
     static std::vector<std::pair<int, int>> ahead;
     ahead.clear();
     size_t in_view = 0;
-    for (int cy = 0; cy < chunks_y; ++cy) {
-        for (int cx = 0; cx < chunks_x; ++cx) {
-            const SDL_FRect b = chunk_bounds(cx, cy);
-            if (b.x + b.w < vis_x0 || b.x > vis_x1 || b.y + b.h < vis_y0 || b.y > vis_y1) {
-                continue;
+    for (const Spot& spot : spots) {
+        auto it = chunks.find(ChunkKey(spot.cx, spot.cy, half));
+        if (it == chunks.end()) {
+            if (!spot.seen) {
+                ahead.emplace_back(spot.cx, spot.cy);
+            } else if (spent < bake_budget) {
+                it = bake(spot.cx, spot.cy);
             }
-            const bool seen = !(b.x + b.w < see_x0 || b.x > see_x1 || b.y + b.h < see_y0 || b.y > see_y1);
-
-            auto it = chunks.find(ChunkKey(cx, cy, half));
-            if (it == chunks.end()) {
-                if (!seen) {
-                    ahead.emplace_back(cx, cy);
-                } else if (spent < bake_budget) {
-                    it = bake(cx, cy);
-                }
-            }
-            if (it == chunks.end()) it = chunks.find(ChunkKey(cx, cy, !half));
-            if (it == chunks.end()) continue;
-            it->second.last_used = g_frame;
-            ++in_view;
-            if (!seen) continue;
-
-            // Each tile's diamond is centred on its world position, the
-            // convention every other part of the engine uses for a tile. The
-            // chunk was baked with tile (x, y)'s image box starting at its
-            // world point, so the whole chunk moves up half a tile to centre
-            // it.
-            const float sx = it->second.screen_bounds.x - renderer.camera_x;
-            const float sy = it->second.screen_bounds.y - renderer.camera_y
-                           - (Core::IsometricMath::TILE_HEIGHT / 2.0f);
-            SDL_FRect dest = {sx, sy, it->second.screen_bounds.w, it->second.screen_bounds.h};
-            SDL_RenderCopyF(sdl_r, it->second.texture, nullptr, &dest);
         }
+        if (it == chunks.end()) it = chunks.find(ChunkKey(spot.cx, spot.cy, !half));
+        if (it == chunks.end()) continue;
+        it->second.last_used = g_frame;
+        ++in_view;
+        if (!spot.seen) continue;
+
+        // Each tile's diamond is centred on its world position, the
+        // convention every other part of the engine uses for a tile. The
+        // chunk was baked with tile (x, y)'s image box starting at its world
+        // point, so the whole chunk moves up half a tile to centre it.
+        const float sx = it->second.screen_bounds.x - renderer.camera_x;
+        const float sy = it->second.screen_bounds.y - renderer.camera_y - centre_up;
+        SDL_FRect dest = {sx, sy, it->second.screen_bounds.w, it->second.screen_bounds.h};
+        SDL_RenderCopyF(sdl_r, it->second.texture, nullptr, &dest);
     }
     for (const auto& [cx, cy] : ahead) {
         if (spent >= bake_budget) break;
         if (bake(cx, cy) != chunks.end()) ++in_view;
+    }
+    // What is left of the budget fills in the overview.
+    if (overview) {
+        Overview& o = g_overview;
+        const size_t count = o.drawn.size();
+        for (size_t looked = 0; looked < count && spent < bake_budget; ++looked) {
+            const size_t i = o.next;
+            o.next = (o.next + 1) % count;
+            if (o.drawn[i]) continue;
+            const uint64_t start = SDL_GetPerformanceCounter();
+            DrawIntoOverview(sdl_r, grid, static_cast<int>(i % static_cast<size_t>(o.across)),
+                             static_cast<int>(i / static_cast<size_t>(o.across)));
+            spent += SDL_GetPerformanceCounter() - start;
+            o.drawn[i] = 1;
+        }
     }
 
     // Evict the least recently seen chunks once the cache is over budget.
