@@ -23,9 +23,11 @@ namespace {
 constexpr Uint32 kHoldMs = 300;
 constexpr float kSlop = 0.02f;
 constexpr int kMaxFingers = 10;
+#ifdef __IPHONEOS__
 // How long a finger of a pan may go unreported before a new one coming down
 // takes it for one the system let go of without a finger-up.
 constexpr Uint32 kLostMs = 200;
+#endif
 
 enum class Mode : uint8_t {
     Idle,      // no finger down
@@ -173,12 +175,13 @@ Uint32 HoldElapsed(Uint32, void* touch) {
     return 0;
 }
 
-// Forgets the fingers nobody has reported lately. The system can end a touch
-// without the app being told -- when a system gesture takes it over, say --
-// and a finger like that would otherwise stay down forever: the pan it was
-// part of would never end, and every later touch would join that pan instead
-// of starting a gesture, so the pointer would stop following the screen.
-// A single finger waiting for its hold is the one kind of rest that is not
+#ifdef __IPHONEOS__
+// Forgets the fingers nobody has reported lately. iOS can end a touch without
+// the app being told -- when a system gesture takes it over, say -- and a
+// finger like that would otherwise stay down forever: the pan it was part of
+// would never end, and every later touch would join that pan instead of
+// starting a gesture, so the pointer would stop following the screen. A
+// single finger waiting for its hold is the one kind of rest that is not
 // that, and is left alone.
 void ForgetLostFingers(Uint32 now) {
     if (g.mode != Mode::Panning && g.count <= 1) return;
@@ -187,10 +190,13 @@ void ForgetLostFingers(Uint32 now) {
         Remove(g.fingers[i].id);
     }
 }
+#endif
 
 void Down(SDL_FingerID id, float x, float y) {
     const Uint32 now = SDL_GetTicks();
+#ifdef __IPHONEOS__
     if (Find(id) == nullptr) ForgetLostFingers(now);
+#endif
     if (Find(id) == nullptr && g.count < kMaxFingers) g.fingers[g.count++] = Finger{id, x, y, now};
     if (g.count == 1) {
         g.primary = id;
