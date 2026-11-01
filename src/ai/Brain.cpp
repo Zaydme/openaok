@@ -44,6 +44,24 @@ constexpr const char* kFiles[] = {
 };
 constexpr uint32_t kFirstFile = 60001;
 
+// The largest population limit the game's scripts are written for: they
+// define pop-cap, unit-max and their shares of the population for each limit
+// from 25 to 200. At a larger limit they load as at this one, those constants
+// scaled from it to the limit.
+constexpr int kScriptPopulationMost = 200;
+const char* const kPopulationConstants[] = {
+    "pop-cap",          "unit-max",            "deathmatch-unit-max", "five-percent-pop",
+    "ten-percent-pop",  "fifteen-percent-pop", "twenty-percent-pop",  "thirty-percent-pop",
+};
+
+// The scaling of the population constants for `setup`'s limit.
+void ScalePopulation(const Core::GameSetup& setup, Script::Environment& env) {
+    if (setup.population_limit <= kScriptPopulationMost) return;
+    env.scaled.assign(std::begin(kPopulationConstants), std::end(kPopulationConstants));
+    env.scale_by = setup.population_limit;
+    env.scale_over = kScriptPopulationMost;
+}
+
 std::string Lower(const std::string& s) {
     std::string out = s;
     for (char& c : out) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
@@ -167,7 +185,7 @@ std::vector<std::string> Symbols(const Core::GameSetup& setup, Core::PlayerId se
         for (const char* c = size.name; *c; ++c) symbol.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(*c))));
         out.push_back(symbol + "-MAP");
     }
-    out.push_back("POPULATION-CAP-" + std::to_string(setup.population_limit));
+    out.push_back("POPULATION-CAP-" + std::to_string(std::min(setup.population_limit, kScriptPopulationMost)));
     static const char* kAges[] = {"DARK-AGE-START", "FEUDAL-AGE-START", "CASTLE-AGE-START",
                                   "IMPERIAL-AGE-START", "POST-IMPERIAL-AGE-START"};
     out.emplace_back(kAges[std::clamp(setup.starting_age, 0, 4)]);
@@ -192,6 +210,7 @@ Script::Program Load(const Core::GameSetup& setup, Core::PlayerId seat, Core::Ra
     Script::Environment env;
     env.symbols = Symbols(setup, seat);
     env.constants = {{"my-player-number", seat}, {"my-civ", setup.players[seat].civ}};
+    ScalePopulation(setup, env);
     env.read = [&](const std::string& name, std::string& text) {
         const uint32_t id = FileId(name);
         return id != 0 && read(id, text);
@@ -212,6 +231,7 @@ void UseScenario(entt::registry& registry, const Core::GameSetup& setup) {
         Script::Environment env;
         env.symbols = Symbols(setup, brain.player);
         env.constants = {{"my-player-number", brain.player}, {"my-civ", setup.players[brain.player].civ}};
+        ScalePopulation(setup, env);
         env.read = [&](const std::string& name, std::string& text) {
             if (name == kScenarioScript) {
                 text = script;

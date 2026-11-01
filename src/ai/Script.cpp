@@ -421,6 +421,9 @@ struct Compiler {
             return;
         }
         const std::string name(toks[i].text);
+        if (std::find(env.scaled.begin(), env.scaled.end(), name) != env.scaled.end()) {
+            value = static_cast<int>(static_cast<int64_t>(value) * env.scale_by / env.scale_over);
+        }
         int existing = 0;
         if (ConstantValue(name, existing)) {
             if (existing != value) Error(line, "ERR2012", "Constant Already Defined", name);
