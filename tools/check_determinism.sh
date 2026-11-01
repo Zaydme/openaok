@@ -45,6 +45,7 @@ POCKET="$(echo "$OUTPUT" | grep '^pocket=')"
 CLEARING="$(echo "$OUTPUT" | grep '^clearing=')"
 PASSING="$(echo "$OUTPUT" | grep '^passing=')"
 CARRYON="$(echo "$OUTPUT" | grep '^carryon=')"
+STEP="$(echo "$OUTPUT" | grep '^step=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -313,6 +314,12 @@ esac
 case "$CARRYON" in
     carryon=ok*) echo "carryon OK: ${CARRYON#carryon=ok }" ;;
     *) echo "CARRYON FAILED" >&2; echo "  $CARRYON" >&2; STATUS=1 ;;
+esac
+
+# A route across the tile a unit stands on, someone in the straight way.
+case "$STEP" in
+    step=ok*) echo "step OK" ;;
+    *) echo "STEP FAILED" >&2; echo "  $STEP" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

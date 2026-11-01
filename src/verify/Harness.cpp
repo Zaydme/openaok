@@ -81,6 +81,7 @@ int Run(int ticks) {
     if (runs("clearing")) ok &= CheckClearing();
     if (runs("passing")) ok &= CheckPassing();
     if (runs("carryon")) ok &= CheckCarryOn();
+    if (runs("step")) ok &= CheckStep();
     if (runs("wolves")) ok &= CheckWolves();
     if (runs("lobby")) ok &= CheckLobby();
     if (runs("formations")) ok &= CheckFormations();

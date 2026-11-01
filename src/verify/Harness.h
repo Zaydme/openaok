@@ -235,6 +235,9 @@ bool CheckPassing();
 // Soldiers set on an enemy that falls before they reach it carry on to where
 // it fell. Prints "carryon=".
 bool CheckCarryOn();
+// A route across the tile a unit stands on, someone standing in the straight
+// way, is found. Prints "step=".
+bool CheckStep();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

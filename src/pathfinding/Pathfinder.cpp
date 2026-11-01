@@ -818,8 +818,12 @@ ECS::Components::Path AStar::FindRoute(const Physics::Grid& grid, Vector2D from,
         path.has_goal = true;
         return path;
     };
-    // In plain sight: straight there.
+    // In plain sight: straight there. Within the tile it stands on, someone
+    // standing in the straight way, straight there all the same: there is no
+    // way round them to search for across one tile, and on the way its body
+    // is kept clear of theirs (MovementSystem).
     if (walker.Clear(from, to)) return finish({to});
+    if (start_x == end_x && start_y == end_y && grid.Passable(layer, end_x, end_y)) return finish({to});
     if (!grid.Passable(layer, end_x, end_y)) return path;
     {
         const auto& region = RegionsOf(grid, layer);
