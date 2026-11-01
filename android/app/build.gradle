@@ -32,6 +32,10 @@ android {
         externalNativeBuild {
             cmake {
                 arguments '-DANDROID_STL=c++_static'
+                // OPENAOK_CCACHE set: the native code compiles through ccache.
+                if (System.getenv('OPENAOK_CCACHE')) {
+                    arguments '-DCMAKE_C_COMPILER_LAUNCHER=ccache', '-DCMAKE_CXX_COMPILER_LAUNCHER=ccache'
+                }
                 abiFilters 'arm64-v8a'
             }
         }

@@ -1,7 +1,7 @@
 # Builds OpenAoK for 64-bit Windows with MinGW-w64 (windows/build.sh), which
 # needs no game data, and on a version tag (v*) adds the folder to unzip on
 # Windows to that version's release (.github/publish.sh) as
-# OpenAoK-windows-<version>.zip.
+# OpenAoK-windows-<version>.zip. The compiles' ccache is kept between runs.
 name: Windows
 
 on:
@@ -13,14 +13,27 @@ on:
 jobs:
   exe:
     runs-on: ubuntu-latest
+    env:
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
     steps:
       - uses: actions/checkout@v4
       - name: Tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq mingw-w64 cmake ninja-build curl xz-utils
+          sudo apt-get install -y -qq mingw-w64 cmake ninja-build curl xz-utils ccache
+          echo "CCACHE_DIR=$GITHUB_WORKSPACE/.ccache" >> "$GITHUB_ENV"
+          echo "CCACHE_BASEDIR=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+          echo "CCACHE_MAXSIZE=500M" >> "$GITHUB_ENV"
+      - uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-windows-${{ github.sha }}
+          restore-keys: ccache-windows-
       - name: Build
-        run: windows/build.sh
+        run: |
+          windows/build.sh
+          ccache -s
       - uses: actions/upload-artifact@v4
         with:
           name: OpenAoK-windows

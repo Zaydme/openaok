@@ -44,6 +44,17 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
 endif()
 
+# With OPENAOK_CCACHE on, every target compiles through ccache: Xcode runs no
+# compiler launcher, so its compilers and linkers are the scripts beside this
+# file, which hand each command to ccache.
+option(OPENAOK_CCACHE "Compile through ccache" OFF)
+if(OPENAOK_CCACHE)
+    set(CMAKE_XCODE_ATTRIBUTE_CC "${CMAKE_CURRENT_SOURCE_DIR}/ccache-clang.sh")
+    set(CMAKE_XCODE_ATTRIBUTE_LD "${CMAKE_CURRENT_SOURCE_DIR}/ccache-clang.sh")
+    set(CMAKE_XCODE_ATTRIBUTE_CXX "${CMAKE_CURRENT_SOURCE_DIR}/ccache-clang++.sh")
+    set(CMAKE_XCODE_ATTRIBUTE_LDPLUSPLUS "${CMAKE_CURRENT_SOURCE_DIR}/ccache-clang++.sh")
+endif()
+
 set(REPO ${CMAKE_CURRENT_SOURCE_DIR}/..)
 set(DEPS ${CMAKE_CURRENT_SOURCE_DIR}/deps)
 set(SDL_DIR ${DEPS}/SDL2-2.32.10)

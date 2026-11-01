@@ -1,6 +1,8 @@
 # Builds OpenAoK for iOS, which needs no game data: an unsigned OpenAoK.ipa
 # for a device, for AltStore to sign and install. On a version tag (v*) adds
 # it to that version's release (.github/publish.sh) as OpenAoK-<version>.ipa.
+# The compiles' ccache is kept between runs; Xcode's module flags are let
+# through it (CCACHE_SLOPPINESS).
 name: iOS
 
 on:
@@ -15,12 +17,28 @@ jobs:
     env:
       OPENAOK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
       NAME: ${{ github.ref_type == 'tag' && github.ref_name || 'dev' }}
+      OPENAOK_CCACHE: '1'
+      CCACHE_SLOPPINESS: clang_index_store,file_stat_matches,include_file_ctime,include_file_mtime,ivfsoverlay,pch_defines,modules,system_headers,time_macros
+      CCACHE_DEPEND: 'true'
     steps:
       - uses: actions/checkout@v4
       - name: SDL and FreeType
         run: ios/fetch_deps.sh
+      - name: ccache
+        run: |
+          brew install ccache
+          echo "CCACHE_DIR=$GITHUB_WORKSPACE/.ccache" >> "$GITHUB_ENV"
+          echo "CCACHE_BASEDIR=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+          echo "CCACHE_MAXSIZE=500M" >> "$GITHUB_ENV"
+      - uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-ios-${{ github.sha }}
+          restore-keys: ccache-ios-
       - name: Build
-        run: ios/build.sh --device --ipa
+        run: |
+          ios/build.sh --device --ipa
+          ccache -s
       - name: Lay out
         run: |
           mkdir -p dist

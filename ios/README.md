@@ -67,7 +67,9 @@ ios/build.sh --project     # only write the Xcode project
 
 It writes `ios/build-sim/OpenAoK.xcodeproj` and builds
 `ios/build-sim/Release-iphonesimulator/OpenAoK.app`. It compiles four files at
-a time; `OPENAOK_JOBS=8 ios/build.sh` compiles eight.
+a time; `OPENAOK_JOBS=8 ios/build.sh` compiles eight. With `OPENAOK_CCACHE=1` it
+compiles through ccache (`brew install ccache`), so a file compiled before is
+not compiled again.
 
 For a device, whose project is `ios/build/OpenAoK.xcodeproj`:
 

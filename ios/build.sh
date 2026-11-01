@@ -9,7 +9,8 @@
 #   ios/build.sh --project     only write the Xcode project
 #
 # OPENAOK_JOBS sets how many files compile at once (4 by default);
-# OPENAOK_VERSION the app's version ("v0.6.0"), 0.0.0 when unset.
+# OPENAOK_VERSION the app's version ("v0.6.0"), 0.0.0 when unset;
+# OPENAOK_CCACHE=1 compiles through ccache (brew install ccache).
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -23,7 +24,7 @@ for arg in "$@"; do
         --device)    TARGET="device" ;;
         --project)   PROJECT_ONLY=1 ;;
         --ipa)       IPA=1 ;;
-        -h|--help)   sed -n '2,12p' "${BASH_SOURCE[0]}" | sed -E 's/^# ?//'; exit 0 ;;
+        -h|--help)   sed -n '2,13p' "${BASH_SOURCE[0]}" | sed -E 's/^# ?//'; exit 0 ;;
         *) echo "error: unknown option '$arg' (try --help)" >&2; exit 2 ;;
     esac
 done
@@ -55,9 +56,12 @@ else
 fi
 
 JOBS="${OPENAOK_JOBS:-4}"
-TEAM=()
+OPTIONS=()
 if [ -n "${OPENAOK_TEAM_ID:-}" ]; then
-    TEAM=(-DOPENAOK_TEAM_ID="$OPENAOK_TEAM_ID")
+    OPTIONS+=(-DOPENAOK_TEAM_ID="$OPENAOK_TEAM_ID")
+fi
+if [ -n "${OPENAOK_CCACHE:-}" ]; then
+    OPTIONS+=(-DOPENAOK_CCACHE=ON)
 fi
 
 echo "==> Writing $BUILD_DIR/OpenAoK.xcodeproj"
@@ -68,7 +72,7 @@ cmake -G Xcode -S "$ROOT_DIR/ios" -B "$BUILD_DIR" \
     -DCMAKE_OSX_SYSROOT="$SYSROOT" \
     -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
     -DCMAKE_OSX_ARCHITECTURES=arm64 \
-    ${TEAM[@]+"${TEAM[@]}"}
+    ${OPTIONS[@]+"${OPTIONS[@]}"}
 
 if [ "$PROJECT_ONLY" -eq 1 ]; then
     echo "==> Open $BUILD_DIR/OpenAoK.xcodeproj"

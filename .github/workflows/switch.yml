@@ -1,7 +1,7 @@
 # Builds OpenAoK.nro for the Nintendo Switch, which needs no game data, and on
 # a version tag (v*) adds it to that version's release (.github/publish.sh):
 # a zip to unpack onto the SD card's root, holding switch/openaok/OpenAoK.nro
-# and the licenses.
+# and the licenses. The compiles' ccache is kept between runs.
 name: Switch
 
 on:
@@ -14,13 +14,29 @@ jobs:
   nro:
     runs-on: ubuntu-latest
     container: devkitpro/devkita64:20260219
+    env:
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
     steps:
       - uses: actions/checkout@v4
+      - name: ccache
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq ccache
+          echo "CCACHE_DIR=$GITHUB_WORKSPACE/.ccache" >> "$GITHUB_ENV"
+          echo "CCACHE_BASEDIR=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+          echo "CCACHE_MAXSIZE=500M" >> "$GITHUB_ENV"
+      - uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-switch-${{ github.sha }}
+          restore-keys: ccache-switch-
       - name: Build
         run: |
           cmake -S . -B build-switch -G Ninja -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_TOOLCHAIN_FILE="$DEVKITPRO/cmake/Switch.cmake"
           cmake --build build-switch --parallel
+          ccache -s
       - name: Lay out the SD card's folder
         run: |
           mkdir -p dist/switch/openaok
