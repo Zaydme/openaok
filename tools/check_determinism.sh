@@ -44,6 +44,7 @@ TURNING="$(echo "$OUTPUT" | grep '^turning=')"
 POCKET="$(echo "$OUTPUT" | grep '^pocket=')"
 CLEARING="$(echo "$OUTPUT" | grep '^clearing=')"
 PASSING="$(echo "$OUTPUT" | grep '^passing=')"
+CARRYON="$(echo "$OUTPUT" | grep '^carryon=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -306,6 +307,12 @@ esac
 case "$PASSING" in
     passing=ok*) echo "passing OK: ${PASSING#passing=ok }" ;;
     *) echo "PASSING FAILED" >&2; echo "  $PASSING" >&2; STATUS=1 ;;
+esac
+
+# Soldiers whose target falls before they reach it carry on to where it fell.
+case "$CARRYON" in
+    carryon=ok*) echo "carryon OK: ${CARRYON#carryon=ok }" ;;
+    *) echo "CARRYON FAILED" >&2; echo "  $CARRYON" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

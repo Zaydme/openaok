@@ -232,6 +232,9 @@ bool CheckClearing();
 // A soldier sent past an enemy archer that shoots at it walks on to where it
 // was sent. Prints "passing=".
 bool CheckPassing();
+// Soldiers set on an enemy that falls before they reach it carry on to where
+// it fell. Prints "carryon=".
+bool CheckCarryOn();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

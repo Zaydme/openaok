@@ -283,6 +283,24 @@ bool Sent(const entt::registry& registry, entt::entity e) {
     return setup == nullptr || own >= Core::kMaxPlayers || !setup->players[own].computer;
 }
 
+// An attacker whose target has fallen on its way to it carries on to where
+// it fell: down the walk it was on, then straight there, planned again on the
+// way where the ground is closed (MovementSystem).
+void CarryOn(entt::registry& registry, entt::entity self, Components::Vector2D fell) {
+    auto& path = registry.get_or_emplace<Components::Path>(self);
+    if (path.current_waypoint_index >= path.waypoints.size()) {
+        path.waypoints.clear();
+        path.current_waypoint_index = 0;
+    }
+    path.waypoints.push_back(fell);
+    path.goal = fell;
+    path.has_goal = true;
+    path.target = entt::null;
+    path.range = Core::Fixed32(0);
+    path.replans = 0;
+    path.moved_on = 0;
+}
+
 bool IsVillager(const entt::registry& registry, entt::entity e) {
     const auto* worker = registry.try_get<Components::Worker>(e);
     return worker != nullptr && worker->gatherer < 0;
@@ -1027,7 +1045,22 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
         const bool building = buildings.contains(self);
 
         if (combat.state != CombatState::Idle && !Alive(registry, combat.target)) {
+            // Set on it by an order and still on its way, it carries on to
+            // where it fell (or to where its walk was going, the target gone).
+            const bool on_its_way = combat.ordered && combat.state == CombatState::Chasing &&
+                                    combat.stance != Components::Stance::Defensive;
+            bool known = false;
+            Components::Vector2D fell{};
+            if (const auto* at = registry.valid(combat.target)
+                                     ? registry.try_get<Components::Transform>(combat.target) : nullptr) {
+                fell = at->position;
+                known = true;
+            } else if (const auto* walk = registry.try_get<Components::Path>(self); walk != nullptr && walk->has_goal) {
+                fell = walk->goal;
+                known = true;
+            }
             Disengage(registry, grid, self, combat);
+            if (on_its_way && known) CarryOn(registry, self, fell);
             // A predator whose prey has died looks round again at once.
             if (Search::Hunts(registry, self)) combat.scan_ms = 0;
         }
