@@ -27,7 +27,7 @@ namespace Placement {
 
 struct Piece {
     const HAL::GraphicAtlas* atlas = nullptr;
-    SDL_Texture* player = nullptr;   // the player's colour layer
+    HAL::ArtPlace art;               // in the player's colours
     int frame = 0;
     float wx = 0.0f;                 // where its hotspot stands in the world
     float wy = 0.0f;

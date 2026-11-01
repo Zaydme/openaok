@@ -65,8 +65,11 @@ shows the game's cursor there. Flags are parsed in `src/main.cpp`.
 
 ## Rendering
 
-- Sprites come from the SLPs in `graphics.drs` through `HAL::GraphicCache`, one
-  atlas per graphic; a `Sprite` names `slp_id` + `slp_frame`, never a file.
+- Sprites come from the SLPs in `graphics.drs` through `HAL::GraphicCache`: each
+  graphic's frames are one block, in each player colour worn, packed onto
+  texture pages shared by many graphics (art, shadows and outlines on pages of
+  their own), so sprites draw in few batches. A `Sprite` names `slp_id` +
+  `slp_frame`, never a file.
 - Anchor by each frame's hotspot; never guess an anchor. Multi-piece buildings
   are placed from the annex tables.
 - Depth is `world_x + world_y`, compared exactly, then `sort_bias`, texture,

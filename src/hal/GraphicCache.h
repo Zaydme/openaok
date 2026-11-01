@@ -19,14 +19,18 @@ struct GraphicFrame {
     int hotspot_y = 0;
 };
 
-// Every frame of one graphic packed into a single texture, so units in
-// different poses batch and picking a frame is integer rect arithmetic.
+// Every frame of one graphic packed into one block, so picking a frame is
+// integer rect arithmetic. An interface or terrain graphic's block is a
+// texture of its own, `base`; a world graphic's art lies on shared pages
+// instead (GraphicCache::Art), its `base` null.
 struct GraphicAtlas {
     SDL_Texture* base = nullptr;   // colour, with player-colour pixels left out
     std::vector<GraphicFrame> frames;
     int width = 0;
     int height = 0;
     bool valid = false;
+    // Whether any frame has player-coloured pixels.
+    bool coloured = false;
     // One bit per atlas pixel, set where the art is opaque: what a click
     // lands on, and whether a tree or building actually covers a unit.
     std::vector<uint8_t> opaque;
@@ -64,6 +68,16 @@ struct GraphicAtlas {
         }
         return false;
     }
+};
+
+// Where one graphic's frames lie on a texture page: a frame's rect there is
+// its atlas rect moved by (x, y). Graphics share pages, so sprites of
+// different graphics drawn one after another are drawn in one batch.
+struct ArtPlace {
+    SDL_Texture* page = nullptr;
+    int x = 0;
+    int y = 0;
+    SDL_Rect On(const SDL_Rect& r) const { return {r.x + x, r.y + y, r.w, r.h}; }
 };
 
 // Decodes SLPs out of the DRS archives and packs them into atlases.
@@ -124,25 +138,33 @@ public:
 
     bool Ready() const { return ready; }
 
-    // Atlas for one graphic, built on first use. Null if the SLP is absent or
-    // fails to decode.
+    // A world graphic's geometry -- frames, hotspots, where it is opaque --
+    // built on first use. Null if the SLP is absent or fails to decode. Its
+    // pixels are Art's, Shadow's and Outline's.
     const GraphicAtlas* GetAtlas(uint32_t slp_id);
 
-    // Player-coloured pixels of one graphic, resolved through that player's
-    // 16-entry palette ramp and packed to the same rects as the base atlas.
-    // Drawn over the base to tint a unit without touching its other pixels.
-    SDL_Texture* GetPlayerLayer(uint32_t slp_id, int player);
+    // A graphic's art in `player`'s colours: its colour pixels, and its
+    // player-coloured ones resolved through the ramp of the colour the player
+    // wears, on a shared page. One for every colour alike when the graphic
+    // has no player-coloured pixels. No page when it draws nothing.
+    ArtPlace Art(uint32_t slp_id, int player);
 
-    // Frames marked as shadow pixels, black with alpha. Used for the graphics
-    // that carry their shadow inline rather than in a companion SLP.
-    SDL_Texture* GetShadowLayer(uint32_t slp_id);
+    // Frames marked as shadow pixels, black with alpha, on a page of shadows
+    // only: every shadow draws at the shadow pass's alpha. Used for the
+    // graphics that carry their shadow inline rather than in a companion SLP.
+    ArtPlace Shadow(uint32_t slp_id);
 
-    // Frames marked as outline pixels, white so a colour mod can tint them:
-    // the silhouette drawn where a unit is hidden behind a building or tree.
-    SDL_Texture* GetOutlineLayer(uint32_t slp_id);
+    // Frames marked as outline pixels, white, on a page of outlines only, for
+    // a colour mod to tint per player as each is drawn: the silhouette drawn
+    // where a unit is hidden behind a building or tree.
+    ArtPlace Outline(uint32_t slp_id);
 
     // How many textures the cache holds, and their pixels' size in bytes.
     void Count(int& textures, int64_t& bytes) const;
+
+    // Frees the textures of pages grown into bigger ones, once the frame that
+    // may still have drawn from them is shown: after every present.
+    void EndFrame();
 
     // A player's colour, taken from the middle of their 16-entry palette ramp.
     PaletteColor GetPlayerColor(int player) const;
@@ -168,21 +190,59 @@ private:
     GraphicCache(const GraphicCache&) = delete;
     GraphicCache& operator=(const GraphicCache&) = delete;
 
-    // Which pixel class a layer draws.
-    enum class Layer { Base, Player, Shadow, Outline };
+    // Which pixel class a layer draws: Base the colour pixels, Player the
+    // player-coloured ones, Art both, Shadow and Outline their own; None
+    // nothing, for an atlas's geometry alone.
+    enum class Layer { Base, Player, Art, Shadow, Outline, None };
 
-    // Packs a graphic of any archive into the given cache.
+    // Packs a graphic of any archive into the given cache: its geometry, and
+    // with `texture` its Base layer as a texture of its own.
     template <typename Key>
     const GraphicAtlas* AtlasFrom(const DrsArchive& src,
                                   std::unordered_map<Key, GraphicAtlas>& cache,
                                   Key key, uint32_t slp_id,
-                                  const std::vector<PaletteColor>& colours);
-    // `opaque`, for the base layer, receives the atlas's coverage bits.
-    SDL_Texture* BuildLayer(const DrsArchive& src, uint32_t slp_id,
-                            Layer layer, int player,
-                            const std::vector<PaletteColor>& colours,
-                            std::vector<uint8_t>* opaque = nullptr);
+                                  const std::vector<PaletteColor>& colours, bool texture);
+    // One layer of a graphic laid out as its atlas lays out its frames, with
+    // `border` clear pixels all round; null when it has no such pixels.
+    // `opaque` receives the atlas's coverage bits, and `coloured` whether
+    // any pixel is player-coloured.
+    SDL_Surface* DrawLayer(const DrsArchive& src, uint32_t slp_id, const GraphicAtlas& geometry,
+                           Layer layer, int player, const std::vector<PaletteColor>& colours,
+                           int border, std::vector<uint8_t>* opaque = nullptr,
+                           bool* coloured = nullptr);
+    // A surface as a texture of its own; frees the surface. Null for none.
+    SDL_Texture* TextureOf(SDL_Surface* surface);
+    // A layer as a texture of its own.
+    SDL_Texture* BuildLayer(const DrsArchive& src, uint32_t slp_id, const GraphicAtlas& geometry,
+                            Layer layer, int player, const std::vector<PaletteColor>& colours);
     size_t PaletteIndexForPlayer(int player, uint8_t shade) const;
+
+    // The page kinds: art, shadows and outlines each draw with mods of their
+    // own, so they never share a texture.
+    enum class Pool { Art, Shadow, Outline, Count };
+    // A stretch of a page's skyline: from x, w wide, filled down to y.
+    struct Span {
+        int x, y, w;
+    };
+    struct Page {
+        SDL_Texture* texture = nullptr;
+        int w = 0;
+        int h = 0;
+        std::vector<Span> skyline;
+    };
+    // Room for a w x h block on the page, its place in `at`; the skyline
+    // raised over it.
+    static bool Fit(Page& page, int w, int h, SDL_Rect& at);
+    // A page grown to twice its width, or once wider than high to twice its
+    // height, no side past `most`: what it held copied to its top left and
+    // everything placed on it moved to the new texture. False when it cannot
+    // grow.
+    bool Grow(Page& page, int most);
+    // A block's pixels put on a page of the pool with room for it, or on a
+    // new one; a block bigger than a page on a texture of its own. Frees the
+    // surface.
+    ArtPlace Place(Pool pool, SDL_Surface* block, int border);
+    ArtPlace LayerPlace(Pool pool, uint32_t slp_id, Layer layer, int player);
 
     SDL_Renderer* sdl_renderer = nullptr;
     DrsArchive drs;
@@ -193,10 +253,20 @@ private:
     bool ready = false;
 
     std::unordered_map<uint32_t, GraphicAtlas> atlases;
-    // Keyed by slp_id << 8 | player, so each player's tint is built once.
-    std::unordered_map<uint64_t, SDL_Texture*> player_layers;
-    std::unordered_map<uint32_t, SDL_Texture*> shadow_layers;
-    std::unordered_map<uint32_t, SDL_Texture*> outline_layers;
+    // Keyed by slp_id << 8 | the colour slot worn + 1, or 0 for a graphic
+    // with no player-coloured pixels, so each colour's art is built once.
+    std::unordered_map<uint64_t, ArtPlace> arts;
+    std::unordered_map<uint32_t, ArtPlace> shadows;
+    std::unordered_map<uint32_t, ArtPlace> outlines;
+    std::array<std::vector<Page>, static_cast<size_t>(Pool::Count)> pages;
+    // Blocks too big for a page, each on a texture of its own.
+    std::vector<SDL_Texture*> lone;
+    // Pages grown out of, for EndFrame.
+    std::vector<SDL_Texture*> retired;
+    int first_side = 0;     // a new page's
+    int page_side = 0;      // a shadow or outline page's, grown
+    int largest_side = 0;   // an art page's, grown
+    bool grows = false;
 
     DrsArchive interface_drs;
     bool interface_ready = false;

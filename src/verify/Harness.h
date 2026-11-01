@@ -253,6 +253,10 @@ bool CheckSharedWalk();
 // An army's chases plan again over several ticks, not all in one. Prints
 // "replanspread=".
 bool CheckReplanSpread();
+// Many graphics' art shares a page or two, and a villager drawn from its page
+// is its SLP frame in its player's colours, before and after the page grows.
+// Prints "pages=".
+bool CheckPages();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

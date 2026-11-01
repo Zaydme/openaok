@@ -45,13 +45,10 @@ void Renderer::Warm(ECS::Simulation& sim) {
         if (graphics.GetAtlas(slp) == nullptr) continue;
         int owner = 0;
         if (const auto* o = registry.try_get<ECS::Components::Owner>(e)) owner = o->player_id;
-        graphics.GetPlayerLayer(slp, owner);
-        graphics.GetOutlineLayer(slp);
+        graphics.Art(slp, owner);
+        graphics.Outline(slp);
         const int shadow = cfg.GetShadowSlp(sprite.slp_id);
-        if (shadow >= 0) {
-            graphics.GetAtlas(static_cast<uint32_t>(shadow));
-            graphics.GetShadowLayer(static_cast<uint32_t>(shadow));
-        }
+        if (shadow >= 0) graphics.Shadow(static_cast<uint32_t>(shadow));
     }
     int textures = 0;
     int64_t bytes = 0;
