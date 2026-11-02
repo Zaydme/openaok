@@ -278,19 +278,34 @@ public:
     struct QueueEntry {
         bool tech = false;
         int id = -1;
+        bool waiting = false;   // behind something of another kind in its queue
         int count = 0;
         int32_t done = 0;
         int32_t total = 0;
     };
     static constexpr int kMaxQueueEntries = 48;
-    // What the viewer's finished buildings are researching and training, the
-    // technologies first, each in the order its building was made: how many
-    // entries, at most `max`, are written to `out`.
+    // What the viewer's finished buildings are making, each kind of it once:
+    // what leads each queue -- its front item and those of its kind straight
+    // behind it -- then what waits behind something of another kind, the
+    // technologies first in each, in the order the buildings were made. How
+    // many entries, at most `max`, are written to `out`.
     static int QueueOverview(const entt::registry& registry, QueueEntry* out, int max);
+    // The buildings making `entry`, oldest first: how many.
+    static int QueueEntryBuildings(const entt::registry& registry, const QueueEntry& entry,
+                                   std::vector<entt::entity>& out);
+    // The overview's entry at a point of the frame, into `out`: its index, or
+    // -1 for none (or the overview off).
+    static int QueueEntryAt(ECS::Simulation& sim, int win_w, int win_h, int x, int y, QueueEntry& out);
+    // Where the overview's entry `index` is drawn.
+    static SDL_Rect QueueEntryRect(int index, int win_w, int win_h);
     // With the Options' Production Queue on, the overview at the map's top
-    // left, below the clock: each entry's icon, its count, and its progress
-    // under it. How far down the map it reaches, 0 when it shows nothing.
+    // left, below the clock: each entry's icon, a unit's count on it, what
+    // is being made greened from the left as far as it has got, what waits
+    // yellowed. How far down the map it reaches, 0 when it shows nothing.
     static int DrawQueueOverview(ECS::Simulation& sim, SDL_Renderer* sdl_r, int win_w, int win_h);
+    // The part of an overview icon greened for `done` of `total`: from its
+    // left edge, as wide as the share done.
+    static SDL_Rect ProgressFill(const SDL_Rect& icon, int32_t done, int32_t total);
     // The scores (F4, or the mini-map's statistics button) at the view's
     // lower right.
     static void DrawScores(ECS::Simulation& sim, SDL_Renderer* sdl_r, int win_w, int win_h);

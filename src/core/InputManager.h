@@ -163,6 +163,13 @@ private:
     // its dat name, round from the last one each press.
     void GoToBuilding(ECS::Simulation& sim, Rendering::Renderer& renderer, const char* name);
     entt::entity last_visited = entt::null;
+    // Selects and looks at the next of the buildings making a production
+    // overview entry, round from the last one each click.
+    void GoToQueued(ECS::Simulation& sim, Rendering::Renderer& renderer,
+                    const Rendering::UIRenderer::QueueEntry& entry);
+    entt::entity last_queued = entt::null;
+    // A left press taken by the production overview, whose release is too.
+    bool overview_pressed = false;
     // The next idle military unit, as the idle villager button finds villagers.
     void NextIdleMilitary(ECS::Simulation& sim, Rendering::Renderer& renderer);
     entt::entity last_idle_military = entt::null;

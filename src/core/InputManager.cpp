@@ -356,8 +356,10 @@ void InputManager::NextIdleVillager(ECS::Simulation& sim, Rendering::Renderer& r
 
 void InputManager::LookAt(Rendering::Renderer& renderer, float wx, float wy) {
     const auto screen = IsometricMath::WorldToScreen(Fixed32(wx), Fixed32(wy));
-    renderer.target_camera_x = screen.x - last_win_w / 2.0f;
-    renderer.target_camera_y = screen.y - last_win_h / 2.0f;
+    // Half the view, in the world's unzoomed pixels.
+    const float zoom = renderer.camera_zoom > 0.0f ? renderer.camera_zoom : 1.0f;
+    renderer.target_camera_x = screen.x - last_win_w / 2.0f / zoom;
+    renderer.target_camera_y = screen.y - last_win_h / 2.0f / zoom;
     renderer.camera_x = renderer.target_camera_x;
     renderer.camera_y = renderer.target_camera_y;
 }
@@ -417,6 +419,24 @@ void InputManager::GoToBuilding(ECS::Simulation& sim, Rendering::Renderer& rende
     for (auto e : sel) sel.get<ECS::Components::Selectable>(e).is_selected = (e == *next);
     const auto& at = registry.get<ECS::Components::Transform>(*next).position;
     LookAt(renderer, at.x.ToFloat(), at.y.ToFloat());
+}
+
+void InputManager::GoToQueued(ECS::Simulation& sim, Rendering::Renderer& renderer,
+                              const Rendering::UIRenderer::QueueEntry& entry) {
+    auto& registry = sim.GetRegistry();
+    std::vector<entt::entity> found;
+    Rendering::UIRenderer::QueueEntryBuildings(registry, entry, found);
+    if (found.empty()) return;
+    std::sort(found.begin(), found.end());
+    auto next = std::upper_bound(found.begin(), found.end(), last_queued);
+    if (next == found.end()) next = found.begin();
+    last_queued = *next;
+    auto sel = registry.view<ECS::Components::Selectable>();
+    for (auto e : sel) sel.get<ECS::Components::Selectable>(e).is_selected = (e == *next);
+    Audio::Voices::Selected(registry, Core::LocalPlayer());
+    if (const auto* at = registry.try_get<ECS::Components::Transform>(*next)) {
+        LookAt(renderer, at->position.x.ToFloat(), at->position.y.ToFloat());
+    }
 }
 
 void InputManager::AssignGroup(ECS::Simulation& sim, int group) {
@@ -660,6 +680,10 @@ void InputManager::UpdateIntent(ECS::Simulation& sim, Rendering::Renderer& rende
     const int my = current_mouse_y;
     if (mx < 0 || my < 0 || !mouse_in_window) return;
     if (Rendering::UIRenderer::OverInterface(last_win_w, last_win_h, mx, my)) return;
+    if (Rendering::UIRenderer::QueueEntry entry;
+        Rendering::UIRenderer::QueueEntryAt(sim, last_win_w, last_win_h, mx, my, entry) >= 0) {
+        return;
+    }
     // An order waiting for its target hints what to point at (3073: "Click
     // an area to patrol there."), with the cursor of its button.
     switch (pending_order) {
@@ -1474,6 +1498,13 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
             if (Rendering::UIRenderer::OverInterface(last_win_w, last_win_h, mx, my)) {
                 return;
             }
+            // So does the production overview over the map's top left.
+            if (Rendering::UIRenderer::QueueEntry entry;
+                Rendering::UIRenderer::QueueEntryAt(sim, last_win_w, last_win_h, mx, my, entry) >= 0) {
+                overview_pressed = true;
+                GoToQueued(sim, renderer, entry);
+                return;
+            }
 
             // A standing order waiting for its target takes this click.
             if (pending_order != PendingOrder::None) {
@@ -2026,6 +2057,10 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
         if (event.button.button == SDL_BUTTON_LEFT && minimap_dragging) {
             minimap_dragging = false;
             return;  // the press was consumed by the minimap, so is the release
+        }
+        if (event.button.button == SDL_BUTTON_LEFT && overview_pressed) {
+            overview_pressed = false;
+            return;  // and likewise by the production overview
         }
         // A wall dragged out: laid from the tile the drag began on to this
         // one, by every selected villager, in one order.

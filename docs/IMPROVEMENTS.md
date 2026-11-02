@@ -21,10 +21,13 @@ out of the way of the original's own look and rules.
   be drawn from 100% to 200% of their size (Options, Top Bar Size, Panel Size,
   Text Size).
 - **Production queue.** What the player's buildings are researching and
-  training shows at the map's top left: each technology with its progress,
-  each kind of unit with how many are queued and the progress of the one
-  furthest along (Options, Production Queue, on by default). The game's
-  messages move down below it.
+  training shows in a row of icons at the map's top left. What leads each
+  queue, the item being made and those of its kind straight behind it, is
+  greened from the left as far as the one being made has got; what waits
+  behind something else in its queue is yellowed. Each kind shows how many.
+  Clicking one selects the building making it and brings the view there;
+  clicking again goes on to the next such building (Options, Production Queue,
+  on by default). The game's messages move down below it.
 
 ## Playing
 
