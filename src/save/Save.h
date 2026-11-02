@@ -36,9 +36,10 @@ bool ReadSetup(const std::vector<uint8_t>& in, Core::GameSetup& setup);
 bool ReadBytes(const std::string& path, std::vector<uint8_t>& out);
 bool ReadFile(ECS::Simulation& sim, const std::string& path, std::string* error = nullptr);
 
-// The component pools and context entries in `registry` that a save would
-// not carry, by name; empty when it carries everything. The verify harness
-// fails on any, so a new component cannot slip past the save unnoticed.
+// The component pools in `registry` that a save would not carry, by name;
+// empty when it carries every one. The verify harness fails on any, so a new
+// component cannot slip past the save unnoticed. Context entries are written
+// one by one and are not checked here.
 std::vector<std::string> Uncovered(const entt::registry& registry);
 
 } // namespace Save

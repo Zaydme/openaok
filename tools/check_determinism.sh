@@ -70,6 +70,7 @@ BACKTOWORK="$(echo "$OUTPUT" | grep '^backtowork=')"
 GARRISONFALL="$(echo "$OUTPUT" | grep '^garrisonfall=')"
 CORPSECOLOUR="$(echo "$OUTPUT" | grep '^corpsecolour=')"
 WONDERCOUNT="$(echo "$OUTPUT" | grep '^wondercount=')"
+SAVECHEATS="$(echo "$OUTPUT" | grep '^savecheats=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -494,6 +495,12 @@ esac
 case "$WONDERCOUNT" in
     wondercount=ok*) echo "wondercount OK" ;;
     *) echo "WONDERCOUNT FAILED" >&2; echo "  $WONDERCOUNT" >&2; STATUS=1 ;;
+esac
+
+# The cheats left on come back with a saved game.
+case "$SAVECHEATS" in
+    savecheats=ok*) echo "savecheats OK" ;;
+    *) echo "SAVECHEATS FAILED" >&2; echo "  $SAVECHEATS" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

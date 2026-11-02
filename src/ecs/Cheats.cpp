@@ -22,12 +22,6 @@ namespace ECS::Cheats {
 
 namespace {
 
-// Who has the cheats that stay on until typed again.
-struct Toggles {
-    uint16_t aegis = 0;
-    uint16_t nature = 0;
-};
-
 // What each typed line is.
 struct Spelling {
     const char* text;

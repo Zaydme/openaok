@@ -9,6 +9,7 @@
 #include "core/GameSetup.h"
 #include "core/Random.h"
 #include "ecs/Chat.h"
+#include "ecs/Cheats.h"
 #include "ecs/Combat.h"
 #include "ecs/Formations.h"
 #include "ecs/Diplomacy.h"
@@ -68,7 +69,7 @@ namespace C = ECS::Components;
 
 constexpr char kMagic[8] = {'A', 'O', 'K', 'C', 'S', 'A', 'V', 'E'};
 // The save format's version; a save of any other version is refused.
-constexpr uint32_t kVersion = 9;
+constexpr uint32_t kVersion = 10;
 
 // Plain data goes out as it lies in memory.
 template <typename T>
@@ -246,6 +247,7 @@ uint64_t Fingerprint() {
     mix(sizeof(ECS::Players::TechStatus));
     mix(sizeof(Core::Rules::UnitRules));
     mix(sizeof(ECS::Victory::Outcome));
+    mix(sizeof(ECS::Cheats::Toggles));
     mix(sizeof(AI::Brain));
     mix(sizeof(Core::Random));
     mix(sizeof(ECS::Combat::HuntRandom));
@@ -643,6 +645,8 @@ bool Write(const ECS::Simulation& sim, std::vector<uint8_t>& out) {
     PutPod(w, groups != nullptr ? *groups : ECS::Formations::Groups{});
     PutPlayers(w, *players);
     PutPod(w, victory->outcome);
+    const auto* toggles = ctx.find<ECS::Cheats::Toggles>();
+    PutPod(w, toggles != nullptr ? *toggles : ECS::Cheats::Toggles{});
     Net::Wire::Write(w, victory->setup);
     w.I32(victory->check_ms);
     w.I32(victory->wonder_id);
@@ -749,6 +753,9 @@ bool Read(ECS::Simulation& sim, const std::vector<uint8_t>& in, std::string* err
     registry.ctx().insert_or_assign(std::move(players));
     ECS::Victory::State victory = ctx.get<ECS::Victory::State>();
     GetPod(r, victory.outcome);
+    ECS::Cheats::Toggles toggles;
+    GetPod(r, toggles);
+    registry.ctx().insert_or_assign(toggles);
     Net::Wire::Read(r, victory.setup);
     victory.check_ms = r.I32();
     victory.wonder_id = r.I32();

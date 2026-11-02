@@ -34,6 +34,14 @@ enum Code : int {
     kTorpedo = 100,
 };
 
+// Who has the cheats that stay on until typed again, a bit per seat. In the
+// registry's context; here rather than in the source so the save module can
+// write it out.
+struct Toggles {
+    uint16_t aegis = 0;
+    uint16_t nature = 0;
+};
+
 // The cheat a chat line is, or kNone. Case and the spaces around it do not
 // matter; the words do.
 int Recognise(std::string_view chat);

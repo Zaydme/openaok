@@ -312,6 +312,9 @@ bool CheckCorpseColour();
 // Each player's Wonder counts its own years; the relics' count goes on
 // between allies. Prints "wondercount=".
 bool CheckWonderCount();
+// The cheats left on (aegis, natural wonders) come back with a saved game.
+// Prints "savecheats=".
+bool CheckSaveCheats();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

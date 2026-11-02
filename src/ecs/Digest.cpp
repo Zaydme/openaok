@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "core/Rules.h"
+#include "ecs/Cheats.h"
 #include "ecs/Diplomacy.h"
 #include "ecs/Market.h"
 #include "ecs/Players.h"
@@ -55,6 +56,10 @@ uint64_t Of(const entt::registry& registry) {
     for (int r : {Core::Rules::Res::Food, Core::Rules::Res::Wood, Core::Rules::Res::Stone}) {
         mix(static_cast<uint64_t>(Market::BasePrice(registry, r)));
     }
+    // The cheats left on: none, until one is typed.
+    const auto* toggles = registry.ctx().find<Cheats::Toggles>();
+    mix(toggles != nullptr ? toggles->aegis : 0u);
+    mix(toggles != nullptr ? toggles->nature : 0u);
     return hash;
 }
 
