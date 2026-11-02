@@ -61,6 +61,8 @@ bool DrsReadText(const DrsArchive& drs, uint32_t file_id, std::string& out);
 
 // Frame headers for one SLP, without decoding pixels. Empty if absent.
 std::vector<SlpFrameHeader> SlpReadHeaders(const DrsArchive& drs, uint32_t slp_id);
+// One frame's header. False if the SLP is absent or has no such frame.
+bool SlpReadHeader(const DrsArchive& drs, uint32_t slp_id, uint32_t frame, SlpFrameHeader& out);
 
 // Decodes one frame. Returns false if the SLP is absent, the frame index is out
 // of range, or an unsupported draw command is hit.

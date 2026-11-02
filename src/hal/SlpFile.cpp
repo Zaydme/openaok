@@ -86,46 +86,63 @@ bool DrsReadText(const DrsArchive& drs, uint32_t file_id, std::string& out) {
     return true;
 }
 
-std::vector<SlpFrameHeader> SlpReadHeaders(const DrsArchive& drs, uint32_t slp_id) {
-    std::vector<SlpFrameHeader> headers;
+namespace {
+
+// The SLP's bytes and its frame count, or null when it is absent or not a
+// plain 8-bit SLP.
+const uint8_t* SlpBase(const DrsArchive& drs, uint32_t slp_id, uint16_t& num_frames) {
     auto it = drs.entries.find(slp_id);
-    if (it == drs.entries.end()) return headers;
-
+    if (it == drs.entries.end() || it->second.size < 32) return nullptr;
     const uint8_t* base = drs.data.data() + it->second.offset;
-    if (it->second.size < 32) return headers;
-
     // version[4] num_frames[2] properties[2] comment[24]
     const char version0 = static_cast<char>(base[0]);
     const char version3 = static_cast<char>(base[3]);
     if (version3 == 'P' || version0 == '4') {
-        return headers; // Compressed or 32-bit variants; not in the game's data.
+        return nullptr; // Compressed or 32-bit variants; not in the game's data.
     }
+    num_frames = ReadU16(base + 4);
+    if (32u + static_cast<uint32_t>(num_frames) * 32u > it->second.size) return nullptr;
+    return base;
+}
 
-    const uint16_t num_frames = ReadU16(base + 4);
-    if (32u + static_cast<uint32_t>(num_frames) * 32u > it->second.size) return headers;
+SlpFrameHeader HeaderAt(const uint8_t* base, uint32_t frame) {
+    const uint8_t* h = base + 32 + static_cast<size_t>(frame) * 32;
+    SlpFrameHeader hdr;
+    hdr.cmd_table_offset = ReadU32(h);
+    hdr.outline_table_offset = ReadU32(h + 4);
+    hdr.width = ReadU32(h + 16);
+    hdr.height = ReadU32(h + 20);
+    hdr.hotspot_x = ReadI32(h + 24);
+    hdr.hotspot_y = ReadI32(h + 28);
+    return hdr;
+}
 
+} // namespace
+
+std::vector<SlpFrameHeader> SlpReadHeaders(const DrsArchive& drs, uint32_t slp_id) {
+    std::vector<SlpFrameHeader> headers;
+    uint16_t num_frames = 0;
+    const uint8_t* base = SlpBase(drs, slp_id, num_frames);
+    if (base == nullptr) return headers;
     headers.reserve(num_frames);
-    for (uint16_t f = 0; f < num_frames; ++f) {
-        const uint8_t* h = base + 32 + static_cast<size_t>(f) * 32;
-        SlpFrameHeader hdr;
-        hdr.cmd_table_offset = ReadU32(h);
-        hdr.outline_table_offset = ReadU32(h + 4);
-        hdr.width = ReadU32(h + 16);
-        hdr.height = ReadU32(h + 20);
-        hdr.hotspot_x = ReadI32(h + 24);
-        hdr.hotspot_y = ReadI32(h + 28);
-        headers.push_back(hdr);
-    }
+    for (uint16_t f = 0; f < num_frames; ++f) headers.push_back(HeaderAt(base, f));
     return headers;
+}
+
+bool SlpReadHeader(const DrsArchive& drs, uint32_t slp_id, uint32_t frame, SlpFrameHeader& out) {
+    uint16_t num_frames = 0;
+    const uint8_t* base = SlpBase(drs, slp_id, num_frames);
+    if (base == nullptr || frame >= num_frames) return false;
+    out = HeaderAt(base, frame);
+    return true;
 }
 
 bool SlpDecodeFrame(const DrsArchive& drs, uint32_t slp_id, uint32_t frame, SlpFrame& out) {
     auto it = drs.entries.find(slp_id);
     if (it == drs.entries.end()) return false;
 
-    const std::vector<SlpFrameHeader> headers = SlpReadHeaders(drs, slp_id);
-    if (frame >= headers.size()) return false;
-    const SlpFrameHeader& hdr = headers[frame];
+    SlpFrameHeader hdr;
+    if (!SlpReadHeader(drs, slp_id, frame, hdr)) return false;
 
     const size_t base = it->second.offset;
     const uint32_t w = hdr.width;
