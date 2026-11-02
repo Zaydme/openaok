@@ -311,6 +311,8 @@ void Write(Writer& out, const Core::GameSetup& setup) {
     out.U8(static_cast<uint8_t>(setup.victory));
     out.I32(setup.wonder_years);
     out.I32(setup.relic_years);
+    out.I32(setup.victory_time);
+    out.I32(setup.victory_score);
     // Each seat's name and colour, and the game options a network game must
     // agree on.
     for (int seat = 0; seat < Core::kMaxPlayers; ++seat) {
@@ -347,6 +349,8 @@ bool Read(Reader& in, Core::GameSetup& setup) {
     setup.victory = static_cast<Core::VictoryKind>(in.U8());
     setup.wonder_years = in.I32();
     setup.relic_years = in.I32();
+    setup.victory_time = in.I32();
+    setup.victory_score = in.I32();
     for (int seat = 0; seat < Core::kMaxPlayers; ++seat) {
         setup.players[seat].name = in.Text();
         setup.players[seat].colour = in.I32();

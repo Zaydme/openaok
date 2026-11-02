@@ -90,6 +90,10 @@ struct GameSetup {
     // size's (VictoryYears).
     int wonder_years = 0;
     int relic_years = 0;
+    // The lobby's Time and Score, for a time limit or a score game: the time
+    // in tenths of a year (15000 is 1,500 years), and the score to reach.
+    int32_t victory_time = 0;
+    int32_t victory_score = 0;
     // A random map game gives each player a Town Center, its villagers (as
     // many as the civ's "starting villagers" resource says) and a Scout
     // Cavalry. The scripts place none of them.

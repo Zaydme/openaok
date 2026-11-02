@@ -82,6 +82,7 @@ DEADTRAP="$(echo "$OUTPUT" | grep '^deadtrap=')"
 STRAYARROW="$(echo "$OUTPUT" | grep '^strayarrow=')"
 SCENARIOVICTORY="$(echo "$OUTPUT" | grep '^scenariovictory=')"
 ADVANCEDBUTTONS="$(echo "$OUTPUT" | grep '^advancedbuttons=')"
+LOBBYVICTORY="$(echo "$OUTPUT" | grep '^lobbyvictory=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -578,6 +579,12 @@ esac
 case "$ADVANCEDBUTTONS" in
     advancedbuttons=ok*) echo "advancedbuttons OK" ;;
     *) echo "ADVANCEDBUTTONS FAILED" >&2; echo "  $ADVANCEDBUTTONS" >&2; STATUS=1 ;;
+esac
+
+# The lobby's Time and Score victories are kept and played to.
+case "$LOBBYVICTORY" in
+    lobbyvictory=ok*) echo "lobbyvictory OK" ;;
+    *) echo "LOBBYVICTORY FAILED" >&2; echo "  $LOBBYVICTORY" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

@@ -15,11 +15,14 @@ victory, declared by its triggers, is on
 
 ## How a game is won
 
-The lobby offers two victory settings. Standard victory is won by conquest,
-by a Wonder that stands finished for a number of years, or by holding every
-relic on the map for as long. Conquest is won by conquest alone. The game type
-adds Regicide, where a player loses with its King, and Death Match, which
-starts everyone rich.
+The lobby offers four victory settings, as the original's did. Standard
+victory is won by conquest, by a Wonder that stands finished for a number of
+years, or by holding every relic on the map for as long. Conquest is won by
+conquest alone. Time Limit is won by the highest score when the time chosen
+runs out (300 to 1,500 years, 1,100 to start with), and Score by the first
+player to reach the score chosen (4000 to 14000, 8000 to start with), the
+choice on a row of its own under Victory. The game type adds Regicide, where a
+player loses with its King, and Death Match, which starts everyone rich.
 
 `ecs/Victory` keeps its state in the registry's context (`Victory::State`):
 the outcome so far, the lobby's setup, and the dat ids of the Wonder, the
@@ -183,9 +186,12 @@ it, as in Regicide. It is won as the lobby's victory setting says.
 
 ### Time limits and score
 
-A scenario file can also ask for a score to reach, a time limit, or custom
-conditions (`Scenario::VictoryMode`), which the scenario editor's Global
-Victory tab sets. `Scenario::SetupFor` gives the game the matching
+The lobby's time limit and score travel with the game's setup
+(`GameSetup::victory_time`, in tenths of a year, and `victory_score`), and the
+victory module takes them as its `Goal` when the world is built. A scenario
+file can also ask for a score to reach, a time limit, or custom conditions
+(`Scenario::VictoryMode`), which the scenario editor's Global Victory tab
+sets. `Scenario::SetupFor` gives the game the matching
 `VictoryKind`, and the world, as it is built from the file, hands the figures
 to the victory module as its `Goal` (`Victory::SetGoal`). Each is played as
 the original's help text describes it:

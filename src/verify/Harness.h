@@ -347,6 +347,9 @@ bool CheckScenarioVictory();
 // A scenario's Use Advanced Buttons turns the advanced commands on, and its
 // Play Sound with no file plays its dat sound. Prints "advancedbuttons=".
 bool CheckAdvancedButtons();
+// The lobby's Time and Score victories: kept through the setup's encoding and
+// played to. Prints "lobbyvictory=".
+bool CheckLobbyVictory();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

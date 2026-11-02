@@ -313,6 +313,9 @@ void Setup(entt::registry& registry, const Core::GameSetup& setup) {
     state.wonder_id = cfg.GetUnitIdByName("WNDR");
     state.relic_id = cfg.GetUnitIdByName("RELIC");
     state.king_id = cfg.GetUnitIdByName("KINGX");
+    // A lobby's time limit or score; a scenario's goal replaces it (SetGoal).
+    state.goal.time = setup.victory_time;
+    state.goal.score = setup.victory_score;
     registry.ctx().insert_or_assign(state);
 }
 

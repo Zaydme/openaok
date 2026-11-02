@@ -40,6 +40,12 @@ std::string Format(int string_id, int number) {
     std::snprintf(out, sizeof(out), Get(string_id).c_str(), number);
     return out;
 }
+// And with a string, then a number: "Victory: %s (%d)".
+std::string Format(int string_id, const std::string& text, int number) {
+    char out[256];
+    std::snprintf(out, sizeof(out), Get(string_id).c_str(), text.c_str(), number);
+    return out;
+}
 
 constexpr int kMaxComputers = 7;
 
@@ -56,6 +62,9 @@ struct Setup {
     PlayerRow you;
     PlayerRow computers[kMaxComputers];
     DropDown difficulty, others, map, size, resources, population, reveal, age, victory;
+    // The Time and the Score a time limit or score victory plays to, on one
+    // row under Victory, each shown for its own.
+    DropDown time, score;
     CheckBox team_together, lock_teams, all_techs, record;
     Button start, cancel, reset, tech_tree;
 
@@ -87,7 +96,14 @@ constexpr int kSettingLabelRight = 649;
 constexpr int kSettingX = 677;
 constexpr int kSettingW = 114;
 constexpr int kSettingH = 21;
-constexpr int kSettingRows[] = {88, 117, 146, 175, 204, 233, 262, 291, 320};
+constexpr int kSettingRows[] = {88, 117, 146, 175, 204, 233, 262, 291, 320, 349};
+// The Time a time limit game plays to, in tenths of a year, beside its line
+// of LANGUAGE.DLL (9780 "1,500 years (2:00 hr)" on), and the Score a score
+// game plays to; with the choice each starts at, 1,100 years and 8000.
+constexpr int32_t kTimes[] = {15000, 13000, 11000, 9000, 7000, 5000, 3000};
+constexpr int kDefaultTime = 2;
+constexpr int32_t kScores[] = {14000, 13000, 12000, 11000, 10000, 9000, 8000, 7000, 6000, 5000, 4000};
+constexpr int kDefaultScore = 6;
 
 // The player table's columns.
 constexpr int kNameX = 58;
@@ -202,7 +218,13 @@ void ResetSettings(Setup& s) {
     setting(s.population, 5, population, 2);
     setting(s.reveal, 6, {Get(9755), Get(9756), Get(9757)}, 0);
     setting(s.age, 7, {Get(4332), Get(4202), Get(4203), Get(4204)}, 0);
-    setting(s.victory, 8, {Get(4327), Get(4321)}, 0);
+    setting(s.victory, 8, {Get(4332), Get(4321), Get(4329), Get(4330)}, 0);
+    std::vector<std::string> times;
+    for (int id = 9780; id <= 9786; ++id) times.push_back(Get(id));
+    setting(s.time, 9, times, kDefaultTime);
+    std::vector<std::string> scores;
+    for (int score : kScores) scores.push_back(std::to_string(score));
+    setting(s.score, 9, scores, kDefaultScore);
     s.team_together = CheckBox{SDL_Rect{613, 373, 24, 26}, true};
     s.lock_teams = CheckBox{SDL_Rect{740, 373, 24, 26}, true};
     s.all_techs = CheckBox{SDL_Rect{613, 401, 24, 26}, false};
@@ -239,8 +261,11 @@ Core::GameSetup Settings(const Setup& s) {
     game.reveal = s.reveal.selected == 1 ? Core::Reveal::Explored
                 : s.reveal.selected == 2 ? Core::Reveal::AllVisible : Core::Reveal::Normal;
     game.starting_age = s.age.selected;
-    game.victory = s.victory.selected == 1 ? Core::VictoryKind::Conquest
-                                           : Core::VictoryKind::Standard;
+    static constexpr Core::VictoryKind kVictories[] = {Core::VictoryKind::Standard, Core::VictoryKind::Conquest,
+                                                      Core::VictoryKind::TimeLimit, Core::VictoryKind::Score};
+    game.victory = kVictories[std::clamp(s.victory.selected, 0, 3)];
+    if (game.victory == Core::VictoryKind::TimeLimit) game.victory_time = kTimes[std::clamp(s.time.selected, 0, 6)];
+    if (game.victory == Core::VictoryKind::Score) game.victory_score = kScores[std::clamp(s.score.selected, 0, 10)];
     game.regicide = s.kind == 1;
     game.death_match = s.kind == 2;
     game.difficulty = s.difficulty.selected;
@@ -353,8 +378,17 @@ std::vector<std::string> SummaryLines(const Setup& s) {
         if (game.map_script == kScripts[i]) map = i;
     }
     lines.push_back(Format(9654, Get(kMapNames + map)));
-    static constexpr int kVictoryNames[] = {4327, 4321, 4329, 4330, 4331};
-    lines.push_back(Format(9660, Get(kVictoryNames[std::min<size_t>(static_cast<size_t>(game.victory), 4)])));
+    static constexpr int kVictoryNames[] = {4332, 4321, 4329, 4330, 4331};
+    const std::string victory = Get(kVictoryNames[std::min<size_t>(static_cast<size_t>(game.victory), 4)]);
+    // "Victory: Score (8000)", "Victory: Time Limit (1100)": the score, or
+    // the years.
+    if (game.victory == Core::VictoryKind::Score) {
+        lines.push_back(Format(9662, victory, game.victory_score));
+    } else if (game.victory == Core::VictoryKind::TimeLimit) {
+        lines.push_back(Format(9662, victory, game.victory_time / 10));
+    } else {
+        lines.push_back(Format(9660, victory.c_str()));
+    }
     static const int kAges[4] = {4332, 4202, 4203, 4204};
     lines.push_back(Format(9700, Get(kAges[std::clamp(game.starting_age, 0, 3)])));
     if (!game.death_match) {
@@ -373,12 +407,27 @@ std::vector<std::string> SummaryLines(const Setup& s) {
     return lines;
 }
 
+// The Time or the Score row under Victory, when the victory chosen has one,
+// with its LANGUAGE.DLL label (13519 "Time", 13520 "Score").
+DropDown* VictoryDetail(Setup& s, int* label = nullptr) {
+    if (s.victory.selected == 2) {
+        if (label != nullptr) *label = 13519;
+        return &s.time;
+    }
+    if (s.victory.selected == 3) {
+        if (label != nullptr) *label = 13520;
+        return &s.score;
+    }
+    return nullptr;
+}
+
 std::vector<DropDown*> LobbyDropDowns(Setup& s) {
     std::vector<DropDown*> all;
     if (Hosting() && !Table().restoring) {
         for (DropDown* d : {&s.difficulty, &s.game_type, &s.map, &s.size}) all.push_back(d);
         if (s.kind != 2) all.push_back(&s.resources);
         for (DropDown* d : {&s.population, &s.reveal, &s.age, &s.victory}) all.push_back(d);
+        if (DropDown* d = VictoryDetail(s)) all.push_back(d);
     }
     for (int r = 0; r < Net::kRows; ++r) {
         const Net::Row& row = Table().rows[r];
@@ -468,6 +517,11 @@ void DrawLobby(SDL_Renderer* r, const Pointer& p) {
             if (row.d == &s.resources && s.kind == 2) continue;
             DrawText(r, Text::kGeorgia9B, kSettingLabelRight, row.d->rect.y + 3, Get(row.label),
                      ink, ink, Align::Right, false);
+        }
+        int detail_label = 0;
+        if (const DropDown* d = VictoryDetail(s, &detail_label)) {
+            DrawText(r, Text::kGeorgia9B, kSettingLabelRight, d->rect.y + 3, Get(detail_label), ink, ink,
+                     Align::Right, false);
         }
         struct Check { int label; const CheckBox* c; };
         const Check checks[] = {
@@ -639,6 +693,7 @@ std::vector<DropDown*> SetupDropDowns(Setup& s) {
     std::vector<DropDown*> all = {&s.difficulty, &s.others, &s.map, &s.size};
     if (s.kind != 2) all.push_back(&s.resources);
     for (DropDown* d : {&s.population, &s.reveal, &s.age, &s.victory}) all.push_back(d);
+    if (DropDown* d = VictoryDetail(s)) all.push_back(d);
     all.push_back(&s.you.civ);
     all.push_back(&s.you.colour);
     all.push_back(&s.you.team);
@@ -688,6 +743,11 @@ void DrawSingle(SDL_Renderer* r, const Pointer& p) {
         if (row.d == &s.resources && s.kind == 2) continue;   // Death Match fixes them
         DrawText(r, Text::kGeorgia9B, kSettingLabelRight, row.d->rect.y + 3, Get(row.label),
                  ink, ink, Align::Right, false);
+    }
+    int detail_label = 0;
+    if (const DropDown* d = VictoryDetail(s, &detail_label)) {
+        DrawText(r, Text::kGeorgia9B, kSettingLabelRight, d->rect.y + 3, Get(detail_label), ink, ink, Align::Right,
+                 false);
     }
     struct Check { int label; const CheckBox* c; };
     const Check checks[] = {
