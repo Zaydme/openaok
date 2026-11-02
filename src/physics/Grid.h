@@ -52,7 +52,6 @@ constexpr uint8_t kGateLocked = 0x80;
 // its tile; a dock stands on water.
 struct Tile {
     Core::TerrainType terrain = Core::TerrainType::Grass1;
-    uint8_t texture_variant = 0;
     int elevation = 0;
     // Land units may be here: the ground allows it and nothing blocks it.
     bool is_walkable = true;

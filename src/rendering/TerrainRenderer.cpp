@@ -201,7 +201,6 @@ static void CollectBlends(
     const Physics::Grid& grid,
     int x, int y,
     Core::TerrainType my_terrain,
-    uint8_t my_variant,
     std::vector<Blend>& out)
 {
     const int my_prio = GetTerrainPriority(my_terrain);
@@ -233,7 +232,7 @@ static void CollectBlends(
 
     for (int k = 0; k < influence_count; ++k) {
         const auto& inf = influences[k];
-        const auto tile = TerrainRenderer::GetTerrainTile(inf.first, my_variant);
+        const auto tile = TerrainRenderer::GetTerrainTile(inf.first, x, y);
         if (!tile.atlas) continue;
 
         const uint8_t bits = inf.second;
@@ -258,8 +257,16 @@ static void CollectBlends(
 }
 
 
-TerrainRenderer::TerrainTile TerrainRenderer::GetTerrainTile(
-        Core::TerrainType type, uint8_t variant) {
+int TerrainRenderer::PatternCell(int x, int y, int frame_count) {
+    if (frame_count <= 1) return 0;
+    int period = 1;
+    while ((period + 1) * (period + 1) <= frame_count) ++period;
+    const int column = ((x % period) + period) % period;
+    const int row = ((-y % period) + period) % period;
+    return column * period + row;
+}
+
+TerrainRenderer::TerrainTile TerrainRenderer::GetTerrainTile(Core::TerrainType type, int x, int y) {
     TerrainTile tile;
     const auto& info = Core::ConfigManager::Get().GetTerrainArt(type);
     if (info.slp_id == 0 || info.frame_count <= 0) return tile;
@@ -268,9 +275,7 @@ TerrainRenderer::TerrainTile TerrainRenderer::GetTerrainTile(
         HAL::GraphicCache::Get().GetTerrainAtlas(info.slp_id);
     if (!atlas || !atlas->base) return tile;
 
-    // Terrains do not all use the same pattern size -- most tile 10x10, the
-    // farms 3x3 -- so the cell index wraps on the terrain's own frame count.
-    const int frame = variant % info.frame_count;
+    const int frame = PatternCell(x, y, info.frame_count);
     if (frame >= static_cast<int>(atlas->frames.size())) return tile;
 
     tile.atlas = atlas->base;
@@ -407,14 +412,14 @@ static void Compose(SDL_Renderer* sdl_r, const Physics::Grid& grid, int cx, int 
             const auto& tile = grid.GetTile(x, y);
             const Core::TerrainType terrain = TerrainAt(grid, x, y);
             auto screen_pos = Core::IsometricMath::WorldToScreen(Core::Fixed32(x), Core::Fixed32(y));
-            Laid l{x, y, TerrainRenderer::GetTerrainTile(terrain, tile.texture_variant),
+            Laid l{x, y, TerrainRenderer::GetTerrainTile(terrain, x, y),
                    screen_pos.x - min_x, screen_pos.y - min_y, true, blends.size(), 0, {}};
             l.flat = hill_sheet == nullptr ||
                      (Ground::CornerLevel(grid, x, y) == 0.0f && Ground::CornerLevel(grid, x + 1, y) == 0.0f &&
                       Ground::CornerLevel(grid, x + 1, y + 1) == 0.0f && Ground::CornerLevel(grid, x, y + 1) == 0.0f &&
                       tile.elevation == 0);
             if (blend_sheet != nullptr) {
-                CollectBlends(grid, x, y, l.flat ? terrain : tile.terrain, tile.texture_variant, blends);
+                CollectBlends(grid, x, y, l.flat ? terrain : tile.terrain, blends);
             }
             l.blend_count = blends.size() - l.first_blend;
             if (!l.flat) l.hill = HillSlot(hills++);

@@ -136,27 +136,10 @@ namespace {
 // across) and the units that begin around it, with room to walk.
 constexpr int kStartClearRadius = 6;
 
-// Which frame of a terrain set a tile draws. Each set in terrain.drs is a
-// square tiling pattern (frame counts 100, 64, 36, 9) whose pieces line up in
-// one arrangement only: the tile at (x, y) draws the pattern's cell for that
-// position. The row runs the opposite way to the column because the isometric
-// grid's y axis points up-left on screen while the pattern is stored top-down.
-uint8_t VariantFor(int x, int y, int frame_count) {
-    if (frame_count <= 1) return 0;
-    int period = 1;
-    while ((period + 1) * (period + 1) <= frame_count) ++period;
-
-    const int column = ((x % period) + period) % period;
-    const int row = ((-y % period) + period) % period;
-    return static_cast<uint8_t>(column * period + row);
-}
-
 void PaintTile(Physics::Grid& grid, int x, int y, TerrainType terrain) {
     if (!grid.InBounds(x, y)) return;
-    const auto& art = ConfigManager::Get().GetTerrainArt(terrain);
     Physics::Tile& tile = grid.GetTileMut(x, y);
     tile.terrain = terrain;
-    tile.texture_variant = VariantFor(x, y, art.frame_count);
     tile.is_walkable = !tile.blocked && grid.LandPassable(terrain);
 }
 
@@ -886,11 +869,6 @@ std::vector<std::pair<int, int>> Core::MapGenerator::GenerateProcedural(Physics:
                 tile.is_walkable = false;
                 tile.has_tree = true;
             }
-            
-            // The tile's cell in the 10x10 terrain tiling pattern.
-            int tens = x % 10;
-            int ones = (10 - (y % 10)) % 10;
-            tile.texture_variant = tens * 10 + ones;
         }
     }
     for (int y = 0; y < config.height; ++y) {

@@ -99,6 +99,7 @@ int Run(int ticks) {
     if (runs("fogedge")) ok &= CheckFogEdge();
     if (runs("queuesplit")) ok &= CheckQueueSplit();
     if (runs("queueoverview")) ok &= CheckQueueOverview();
+    if (runs("terraincell")) ok &= CheckTerrainCell();
     if (runs("wolves")) ok &= CheckWolves();
     if (runs("lobby")) ok &= CheckLobby();
     if (runs("formations")) ok &= CheckFormations();

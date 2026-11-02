@@ -52,7 +52,7 @@ struct Layout {
 };
 
 // How a tile is given its terrain -- the map generator's own painter, which
-// also sets the tile's pattern cell and whether it can be walked.
+// also sets whether it can be walked.
 using Paint = void (*)(Physics::Grid& grid, int x, int y, TerrainType terrain);
 
 // Lays out the map's lands and paints their terrain. `rng` is the map's own.

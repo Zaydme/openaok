@@ -23,12 +23,22 @@ public:
 
     // One tile of ground: where it sits inside its terrain's atlas. The whole
     // terrain set is a single texture, so a chunk bakes without ever swapping
-    // texture, and picking a variant is rect arithmetic.
+    // texture, and picking a cell is rect arithmetic.
     struct TerrainTile {
         SDL_Texture* atlas = nullptr;
         SDL_Rect src{0, 0, 0, 0};
     };
-    static TerrainTile GetTerrainTile(Core::TerrainType type, uint8_t variant);
+    // The cell of `type`'s set that the tile at (x, y) draws, whatever the
+    // tile's terrain was before.
+    static TerrainTile GetTerrainTile(Core::TerrainType type, int x, int y);
+
+    // Which frame of a terrain set of `frame_count` frames the tile at (x, y)
+    // draws. Each set in terrain.drs is a square tiling pattern (100, 64, 36
+    // or 9 frames) whose pieces line up in one arrangement only: the tile at
+    // (x, y) draws the pattern's cell for that position. The row runs the
+    // opposite way to the column because the isometric grid's y axis points
+    // up-left on screen while the pattern is stored top-down.
+    static int PatternCell(int x, int y, int frame_count);
 
     // Draws the w x h top left of `full`, which has a clear column and row
     // beyond it, into the whole of the render target at half its size. Each

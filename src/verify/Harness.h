@@ -291,6 +291,9 @@ bool CheckQueueSplit();
 // kind; a click goes round the buildings making an entry; it shows only with
 // its option on. Prints "queueoverview=".
 bool CheckQueueOverview();
+// A tile draws its terrain's own pattern cell for its place, its terrain
+// changed or not. Prints "terraincell=".
+bool CheckTerrainCell();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();
