@@ -134,7 +134,8 @@ void Update(entt::registry& registry) {
     map = Vision::MapOf(registry);
 
     // Pictures whose ground their player sees again.
-    std::vector<std::pair<Core::PlayerId, entt::entity>> seen;
+    static std::vector<std::pair<Core::PlayerId, entt::entity>> seen;
+    seen.clear();
     auto pictures = registry.view<const C::Doppelganger>();
     for (auto e : pictures) {
         const auto& d = pictures.get<const C::Doppelganger>(e);

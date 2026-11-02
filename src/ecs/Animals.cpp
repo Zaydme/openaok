@@ -288,7 +288,8 @@ void Update(entt::registry& registry, const Physics::Grid& grid, int32_t dt_ms) 
     if (const Events::Log* log = Events::Read(registry)) Herd(registry, grid, log->tick);
 
     auto grazers = registry.view<Components::Grazer, Components::Transform>();
-    std::vector<std::pair<entt::entity, Components::Vector2D>> steps;
+    static std::vector<std::pair<entt::entity, Components::Vector2D>> steps;
+    steps.clear();
     for (auto animal : grazers) {
         auto& grazer = grazers.get<Components::Grazer>(animal);
         if (grazer.flee_ms > 0) {

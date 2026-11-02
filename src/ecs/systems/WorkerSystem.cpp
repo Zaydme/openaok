@@ -450,7 +450,8 @@ entt::entity NextResource(const entt::registry& registry, const Physics::Grid& g
     const Physics::Layer layer = Navigation::LayerOf(registry, grid, self);
     const int region = Navigation::RegionOf(registry, grid, self);
     const Core::Fixed32 reach = rules->search_radius;
-    std::vector<entt::entity> worked;
+    static std::vector<entt::entity> worked;
+    worked.clear();
     bool worked_known = false;
     entt::entity best = entt::null;
     Core::Fixed32 nearest{};

@@ -1091,9 +1091,13 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
         warnings->list.clear();
         for (const auto& [target, attacker] : list) Warn(registry, grid, target, attacker);
     }
-    std::vector<Strike> blows;
-    std::vector<std::pair<entt::entity, entt::entity>> volleys;   // shooter, target
-    std::vector<entt::entity> spent;   // demolition ships that have detonated
+    // Kept from tick to tick, so the pass allocates nothing once warmed.
+    static std::vector<Strike> blows;
+    static std::vector<std::pair<entt::entity, entt::entity>> volleys;   // shooter, target
+    static std::vector<entt::entity> spent;   // demolition ships that have detonated
+    blows.clear();
+    volleys.clear();
+    spent.clear();
 
     // What can be fought, by where it stands; nothing moves during the pass.
     static Nearby::Buckets candidates;
@@ -1286,7 +1290,8 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
 
     // Villagers whose fight, or run, is over go back to the job they broke
     // off.
-    std::vector<entt::entity> resuming;
+    static std::vector<entt::entity> resuming;
+    resuming.clear();
     auto paused = registry.view<const Components::Interrupted, const Components::Worker>();
     for (auto e : paused) {
         const auto* combat = registry.try_get<Combat>(e);
