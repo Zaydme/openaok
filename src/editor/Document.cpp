@@ -1041,12 +1041,8 @@ void Generate(State& s) {
     } else {
         // A random map: the map script run as for a game with the scenario's
         // players, and the result written into the file.
-        static const char* kScripts[] = {"Arabia",      "Archipelago",   "Baltic",       "Black Forest",
-                                         "Coastal",     "Continental",   "Crater Lake",  "Fortress",
-                                         "Gold Rush",   "Highland",      "Islands",      "Mediterranean",
-                                         "Migration",   "Rivers",        "Team Islands"};
         Core::GameSetup setup = Core::DefaultSetup();
-        setup.map_script = kScripts[std::clamp(s.map_type, 0, 14)];
+        setup.map_script = Core::kMapScripts[std::clamp(s.map_type, 0, Core::kMapScriptCount - 1)];
         setup.map_size = tiles;
         uint32_t seed = static_cast<uint32_t>(std::strtoul(s.seed_text.c_str(), nullptr, 10));
         if (s.map_kind == 1) {

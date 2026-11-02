@@ -53,6 +53,14 @@ inline constexpr MapSize kMapSizes[] = {
     {"normal", 200, "LARGE_MAP", 300},  {"large", 220, "HUGE_MAP", 350},  {"giant", 240, "GIGANTIC_MAP", 400},
 };
 
+// The random map scripts, in the order of the lobby's Map Type list
+// (LANGUAGE.DLL 10875 on, then 10890 Random).
+inline constexpr const char* kMapScripts[] = {
+    "Arabia", "Archipelago", "Baltic", "Black Forest", "Coastal", "Continental",
+    "Crater Lake", "Fortress", "Gold Rush", "Highland", "Islands", "Mediterranean",
+    "Migration", "Rivers", "Team Islands"};
+constexpr int kMapScriptCount = static_cast<int>(sizeof(kMapScripts) / sizeof(kMapScripts[0]));
+
 // A year of game time, as the Wonder and relic countdowns and a time limit
 // count it.
 constexpr int32_t kYearMs = 5000;

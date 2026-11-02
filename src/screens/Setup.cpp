@@ -156,13 +156,9 @@ constexpr int kDropped = 9673;
 constexpr int kOk = 4001;
 constexpr int kYes = 4003, kNo = 4004;
 
-// The random map scripts, in the Map Type list's order (LANGUAGE.DLL 10875
-// on); the last choice, 10890, is Random.
-constexpr const char* kScripts[] = {
-    "Arabia", "Archipelago", "Baltic", "Black Forest", "Coastal", "Continental",
-    "Crater Lake", "Fortress", "Gold Rush", "Highland", "Islands", "Mediterranean",
-    "Migration", "Rivers", "Team Islands"};
-constexpr int kScriptCount = 15;
+// The Map Type list's names, in Core::kMapScripts' order.
+constexpr const auto& kScripts = Core::kMapScripts;
+constexpr int kScriptCount = Core::kMapScriptCount;
 constexpr int kMapNames = 10875;
 
 std::vector<std::string> CivNames() {

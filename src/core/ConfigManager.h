@@ -804,7 +804,7 @@ public:
             player_minimap.push_back(index.get<int>());
         }
         for (auto it = data["scripts"].begin(); it != data["scripts"].end(); ++it) {
-            rms_script_ids[it.key()] = it.value().get<uint32_t>();
+            rms_script_ids[ScriptKey(it.key())] = it.value().get<uint32_t>();
         }
         for (auto it = data["object_art"].begin();
              it != data["object_art"].end(); ++it) {
@@ -943,15 +943,12 @@ public:
         return player_minimap[index];
     }
 
-    // The archive entry holding a random map script, or 0. Named as
-    // random_map.def lists them: "Arabia", "BlackForest", "TeamIslands".
+    // The archive entry holding a random map script, or 0. Named by its
+    // letters, case aside: random_map.def's "BlackForest" is the lobby's
+    // "Black Forest".
     uint32_t RmsScriptId(const std::string& script_name) const {
-        auto it = rms_script_ids.find(script_name);
+        auto it = rms_script_ids.find(ScriptKey(script_name));
         return it == rms_script_ids.end() ? 0u : it->second;
-    }
-
-    const std::unordered_map<std::string, uint32_t>& RmsScripts() const {
-        return rms_script_ids;
     }
 
     // The engine terrain a map script's terrain id refers to. Returns false
@@ -999,6 +996,16 @@ public:
 private:
     ConfigManager() = default;
     ~ConfigManager() = default;
+
+    // A map script's name by its letters alone, lower case.
+    static std::string ScriptKey(const std::string& name) {
+        std::string key;
+        for (char c : name) {
+            if (c >= 'A' && c <= 'Z') key.push_back(static_cast<char>(c - 'A' + 'a'));
+            else if (c >= 'a' && c <= 'z') key.push_back(c);
+        }
+        return key;
+    }
 
 public:
     static bool ParseInt(const std::string& s, size_t begin, size_t end, int& out) {

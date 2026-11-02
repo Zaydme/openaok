@@ -84,6 +84,7 @@ SCENARIOVICTORY="$(echo "$OUTPUT" | grep '^scenariovictory=')"
 ADVANCEDBUTTONS="$(echo "$OUTPUT" | grep '^advancedbuttons=')"
 LOBBYVICTORY="$(echo "$OUTPUT" | grep '^lobbyvictory=')"
 TOWNSTRUCK="$(echo "$OUTPUT" | grep '^townstruck=')"
+MAPSCRIPTS="$(echo "$OUTPUT" | grep '^mapscripts=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -592,6 +593,12 @@ esac
 case "$TOWNSTRUCK" in
     townstruck=ok*) echo "townstruck OK" ;;
     *) echo "TOWNSTRUCK FAILED" >&2; echo "  $TOWNSTRUCK" >&2; STATUS=1 ;;
+esac
+
+# Every map the lobby offers is played from its own script.
+case "$MAPSCRIPTS" in
+    mapscripts=ok*) echo "mapscripts OK" ;;
+    *) echo "MAPSCRIPTS FAILED" >&2; echo "  $MAPSCRIPTS" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

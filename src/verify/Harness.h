@@ -353,6 +353,9 @@ bool CheckLobbyVictory();
 // A computer player takes a blow as in its town within its town's size and
 // four tiles. Prints "townstruck=".
 bool CheckTownStruck();
+// Every map in the lobby's Map Type list finds its script. Prints
+// "mapscripts=".
+bool CheckMapScripts();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();
