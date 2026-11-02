@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <vector>
 
 #include <entt/entt.hpp>
 
@@ -41,6 +42,13 @@ enum class Refusal : uint8_t {
 // Queues `unit_id` at `building` for `player`, paying for it now.
 Refusal Enqueue(entt::registry& registry, entt::entity building, int unit_id,
                 Core::PlayerId player);
+
+// Of `first` and `others`, the building to queue `unit_id` at for `player`:
+// owned, finished, training it and with room, the one with the fewest items
+// queued, the earliest of them on a tie, `first` before `others`. Null when
+// none may take it.
+entt::entity Fewest(const entt::registry& registry, entt::entity first,
+                    const std::vector<entt::entity>& others, int unit_id, Core::PlayerId player);
 
 // Queues research of `tech_id` at `building` for `player`, paying for it now.
 Refusal EnqueueTech(entt::registry& registry, entt::entity building, int tech_id,

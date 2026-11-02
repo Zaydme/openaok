@@ -704,7 +704,9 @@ void Execute(entt::registry& registry, Physics::Grid& grid, const Core::Command&
         } else if constexpr (std::is_same_v<T, Core::ComputerResourceCommand>) {
             ComputerResource(registry, cmd);
         } else if constexpr (std::is_same_v<T, Core::TrainCommand>) {
-            Production::Enqueue(registry, cmd.building, cmd.unit_id, cmd.player);
+            const entt::entity at = cmd.others.empty()
+                ? cmd.building : Production::Fewest(registry, cmd.building, cmd.others, cmd.unit_id, cmd.player);
+            Production::Enqueue(registry, at != entt::null ? at : cmd.building, cmd.unit_id, cmd.player);
         } else if constexpr (std::is_same_v<T, Core::CancelTrainCommand>) {
             Production::Cancel(registry, cmd.building, cmd.slot, cmd.player);
         } else if constexpr (std::is_same_v<T, Core::ResearchCommand>) {

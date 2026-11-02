@@ -284,6 +284,9 @@ bool CheckCursor();
 // Black covers the map's unexplored edge and past it, zoomed out. Prints
 // "fogedge=".
 bool CheckFogEdge();
+// Militia ordered at three selected Barracks, one a foundation, go one to
+// each finished one in turn until both are full. Prints "queuesplit=".
+bool CheckQueueSplit();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

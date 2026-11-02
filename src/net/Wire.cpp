@@ -86,7 +86,7 @@ void Put(Writer& out, const C& c) {
     } else if constexpr (std::is_same_v<T, Core::DeleteCommand>) {
         out.Entity(c.building);
     } else if constexpr (std::is_same_v<T, Core::TrainCommand>) {
-        out.Entity(c.building); out.I32(c.unit_id);
+        out.Entity(c.building); out.I32(c.unit_id); Units(out, c.others);
     } else if constexpr (std::is_same_v<T, Core::CancelTrainCommand>) {
         out.Entity(c.building); out.I32(c.slot);
     } else if constexpr (std::is_same_v<T, Core::ResearchCommand>) {
@@ -184,7 +184,7 @@ T Take(Reader& in) {
     } else if constexpr (std::is_same_v<T, Core::DeleteCommand>) {
         c.building = in.Entity();
     } else if constexpr (std::is_same_v<T, Core::TrainCommand>) {
-        c.building = in.Entity(); c.unit_id = in.I32();
+        c.building = in.Entity(); c.unit_id = in.I32(); c.others = Units(in);
     } else if constexpr (std::is_same_v<T, Core::CancelTrainCommand>) {
         c.building = in.Entity(); c.slot = in.I32();
     } else if constexpr (std::is_same_v<T, Core::ResearchCommand>) {

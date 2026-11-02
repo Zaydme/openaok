@@ -35,6 +35,7 @@
 #include "ecs/Vision.h"
 #include "ecs/Walls.h"
 #include "ecs/Repairs.h"
+#include "ecs/Selection.h"
 #include "core/Profile.h"
 #include "core/Rules.h"
 #include "ecs/Diplomacy.h"
@@ -1113,12 +1114,16 @@ void InputManager::RunCommand(ECS::Simulation& sim, const Rendering::UIRenderer:
         // Queued as a command: whether the building may take it
         // (finished, room in the queue, the player can pay) is
         // decided inside the tick by the production module.
+        // Other buildings of its kind selected with it share the units
+        // out, each to whichever has the fewest queued when it arrives.
         const entt::entity building =
             Rendering::UIRenderer::SelectedBuilding(sim);
         if (building != entt::null) {
+            std::vector<entt::entity> others;
+            ECS::Selection::Alike(registry, Core::LocalPlayer(), building, others);
             for (int n = 0; n < times; ++n) {
                 CommandQueue::Get().PushCommand(TrainCommand{
-                    building, cmd.unit_id, Core::LocalPlayer()});
+                    building, cmd.unit_id, Core::LocalPlayer(), others});
             }
         }
         break;

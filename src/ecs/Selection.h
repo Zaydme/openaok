@@ -1,4 +1,6 @@
 #pragma once
+#include <vector>
+
 #include <entt/entt.hpp>
 
 #include "core/Types.h"
@@ -18,7 +20,13 @@ namespace ECS::Selection {
 entt::entity Inspected(const entt::registry& registry, Core::PlayerId player);
 
 // The entity the player can give orders to, or null when nothing it owns is
-// selected.
+// selected. A foundation is it only when nothing finished of its kind is
+// selected with it.
 entt::entity Commanded(const entt::registry& registry, Core::PlayerId player);
+
+// The player's other selected buildings of `building`'s kind, oldest first:
+// those that share out the units it is told to train.
+void Alike(const entt::registry& registry, Core::PlayerId player, entt::entity building,
+           std::vector<entt::entity>& out);
 
 } // namespace ECS::Selection

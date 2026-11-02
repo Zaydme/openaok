@@ -61,6 +61,7 @@ SMALLTEXTURES="$(echo "$OUTPUT" | grep '^smalltextures=')"
 OUTLINE="$(echo "$OUTPUT" | grep '^outline=')"
 CURSOR="$(echo "$OUTPUT" | grep '^cursor=')"
 FOGEDGE="$(echo "$OUTPUT" | grep '^fogedge=')"
+QUEUESPLIT="$(echo "$OUTPUT" | grep '^queuesplit=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -425,6 +426,12 @@ esac
 case "$FOGEDGE" in
     fogedge=ok*) echo "fogedge OK: ${FOGEDGE#fogedge=ok }" ;;
     *) echo "FOGEDGE FAILED" >&2; echo "  $FOGEDGE" >&2; STATUS=1 ;;
+esac
+
+# Units ordered at several selected buildings are shared out among them.
+case "$QUEUESPLIT" in
+    queuesplit=ok*) echo "queuesplit OK: ${QUEUESPLIT#queuesplit=ok }" ;;
+    *) echo "QUEUESPLIT FAILED" >&2; echo "  $QUEUESPLIT" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

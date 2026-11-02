@@ -23,7 +23,7 @@ namespace Net {
 // The game's port, for its connections and for finding games.
 constexpr uint16_t kPort = 27015;
 // The lobby's language: machines speaking another cannot play together.
-constexpr uint8_t kVersion = 1;
+constexpr uint8_t kVersion = 2;
 
 // Opens a lobby on `port` for `name`, in the first row. `settings` are the
 // game's; a restored game's seats are its own and fixed.

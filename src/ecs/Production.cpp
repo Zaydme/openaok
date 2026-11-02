@@ -145,6 +145,27 @@ Refusal Enqueue(entt::registry& registry, entt::entity building, int unit_id,
     return Refusal::None;
 }
 
+entt::entity Fewest(const entt::registry& registry, entt::entity first,
+                    const std::vector<entt::entity>& others, int unit_id, Core::PlayerId player) {
+    const R::UnitRules* rules = Players::UnitOf(registry, player, unit_id);
+    if (rules == nullptr) return entt::null;
+    entt::entity best = entt::null;
+    int fewest = Components::ProductionQueue::kCapacity;
+    auto consider = [&](entt::entity building) {
+        int here = -1;
+        if (CheckBuilding(registry, building, player, here) != Refusal::None || rules->train_loc != here) return;
+        const auto* queue = registry.try_get<Components::ProductionQueue>(building);
+        const int count = queue != nullptr ? queue->count : 0;
+        if (count < fewest) {
+            fewest = count;
+            best = building;
+        }
+    };
+    consider(first);
+    for (entt::entity building : others) consider(building);
+    return best;
+}
+
 Refusal EnqueueTech(entt::registry& registry, entt::entity building, int tech_id,
                     Core::PlayerId player) {
     int here = -1;

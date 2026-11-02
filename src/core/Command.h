@@ -58,11 +58,13 @@ struct DeleteCommand {
 // Queue a unit at a building. Whether it is allowed (the building is finished,
 // trains that unit, has queue room, and the player can pay) is decided inside
 // the tick by the production module. A building only takes orders from its
-// owner.
+// owner. With `others`, the buildings selected with it, the unit goes to
+// whichever of them all may take it with the fewest queued.
 struct TrainCommand {
     entt::entity building;
     int unit_id;
     PlayerId player;
+    std::vector<entt::entity> others = {};
 };
 
 // Take a unit back out of a building's queue, refunding what it cost.

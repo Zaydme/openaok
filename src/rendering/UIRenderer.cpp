@@ -1679,13 +1679,29 @@ int UIRenderer::BuildCommands(ECS::Simulation& sim, int win_w, int win_h,
             site == nullptr || site->state == ECS::Components::BuildingState::Complete;
         const bool can_queue = finished &&
             (queue == nullptr || queue->count < ECS::Components::ProductionQueue::kCapacity);
+        // Units are shared out among the finished buildings of its kind
+        // selected with it, so any of them with room takes one.
+        bool can_train = can_queue;
+        if (finished && !can_train) {
+            static std::vector<entt::entity> alike;
+            ECS::Selection::Alike(registry, LocalViewer(), selected, alike);
+            for (entt::entity other : alike) {
+                const auto* other_site = registry.try_get<ECS::Components::Building>(other);
+                const auto* other_queue = registry.try_get<ECS::Components::ProductionQueue>(other);
+                if (other_site != nullptr && other_site->state == ECS::Components::BuildingState::Complete &&
+                    (other_queue == nullptr || other_queue->count < ECS::Components::ProductionQueue::kCapacity)) {
+                    can_train = true;
+                    break;
+                }
+            }
+        }
         hotkey_group = HotkeyGroupOfBuilding(building_id);
         if (finished) {
             bool trains = false;
             for (int unit_id = 0; unit_id < static_cast<int>(unit_rules.size()); ++unit_id) {
                 const auto* rules = ECS::Players::UnitOf(registry, LocalViewer(), unit_id);
                 if (!rules || !rules->enabled || rules->train_loc != building_id) continue;
-                place(unit_id, false, can_queue);
+                place(unit_id, false, can_train);
                 trains = true;
             }
             // Where what it trains gathers.
