@@ -272,6 +272,9 @@ bool CheckHelpBox();
 // A selected thing's outline and hit point bar still show with the view
 // zoomed far out. Prints "marks=".
 bool CheckMarks();
+// Art and interface graphics too tall for a small renderer's textures still
+// draw as their SLPs hold them. Prints "smalltextures=".
+bool CheckSmallTextures();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

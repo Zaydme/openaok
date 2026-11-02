@@ -145,7 +145,9 @@ between ticks. Sprites come straight from the SLPs in `graphics.drs` through
 that many graphics share, so the sprites on screen draw in a few batches;
 player colour, shadows and outlines are the SLP's own pixel classes, a graphic
 drawn once for each colour worn, its colour pixels and player colour
-together. Terrain is drawn in chunks and blended with the
+together. No texture is asked for past the renderer's limit: a block taller
+than a page may be goes on in bands of whole shelves, and a graphic drawn from
+a texture of its own is shelved wider. Terrain is drawn in chunks and blended with the
 blendomatic masks. The fog of war is a checkerboard over explored ground with
 the TileEdge and BlkEdge masks at its edges.
 

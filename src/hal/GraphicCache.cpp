@@ -22,6 +22,8 @@ constexpr int kLargestPageSide = 4096;
 // How wide a graphic's frames are shelved: a block of them, its border all
 // round, is no wider than kPageSide.
 constexpr int kAtlasWidth = kPageSide - 2 * kPadding;
+// The side taken as the renderer's limit when it names none.
+constexpr int kNoLimit = 16384;
 
 // Player-coloured pixels are stored as a shade, not an absolute palette entry.
 // Each player's ramp begins at palette index 16 * player and runs eight
@@ -33,6 +35,39 @@ constexpr int kPlayerRampSize = 8;
 // Used only until the dat's ramp table has been supplied.
 constexpr int kPlayerRampStride = 16;
 
+// What drawing into a page changes: the target, and its viewport, clip and
+// scale, which SDL sets to a new target's whole at 1:1 whenever the target
+// changes. Kept and put back, a page grows in the middle of a frame without
+// the rest of the frame drawn at another zoom.
+struct DrawState {
+    SDL_Texture* target = nullptr;
+    SDL_Rect viewport{0, 0, 0, 0};
+    SDL_Rect clip{0, 0, 0, 0};
+    bool clipped = false;
+    float scale_x = 1.0f, scale_y = 1.0f;
+    Uint8 r = 0, g = 0, b = 0, a = 0;
+};
+
+DrawState Keep(SDL_Renderer* renderer) {
+    DrawState s;
+    s.target = SDL_GetRenderTarget(renderer);
+    SDL_RenderGetScale(renderer, &s.scale_x, &s.scale_y);
+    SDL_RenderGetViewport(renderer, &s.viewport);
+    s.clipped = SDL_RenderIsClipEnabled(renderer) == SDL_TRUE;
+    SDL_RenderGetClipRect(renderer, &s.clip);
+    SDL_GetRenderDrawColor(renderer, &s.r, &s.g, &s.b, &s.a);
+    return s;
+}
+
+void PutBack(SDL_Renderer* renderer, const DrawState& s) {
+    SDL_SetRenderTarget(renderer, s.target);
+    // The viewport is given in the scale's units, so the scale goes first.
+    SDL_RenderSetScale(renderer, s.scale_x, s.scale_y);
+    SDL_RenderSetViewport(renderer, &s.viewport);
+    SDL_RenderSetClipRect(renderer, s.clipped ? &s.clip : nullptr);
+    SDL_SetRenderDrawColor(renderer, s.r, s.g, s.b, s.a);
+}
+
 } // namespace
 
 bool GraphicCache::Init(SDL_Renderer* renderer,
@@ -40,15 +75,11 @@ bool GraphicCache::Init(SDL_Renderer* renderer,
                         const std::string& palette_path) {
     sdl_renderer = renderer;
     SDL_RendererInfo info{};
-    first_side = kFirstPageSide;
-    page_side = kPageSide;
-    largest_side = kLargestPageSide;
+    int most = kNoLimit;
     if (SDL_GetRendererInfo(renderer, &info) == 0 && info.max_texture_width > 0 && info.max_texture_height > 0) {
-        const int most = std::min(info.max_texture_width, info.max_texture_height);
-        first_side = std::min(kFirstPageSide, most);
-        page_side = std::min(kPageSide, most);
-        largest_side = std::min(kLargestPageSide, most);
+        most = std::min(info.max_texture_width, info.max_texture_height);
     }
+    Sides(most);
     // Growing copies a page on the GPU, through a render target; without
     // them a page is made as big as it may grow from the first.
     grows = SDL_RenderTargetSupported(renderer) == SDL_TRUE;
@@ -80,6 +111,7 @@ void GraphicCache::Shutdown() {
     }
     atlases.clear();
     arts.clear();
+    banded.clear();
     shadows.clear();
     outlines.clear();
     interface_atlases.clear();
@@ -89,6 +121,17 @@ void GraphicCache::Shutdown() {
     terrain_ready = false;
     gamedata_ready = false;
     ready = false;
+}
+
+void GraphicCache::Sides(int most) {
+    most_side = most;
+    first_side = std::min(kFirstPageSide, most);
+    page_side = std::min(kPageSide, most);
+    largest_side = std::min(kLargestPageSide, most);
+}
+
+void GraphicCache::LimitTextureSide(int side) {
+    Sides(std::min(most_side > 0 ? most_side : kNoLimit, side));
 }
 
 const GraphicAtlas* GraphicCache::GetAtlas(uint32_t slp_id) {
@@ -114,31 +157,45 @@ const GraphicAtlas* GraphicCache::AtlasFrom(
         return nullptr;
     }
 
-    // Shelf-pack the frames in order, so a frame index maps straight to a rect.
-    int shelf_x = 0;
-    int shelf_y = 0;
-    int shelf_h = 0;
+    // Shelf-pack the frames in order, so a frame index maps straight to a
+    // rect, `across` wide: the height they take.
     atlas.frames.resize(headers.size());
-    for (size_t i = 0; i < headers.size(); ++i) {
-        const int fw = static_cast<int>(headers[i].width);
-        const int fh = static_cast<int>(headers[i].height);
-        if (fw <= 0 || fh <= 0) {
-            atlas.frames[i].rect = {0, 0, 0, 0};
-            continue;
+    auto shelve = [&](int across) {
+        int shelf_x = 0;
+        int shelf_y = 0;
+        int shelf_h = 0;
+        for (size_t i = 0; i < headers.size(); ++i) {
+            const int fw = static_cast<int>(headers[i].width);
+            const int fh = static_cast<int>(headers[i].height);
+            if (fw <= 0 || fh <= 0) {
+                atlas.frames[i].rect = {0, 0, 0, 0};
+                continue;
+            }
+            if (shelf_x + fw > across) {
+                shelf_x = 0;
+                shelf_y += shelf_h + kPadding;
+                shelf_h = 0;
+            }
+            atlas.frames[i].rect = {shelf_x, shelf_y, fw, fh};
+            atlas.frames[i].hotspot_x = headers[i].hotspot_x;
+            atlas.frames[i].hotspot_y = headers[i].hotspot_y;
+            shelf_x += fw + kPadding;
+            shelf_h = std::max(shelf_h, fh);
         }
-        if (shelf_x + fw > kAtlasWidth) {
-            shelf_x = 0;
-            shelf_y += shelf_h + kPadding;
-            shelf_h = 0;
-        }
-        atlas.frames[i].rect = {shelf_x, shelf_y, fw, fh};
-        atlas.frames[i].hotspot_x = headers[i].hotspot_x;
-        atlas.frames[i].hotspot_y = headers[i].hotspot_y;
-        shelf_x += fw + kPadding;
-        shelf_h = std::max(shelf_h, fh);
+        return shelf_y + shelf_h;
+    };
+    // As wide as a block of them, its border all round, fits on a page; a
+    // graphic drawn from a texture of its own wider, when that is what keeps
+    // it within the textures the renderer allows.
+    const int most = most_side > 0 ? most_side : kNoLimit;
+    int across = page_side > 0 ? std::min(kAtlasWidth, page_side - 2 * kPadding) : kAtlasWidth;
+    int high = shelve(across);
+    while (texture && high > most && across * 2 <= most) {
+        across *= 2;
+        high = shelve(across);
     }
-    atlas.width = kAtlasWidth;
-    atlas.height = shelf_y + shelf_h;
+    atlas.width = across;
+    atlas.height = high;
     if (atlas.height <= 0) {
         cache.emplace(key, atlas);
         return nullptr;
@@ -214,7 +271,49 @@ ArtPlace GraphicCache::LayerPlace(Pool pool, uint32_t slp_id, Layer layer, int p
     const GraphicAtlas* geometry = GetAtlas(slp_id);
     if (geometry == nullptr) return {};
     SDL_Surface* block = DrawLayer(drs, slp_id, *geometry, layer, player, palette, kPadding);
-    return block != nullptr ? Place(pool, block, kPadding) : ArtPlace{};
+    if (block == nullptr) return {};
+    const int most = pool == Pool::Art ? largest_side : page_side;
+    return block->h <= most ? Place(pool, block, kPadding) : PlaceBands(pool, block, *geometry, most);
+}
+
+ArtPlace GraphicCache::PlaceBands(Pool pool, SDL_Surface* block, const GraphicAtlas& geometry, int most) {
+    // The shelves' tops and bottoms in atlas rows; frames are shelved in
+    // order, so a shelf's are one run.
+    std::vector<std::pair<int, int>> shelves;
+    for (const GraphicFrame& f : geometry.frames) {
+        if (f.rect.w <= 0) continue;
+        if (shelves.empty() || shelves.back().first != f.rect.y) {
+            shelves.push_back({f.rect.y, f.rect.y + f.rect.h});
+        } else {
+            shelves.back().second = std::max(shelves.back().second, f.rect.y + f.rect.h);
+        }
+    }
+    std::vector<ArtBand>& bands = banded.emplace_back();
+    SDL_SetSurfaceBlendMode(block, SDL_BLENDMODE_NONE);
+    for (size_t i = 0; i < shelves.size();) {
+        // As many shelves as fit `most` with the border above and below. Atlas
+        // row r is the block's r + kPadding, so the band's rows of the block
+        // start at its first shelf's top.
+        const int top = shelves[i].first;
+        int bottom = shelves[i].second;
+        size_t next = i + 1;
+        while (next < shelves.size() && shelves[next].second - top + 2 * kPadding <= most) {
+            bottom = shelves[next++].second;
+        }
+        const int rows = bottom - top + 2 * kPadding;
+        SDL_Surface* band = SDL_CreateRGBSurfaceWithFormat(0, block->w, rows, 32, block->format->format);
+        ArtPlace place;
+        if (band != nullptr) {
+            SDL_Rect from{0, top, block->w, rows};
+            SDL_BlitSurface(block, &from, band, nullptr);
+            place = Place(pool, band, kPadding);
+        }
+        bands.push_back({top, place.page, place.x, place.y - top});
+        i = next;
+    }
+    SDL_FreeSurface(block);
+    if (bands.empty()) return {};
+    return {bands.front().page, bands.front().x, bands.front().y, &bands};
 }
 
 bool GraphicCache::Fit(Page& page, int w, int h, SDL_Rect& at) {
@@ -263,24 +362,34 @@ bool GraphicCache::Grow(Page& page, int most) {
     SDL_Texture* grown = SDL_CreateTexture(sdl_renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, w, h);
     if (grown == nullptr) return false;
     SDL_SetTextureBlendMode(grown, SDL_BLENDMODE_BLEND);
-    SDL_Texture* target = SDL_GetRenderTarget(sdl_renderer);
-    Uint8 r = 0, g = 0, b = 0, a = 0;
-    SDL_GetRenderDrawColor(sdl_renderer, &r, &g, &b, &a);
+    const DrawState drawing = Keep(sdl_renderer);
     SDL_SetRenderTarget(sdl_renderer, grown);
     SDL_SetRenderDrawColor(sdl_renderer, 0, 0, 0, 0);
     SDL_RenderClear(sdl_renderer);
-    SDL_SetRenderDrawColor(sdl_renderer, r, g, b, a);
     SDL_SetTextureBlendMode(page.texture, SDL_BLENDMODE_NONE);
     const SDL_Rect held{0, 0, page.w, page.h};
     SDL_RenderCopy(sdl_renderer, page.texture, nullptr, &held);
     SDL_SetTextureBlendMode(page.texture, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderTarget(sdl_renderer, target);
+    PutBack(sdl_renderer, drawing);
+    // SDL's Metal renderer writes a texture's first update straight into its
+    // memory, ahead of the drawing queued for it, which the clear and copy
+    // above would then wipe. A clear pixel of the new part given now is that
+    // first update, so every block written onto the page later waits its
+    // turn behind the copy.
+    const uint32_t clear = 0;
+    const SDL_Rect corner{w - 1, h - 1, 1, 1};
+    SDL_UpdateTexture(grown, &corner, &clear, static_cast<int>(sizeof(clear)));
     for (auto& [key, place] : arts) {
         if (place.page == page.texture) place.page = grown;
     }
     for (auto* places : {&shadows, &outlines}) {
         for (auto& [key, place] : *places) {
             if (place.page == page.texture) place.page = grown;
+        }
+    }
+    for (auto& bands : banded) {
+        for (ArtBand& band : bands) {
+            if (band.page == page.texture) band.page = grown;
         }
     }
     retired.push_back(page.texture);
@@ -331,7 +440,7 @@ ArtPlace GraphicCache::Place(Pool pool, SDL_Surface* block, int border) {
             if (Fit(list.back(), w, h, at)) texture = list.back().texture;
         }
     }
-    if (texture == nullptr) {
+    if (texture == nullptr && w <= most_side && h <= most_side) {
         texture = SDL_CreateTexture(sdl_renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC, w, h);
         at = {0, 0, w, h};
         if (texture != nullptr) {
@@ -340,6 +449,7 @@ ArtPlace GraphicCache::Place(Pool pool, SDL_Surface* block, int border) {
         }
     }
     if (texture == nullptr) {
+        std::cerr << "[HAL] No texture takes a " << w << "x" << h << " block: " << SDL_GetError() << std::endl;
         SDL_FreeSurface(block);
         return {};
     }
@@ -599,6 +709,12 @@ SDL_Texture* GraphicCache::BuildLayer(const DrsArchive& src, uint32_t slp_id, co
 
 SDL_Texture* GraphicCache::TextureOf(SDL_Surface* surface) {
     if (surface == nullptr) return nullptr;
+    // None past the renderer's limit is asked for.
+    if (most_side > 0 && (surface->w > most_side || surface->h > most_side)) {
+        std::cerr << "[HAL] No texture takes a " << surface->w << "x" << surface->h << " graphic" << std::endl;
+        SDL_FreeSurface(surface);
+        return nullptr;
+    }
     SDL_Texture* texture = SDL_CreateTextureFromSurface(sdl_renderer, surface);
     SDL_FreeSurface(surface);
     if (texture) SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);

@@ -57,6 +57,7 @@ HELP="$(echo "$OUTPUT" | grep '^help=')"
 HALVE="$(echo "$OUTPUT" | grep '^halve=')"
 HELPBOX="$(echo "$OUTPUT" | grep '^helpbox=')"
 MARKS="$(echo "$OUTPUT" | grep '^marks=')"
+SMALLTEXTURES="$(echo "$OUTPUT" | grep '^smalltextures=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -397,6 +398,12 @@ esac
 case "$MARKS" in
     marks=ok*) echo "marks OK: ${MARKS#marks=ok }" ;;
     *) echo "MARKS FAILED" >&2; echo "  $MARKS" >&2; STATUS=1 ;;
+esac
+
+# Graphics too tall for a small renderer's textures still draw.
+case "$SMALLTEXTURES" in
+    smalltextures=ok*) echo "smalltextures OK: ${SMALLTEXTURES#smalltextures=ok }" ;;
+    *) echo "SMALLTEXTURES FAILED" >&2; echo "  $SMALLTEXTURES" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

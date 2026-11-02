@@ -226,9 +226,10 @@ void DrawPlacing(State& s, SDL_Renderer* r) {
             const float z = s.view.camera_zoom;
             const SDL_FRect dst = {p.x - f.hotspot_x * z, p.y - f.hotspot_y * z, f.rect.w * z, f.rect.h * z};
             const SDL_Rect src = place.On(f.rect);
-            SDL_SetTextureAlphaMod(place.page, 160);
-            SDL_RenderCopyF(r, place.page, &src, &dst);
-            SDL_SetTextureAlphaMod(place.page, 255);
+            SDL_Texture* page = place.PageOf(f.rect);
+            SDL_SetTextureAlphaMod(page, 160);
+            SDL_RenderCopyF(r, page, &src, &dst);
+            SDL_SetTextureAlphaMod(page, 255);
         }
     }
     SDL_RenderSetClipRect(r, nullptr);

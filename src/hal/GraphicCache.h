@@ -3,6 +3,7 @@
 #include <array>
 #include <SDL2/SDL.h>
 #include <cstdint>
+#include <deque>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -70,14 +71,43 @@ struct GraphicAtlas {
     }
 };
 
+// One band of a graphic too tall for any texture the renderer allows: its
+// shelves from atlas row `top` down, on `page`, their rects there moved by
+// (x, y).
+struct ArtBand {
+    int top = 0;
+    SDL_Texture* page = nullptr;
+    int x = 0;
+    int y = 0;
+};
+
 // Where one graphic's frames lie on a texture page: a frame's rect there is
 // its atlas rect moved by (x, y). Graphics share pages, so sprites of
-// different graphics drawn one after another are drawn in one batch.
+// different graphics drawn one after another are drawn in one batch. A
+// graphic taller than a page may be lies in bands, each placed as a block of
+// its own; `page` is then its first band's, and a frame's page is PageOf it.
 struct ArtPlace {
     SDL_Texture* page = nullptr;
     int x = 0;
     int y = 0;
-    SDL_Rect On(const SDL_Rect& r) const { return {r.x + x, r.y + y, r.w, r.h}; }
+    const std::vector<ArtBand>* bands = nullptr;
+    SDL_Rect On(const SDL_Rect& r) const {
+        const ArtBand* band = BandOf(r);
+        return band != nullptr ? SDL_Rect{r.x + band->x, r.y + band->y, r.w, r.h}
+                               : SDL_Rect{r.x + x, r.y + y, r.w, r.h};
+    }
+    SDL_Texture* PageOf(const SDL_Rect& r) const {
+        const ArtBand* band = BandOf(r);
+        return band != nullptr ? band->page : page;
+    }
+    const ArtBand* BandOf(const SDL_Rect& r) const {
+        if (bands == nullptr) return nullptr;
+        const ArtBand* in = nullptr;
+        for (const ArtBand& band : *bands) {
+            if (band.top <= r.y) in = &band;
+        }
+        return in;
+    }
 };
 
 // Decodes SLPs out of the DRS archives and packs them into atlases.
@@ -184,6 +214,10 @@ public:
 
     size_t AtlasCount() const { return atlases.size(); }
 
+    // Takes no texture with a side over `side`, as a renderer allowing no
+    // more would: for checks, before any art is placed.
+    void LimitTextureSide(int side);
+
 private:
     GraphicCache() = default;
     ~GraphicCache() { Shutdown(); }
@@ -242,7 +276,13 @@ private:
     // new one; a block bigger than a page on a texture of its own. Frees the
     // surface.
     ArtPlace Place(Pool pool, SDL_Surface* block, int border);
+    // A block taller than the pool's pages may be put on them in bands of
+    // whole shelves of `geometry`, each no taller than `most`. Frees the
+    // surface.
+    ArtPlace PlaceBands(Pool pool, SDL_Surface* block, const GraphicAtlas& geometry, int most);
     ArtPlace LayerPlace(Pool pool, uint32_t slp_id, Layer layer, int player);
+    // The page sides for a renderer allowing textures `most` on a side.
+    void Sides(int most);
 
     SDL_Renderer* sdl_renderer = nullptr;
     DrsArchive drs;
@@ -261,11 +301,14 @@ private:
     std::array<std::vector<Page>, static_cast<size_t>(Pool::Count)> pages;
     // Blocks too big for a page, each on a texture of its own.
     std::vector<SDL_Texture*> lone;
+    // The bands of graphics placed in bands, which their places point into.
+    std::deque<std::vector<ArtBand>> banded;
     // Pages grown out of, for EndFrame.
     std::vector<SDL_Texture*> retired;
     int first_side = 0;     // a new page's
     int page_side = 0;      // a shadow or outline page's, grown
     int largest_side = 0;   // an art page's, grown
+    int most_side = 0;      // any texture's: the renderer's limit
     bool grows = false;
 
     DrsArchive interface_drs;

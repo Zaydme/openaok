@@ -670,7 +670,7 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
                 if (first && (e.is_selected || flash)) {
                     part.mark = mark_of(entity, sx, sy, e.is_selected, flash);
                 }
-                part.tex_ptr = art.page;
+                part.tex_ptr = art.PageOf(gf.rect);
                 part.ground = GroundLevel(piece.slp_id);
                 part.atlas = piece_atlas;
                 part.frame = frame;
@@ -684,7 +684,7 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
                 part.dest.h = static_cast<float>(gf.rect.h);
                 part.outline_player = owner_player;
                 const HAL::ArtPlace outline = graphics.Outline(static_cast<uint32_t>(piece.slp_id));
-                part.outline_tex = outline.page;
+                part.outline_tex = outline.PageOf(gf.rect);
                 part.outline_src = outline.On(gf.rect);
                 first = false;
                 entries.push_back(part);
@@ -744,7 +744,7 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
                         hy -= sprite.sub_y;
                     }
                     const int ax = e.flip_h ? (src.w - hx) : hx;
-                    e.shadow_tex = shadow.page;
+                    e.shadow_tex = shadow.PageOf(sgf.rect);
                     e.shadow_src = src;
                     e.shadow_flip = e.flip_h;
                     e.shadow_dest.x = sx - static_cast<float>(ax);
@@ -764,7 +764,7 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
             && static_cast<size_t>(sprite.slp_frame) < atlas->frames.size()
             && atlas->frames[sprite.slp_frame].rect.w > 0) {
             const HAL::GraphicFrame& gf = atlas->frames[sprite.slp_frame];
-            e.tex_ptr = art.page;
+            e.tex_ptr = art.PageOf(gf.rect);
             e.ground = GroundLevel(sprite.slp_id);
             e.atlas = atlas;
             e.frame = sprite.slp_frame;
@@ -781,7 +781,7 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
             
             e.outline_player = owner_player;
             const HAL::ArtPlace outline = graphics.Outline(static_cast<uint32_t>(sprite.slp_id));
-            e.outline_tex = outline.page;
+            e.outline_tex = outline.PageOf(gf.rect);
             e.outline_src = outline.On(gf.rect);
             
             // Companion shadow graphic, resolved once per graphic.
@@ -799,7 +799,7 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
                                     ? static_cast<size_t>(sprite.slp_frame) : 0;
                     const HAL::GraphicFrame& sgf = sh_atlas->frames[sf];
                     if (sgf.rect.w > 0) {
-                        e.shadow_tex = shadow.page;
+                        e.shadow_tex = shadow.PageOf(sgf.rect);
                         e.shadow_src = shadow.On(sgf.rect);
                         e.shadow_dest.x = sx - static_cast<float>(sgf.hotspot_x);
                         e.shadow_dest.y = sy - static_cast<float>(sgf.hotspot_y);
@@ -840,7 +840,7 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
             RenderEntry e{};
             e.depth = wx + wy;
             e.ent = entt::null;
-            e.tex_ptr = art.page;
+            e.tex_ptr = art.PageOf(gf.rect);
             e.atlas = atlas;
             e.frame = static_cast<int>(frame);
             e.src = art.On(gf.rect);
@@ -936,7 +936,7 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
                 RenderEntry e{};
                 e.depth = piece.wx + piece.wy;
                 e.ent = entt::null;
-                e.tex_ptr = piece.art.page;
+                e.tex_ptr = piece.art.PageOf(gf.rect);
                 e.atlas = piece.atlas;
                 e.frame = piece.frame;
                 e.src = piece.art.On(gf.rect);
@@ -1044,7 +1044,7 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
                 e.sort_bias = 1000;
                 e.ent = b;
                 e.fogged = in_fog(b);
-                e.tex_ptr = art.page;
+                e.tex_ptr = art.PageOf(gf.rect);
                 e.src = art.On(gf.rect);
                 e.dest = {bx + static_cast<float>(ox - gf.hotspot_x),
                           by + static_cast<float>(oy - gf.hotspot_y),
