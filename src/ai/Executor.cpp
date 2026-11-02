@@ -30,6 +30,10 @@ namespace R = Core::Rules;
 
 int Sn(const Turn& turn, Lang::SN sn) { return turn.mind->sn[static_cast<size_t>(sn)]; }
 
+// How far past the town's size (sn-maximum-town-size) from the Town Center a
+// blow still counts as struck in the town, in tiles.
+constexpr int kTownMargin = 4;
+
 void MarkBusy(Census& census, entt::entity building) {
     for (Census::Site& site : census.buildings) {
         if (site.entity == building) site.idle = false;
@@ -73,8 +77,7 @@ void News(Turn& turn) {
     }
     if (turn.census->town_center == entt::null) return;
     const entt::registry& registry = *turn.registry;
-    const Core::Fixed32 town(std::max(8, Sn(turn, Lang::SN::MaximumTownSize)) +
-                             Sn(turn, Lang::SN::SentryDistance));
+    const Core::Fixed32 town(std::max(8, Sn(turn, Lang::SN::MaximumTownSize)) + kTownMargin);
     for (const ECS::Events::Event& e : log->events) {
         if (e.tick <= since || e.kind != ECS::Events::Kind::Struck) continue;
         if (!registry.valid(e.subject) || !registry.valid(e.other)) continue;

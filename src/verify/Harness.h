@@ -350,6 +350,9 @@ bool CheckAdvancedButtons();
 // The lobby's Time and Score victories: kept through the setup's encoding and
 // played to. Prints "lobbyvictory=".
 bool CheckLobbyVictory();
+// A computer player takes a blow as in its town within its town's size and
+// four tiles. Prints "townstruck=".
+bool CheckTownStruck();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

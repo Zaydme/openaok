@@ -119,6 +119,7 @@ int Run(int ticks) {
     if (runs("scenariovictory")) ok &= CheckScenarioVictory();
     if (runs("advancedbuttons")) ok &= CheckAdvancedButtons();
     if (runs("lobbyvictory")) ok &= CheckLobbyVictory();
+    if (runs("townstruck")) ok &= CheckTownStruck();
     if (runs("wolves")) ok &= CheckWolves();
     if (runs("lobby")) ok &= CheckLobby();
     if (runs("formations")) ok &= CheckFormations();

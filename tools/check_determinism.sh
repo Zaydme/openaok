@@ -83,6 +83,7 @@ STRAYARROW="$(echo "$OUTPUT" | grep '^strayarrow=')"
 SCENARIOVICTORY="$(echo "$OUTPUT" | grep '^scenariovictory=')"
 ADVANCEDBUTTONS="$(echo "$OUTPUT" | grep '^advancedbuttons=')"
 LOBBYVICTORY="$(echo "$OUTPUT" | grep '^lobbyvictory=')"
+TOWNSTRUCK="$(echo "$OUTPUT" | grep '^townstruck=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -585,6 +586,12 @@ esac
 case "$LOBBYVICTORY" in
     lobbyvictory=ok*) echo "lobbyvictory OK" ;;
     *) echo "LOBBYVICTORY FAILED" >&2; echo "  $LOBBYVICTORY" >&2; STATUS=1 ;;
+esac
+
+# A computer player's town, for blows to it: its size and four tiles.
+case "$TOWNSTRUCK" in
+    townstruck=ok*) echo "townstruck OK" ;;
+    *) echo "TOWNSTRUCK FAILED" >&2; echo "  $TOWNSTRUCK" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

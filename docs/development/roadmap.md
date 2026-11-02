@@ -45,9 +45,6 @@ polish.
 1. **Computer players**
    - The priority of their units' orders (sn-zero-priority-distance), which
      needs order priorities in the units' own behaviour.
-   - Defend groups and what they guard (the defend priorities), which only
-     players' own scripts ask for: the game's scripts leave
-     sn-number-defend-groups at 0.
    - Their economy on water maps: more wood in the Feudal Age, and more
      warships.
 2. **Performance on phones and the Switch**: fewer draw calls for the
