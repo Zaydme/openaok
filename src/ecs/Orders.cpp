@@ -153,6 +153,15 @@ bool GatherFrom(entt::registry& registry, entt::entity unit, entt::entity resour
     auto* worker = registry.try_get<Components::Worker>(unit);
     if (worker == nullptr) return false;
     if (worker->gatherer >= 0 && !OwnTaskNames(registry, unit, resource)) return false;
+    // A Farm or a fish trap is worked once it stands, and by its owner alone.
+    if (const auto* field = registry.try_get<Components::Building>(resource)) {
+        const auto* theirs = registry.try_get<Components::Owner>(resource);
+        const auto* ours = registry.try_get<Components::Owner>(unit);
+        if (field->state != Components::BuildingState::Complete || theirs == nullptr || ours == nullptr ||
+            theirs->player_id != ours->player_id) {
+            return false;
+        }
+    }
     DropCurrentJob(registry, unit);
 
     // The worker system walks it there, to stand beside the resource's tile.

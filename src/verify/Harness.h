@@ -321,6 +321,9 @@ bool CheckStanceSide();
 // A gate is placed only on explored ground, never over a foundation of its
 // own side. Prints "gateplace=".
 bool CheckGatePlace();
+// A Farm is worked only once built and only by its owner; a right-click on
+// another's strikes it. Prints "farmorder=".
+bool CheckFarmOrder();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

@@ -73,6 +73,7 @@ WONDERCOUNT="$(echo "$OUTPUT" | grep '^wondercount=')"
 SAVECHEATS="$(echo "$OUTPUT" | grep '^savecheats=')"
 STANCESIDE="$(echo "$OUTPUT" | grep '^stanceside=')"
 GATEPLACE="$(echo "$OUTPUT" | grep '^gateplace=')"
+FARMORDER="$(echo "$OUTPUT" | grep '^farmorder=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -515,6 +516,12 @@ esac
 case "$GATEPLACE" in
     gateplace=ok*) echo "gateplace OK" ;;
     *) echo "GATEPLACE FAILED" >&2; echo "  $GATEPLACE" >&2; STATUS=1 ;;
+esac
+
+# A Farm is worked only once built and by its owner; a right-click on another's strikes it.
+case "$FARMORDER" in
+    farmorder=ok*) echo "farmorder OK" ;;
+    *) echo "FARMORDER FAILED" >&2; echo "  $FARMORDER" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

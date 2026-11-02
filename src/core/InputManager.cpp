@@ -1665,6 +1665,12 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
             float nearest_res = pick_reach;
             for (auto r : res_view) {
                 if (!ECS::Vision::Shows(registry, Core::LocalPlayer(), r)) continue;
+                // Another player's Farm or fish trap is not the player's to
+                // work: the click strikes it, as the cursor shows.
+                if (registry.all_of<ECS::Components::Building>(r)) {
+                    const auto* owner = registry.try_get<ECS::Components::Owner>(r);
+                    if (owner == nullptr || owner->player_id != Core::LocalPlayer()) continue;
+                }
                 auto& t = res_view.get<ECS::Components::Transform>(r);
                 const float dx = click_x - t.position.x.ToFloat();
                 const float dy = click_y - t.position.y.ToFloat();
