@@ -260,10 +260,10 @@ gathered sends the worker home.
 
 ### Carrying home
 
-A worker with a load and no drop site chosen takes the nearest building of its
-owner's, by straight-line distance, that takes something it carries and whose
-footprint borders the ground the worker stands in (a camp on the same land, a
-Dock on the same sea). Which building takes what is the dat's: each villager
+A worker with a load and no drop site chosen takes the nearest finished
+building of its owner's, by straight-line distance, that takes something it
+carries and whose footprint borders the ground the worker stands in (a camp on
+the same land, a Dock on the same sea). A camp still going up takes nothing. Which building takes what is the dat's: each villager
 job unit lists the buildings it may hand a load to, and the fishing ship lists
 the Dock.
 
@@ -518,6 +518,12 @@ at the price of a new Farm.
   three stages of farmland, a third of the work each, and its crop comes up
   when it is finished (see [Buildings and construction](/engine/construction)).
   The villager that finishes it farms it.
+- **On the field.** A farmer works standing on the field, not beside it, as
+  in the original: it walks to a spot inside the Farm, works there until it
+  has taken a unit of food, then walks a tile or so to another spot and works
+  again, gathering nothing while it walks. Each spot is drawn from the
+  farmer, the Farm and the count of spots so far (`FieldSpot`), so it is the
+  same on every machine and draws on no random stream.
 - **One farmer.** A Farm takes one farmer. One sent to a Farm that someone else
   is farming, or walking food home from, goes on to the nearest free Farm, or
   stands. Of two that arrive in the same tick, the one that came later (the
@@ -528,8 +534,12 @@ at the price of a new Farm.
   Farm's owner. The farmer goes on to the nearest free, finished Farm within
   its search radius, or home.
 - **Rebuilding.** A dead farm is built on again with an ordinary build order
-  for a new Farm on its tile, paid for as any Farm. `Buildings::Place` clears
-  the dead farm from under the new one.
+  for a new Farm on its tile, paid for as any Farm; a right-click with
+  villagers on it gives that order. `Buildings::Place` clears the dead farm
+  from under the new one.
+- **Fish traps.** A fish trap run out leaves its dead unit (`FTRAP_D`) the
+  same way, which Fishing Ships right-clicked on it build over with a new
+  trap.
 
 ## Technologies that change gathering
 

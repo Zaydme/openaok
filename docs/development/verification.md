@@ -84,6 +84,8 @@ the gate reads. The names below are those the gate prints.
 | `movement` | Every unit given an order reaches it |
 | `planner` | Standing spots spread along a building's sides |
 | `gathering` | A villager's round trip to a resource and a drop site; farms |
+| `unfinisheddrop` | A load goes to a finished drop site, never to a Lumber Camp still a foundation |
+| `farmfield` | A farmer works standing on its Farm's field, at one spot after another |
 | `farmorder` | A Farm is worked once built and only by its owner; a right-click on another player's strikes it |
 | `dropoff` | A villager sent to drop off: its whole load, part units included, and then it stands; only at its own finished building that takes it; the load banked on going into the Town Center, not a tower |
 | `felling` | A lumberjack's felling stroke with no wood cut, then the tree lying as its felled graphic, then wood cut from it |
@@ -101,6 +103,7 @@ the gate reads. The names below are those the gate prints.
 | `queuesplit`, `queueoverview` | Units ordered at several selected buildings shared out among the finished ones; the production overview listing what is made, then what waits, by kind, a click going round the buildings making an entry |
 | `techs` | Civilisation bonuses and tech trees, ages, research, upgrades in place |
 | `combat` | Damage, reach between the dat's boxes, a duel, arrows, towers, stances, formations, hunting, splash damage |
+| `strayarrow` | A stray arrow wounds an enemy and never an ally |
 | `search`, `hunt` | What a unit picks a fight with on sight (a wolf a villager, never a building, a ram, a Monk or a Trade Cart); how near a wolf lets people come, by difficulty |
 | `wolves` | A computer player's scout and two wolves in its town: every swing it begins lands |
 | `answer` | What a struck unit does: a villager fights off a wolf and runs from a soldier, idle ones near come to help, a soldier at a wall turns on its striker unless a person sent it at the wall, and a computer player's units answer ranged attackers and back off as its difficulty parameters say |
@@ -115,6 +118,7 @@ the gate reads. The names below are those the gate prints.
 | `script` | The computer players' rule language: reading, rule passes, every original script loading for every civilisation, difficulty and map, strategic numbers scaled for the difficulty and kept in bounds, civilian explorers, retasking, mining camps and forward builders as the game reckons them, the Hardest's gift of resources, an ally turned on after too many blows, explore groups of one soldier, the scout sent on as sn-consecutive-idle-unit-limit says, Monks fetching relics |
 | `ai`, `pace`, `seven` | Twenty-four minutes of the computer against itself at its hardest, with a twin game that must come out identical; each difficulty's pace; seven computer players, every town grown in three minutes |
 | `crossing`, `landing`, `water`, `fishing`, `navy` | Transport ships, passability on water maps, docks and fishing, warships |
+| `deadtrap` | A fish trap run out leaves its dead unit, which a Fishing Ship builds a new trap over |
 | `boats` | A computer player's boats: fishing ships keep near a Dock as the rules ask, a spare warship explores the water, boat attack groups attack a known enemy or explore |
 | `attackgroups` | A computer player's attack groups: made, filled, gathered and sent on their own once the enemy is known, as the game does; blows answered by a share of the idle soldiers near, none for explorers; allied computer players sharing what they find and answering calls for help; idle soldiers gathered at the Town Center as sn-gather-defense-units asks; attack-soldier-count counting the soldiers of every attack group, out or not |
 | `targets` | The game's target evaluation, which an attack group goes for first: each known enemy thing scored out of 100 for how soon the group would destroy it and how near it is, taken in tiers, the economic buildings after the rest and walls last; a Monastery first with sn-special-attack-type1 |
@@ -136,6 +140,7 @@ the gate reads. The names below are those the gate prints.
 | `options` | The Options that change play: Scroll Speed's pace at its slowest, middle and fastest; no taunt sound with Allow Audio Taunts off; with one mouse button a left click over open ground orders a selected villager there |
 | `lobby` | The multiplayer lobby over loopback: the game found, joined, rows, ready checks and chat, a refused start, the game started from the table |
 | `victory`, `modes` | Conquest, Wonders, relics; Regicide, Death Match, starting options |
+| `scenariovictory` | A scenario's Score, Time Limit and Custom victories reach its game and are won as they say |
 | `wondercount` | Two players' Wonders count side by side and the first finished wins at its time; the relics' count goes on when they pass to an ally |
 | `trade`, `tribute`, `market` | Trade routes and their pay; tribute and its fee; market prices |
 | `diplomacy`, `chat`, `cheats` | Stances, teams and shared sight, a stance told only when it changes; chat and flares; the cheat codes |

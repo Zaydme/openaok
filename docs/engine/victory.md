@@ -176,11 +176,22 @@ it, as in Regicide. It is won as the lobby's victory setting says.
 ### Time limits and score
 
 A scenario file can also ask for a score to reach, a time limit, or custom
-conditions (`Scenario::VictoryMode`). They are read, kept and written back,
-and the scenario editor's Global Victory tab sets them, but a game of such a
-file is played as conquest: `Scenario::SetupFor` maps every mode other than
-Standard to `VictoryKind::Conquest`. Nothing in the simulation ends a game on
-the clock or on the score.
+conditions (`Scenario::VictoryMode`), which the scenario editor's Global
+Victory tab sets. `Scenario::SetupFor` gives the game the matching
+`VictoryKind`, and the world, as it is built from the file, hands the figures
+to the victory module as its `Goal` (`Victory::SetGoal`). Each is played as
+the original's help text describes it:
+
+| Kind | Won |
+|---|---|
+| Score | By the first player, in seat order, whose score reaches the goal's |
+| Time Limit | When the game's clock reaches the limit (the file keeps it in tenths of a year), by the player with the highest score, the lower seat on a tie |
+| Custom | By the first side to meet the goal's conditions, any one of them or every one as the file asks: conquest (nobody left off the side), holding a number of relics in its Monasteries and its Monks' hands, at once with no countdown, or one of its players having explored a share of the map |
+
+In every kind the last side standing still wins, and the Wonder and relic
+countdowns run only in a standard game. The computer players see the kind as
+their `victory-condition` fact and the `VICTORY-TIME-LIMIT`, `VICTORY-SCORE`
+and `VICTORY-CUSTOM` symbols.
 
 ## When a player is out
 

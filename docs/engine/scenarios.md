@@ -522,7 +522,7 @@ chose; back from the game, the editor opens where it was left:
 ```
 
 The Global Victory tab's score, time limit and custom victories are written
-to the file as set, but a game of the file plays them as conquest (see
+to the file as set, and a game of the file plays them (see
 [Victory and diplomacy](/engine/victory#time-limits-and-score)).
 
 ## Saved games

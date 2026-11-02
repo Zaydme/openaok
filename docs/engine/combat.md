@@ -332,8 +332,9 @@ that walks on is missed.
 1. a missile with a blast hurts everything in it (see [splash damage](#splash-damage));
 2. otherwise its target is hit if the point is within a quarter of a tile of
    its body (`kHitSlack`), whether the shot was true or a near miss;
-3. otherwise the first unit standing on the point that is not its owner's is
-   hit, a stray, for half damage. Buildings take no strays.
+3. otherwise the first unit standing on the point whose owner its owner does
+   not regard as an ally is hit, a stray, for half damage. Buildings take no
+   strays, and a stray never falls on a friend: only a blast does.
 
 Damage is worked out as it lands: from the shooter's rules as they are now (a
 technology finished while it flew counts), and from the hill the shooter
