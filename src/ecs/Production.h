@@ -49,6 +49,9 @@ Refusal Enqueue(entt::registry& registry, entt::entity building, int unit_id,
 // none may take it.
 entt::entity Fewest(const entt::registry& registry, entt::entity first,
                     const std::vector<entt::entity>& others, int unit_id, Core::PlayerId player);
+// The same for researching `tech_id`.
+entt::entity FewestForTech(const entt::registry& registry, entt::entity first,
+                           const std::vector<entt::entity>& others, int tech_id, Core::PlayerId player);
 
 // Queues research of `tech_id` at `building` for `player`, paying for it now.
 Refusal EnqueueTech(entt::registry& registry, entt::entity building, int tech_id,

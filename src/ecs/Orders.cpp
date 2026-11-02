@@ -710,7 +710,9 @@ void Execute(entt::registry& registry, Physics::Grid& grid, const Core::Command&
         } else if constexpr (std::is_same_v<T, Core::CancelTrainCommand>) {
             Production::Cancel(registry, cmd.building, cmd.slot, cmd.player);
         } else if constexpr (std::is_same_v<T, Core::ResearchCommand>) {
-            Production::EnqueueTech(registry, cmd.building, cmd.tech_id, cmd.player);
+            const entt::entity at = cmd.others.empty()
+                ? cmd.building : Production::FewestForTech(registry, cmd.building, cmd.others, cmd.tech_id, cmd.player);
+            Production::EnqueueTech(registry, at != entt::null ? at : cmd.building, cmd.tech_id, cmd.player);
         } else if constexpr (std::is_same_v<T, Core::RallyCommand>) {
             Rally(registry, cmd);
         } else if constexpr (std::is_same_v<T, Core::FormationMoveCommand>) {

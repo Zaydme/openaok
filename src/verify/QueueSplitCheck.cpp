@@ -11,6 +11,7 @@
 #include "ecs/Players.h"
 #include "ecs/Selection.h"
 #include "ecs/Simulation.h"
+#include "ecs/Techs.h"
 #include "ecs/components/ProductionQueue.h"
 #include "ecs/components/Selectable.h"
 
@@ -28,7 +29,7 @@ int Queued(const entt::registry& registry, entt::entity building) {
 // Three Barracks selected, one of them still a foundation: the panel
 // commands a finished one, and militia ordered one at a time go one to each
 // finished Barracks in turn, never to the foundation, until both queues are
-// full.
+// full. Three technologies ordered at three Blacksmiths go one to each.
 bool CheckQueueSplit() {
     const char* verdict = nullptr;
     ECS::Simulation sim;
@@ -83,8 +84,25 @@ bool CheckQueueSplit() {
             verdict = "the Barracks' queues were not filled";
         }
     }
-    std::printf("queuesplit=%s first=%d second=%d site=%d\n", verdict == nullptr ? "ok" : verdict, counts[0],
-                counts[1], counts[2]);
+    // Forging, Scale Mail Armor and Padded Archer Armor at three Blacksmiths,
+    // in the Feudal Age.
+    int smiths[3] = {0, 0, 0};
+    if (verdict == nullptr) {
+        constexpr int kFeudal = 101;
+        static const int kTechs[3] = {67, 74, 211};
+        ECS::Techs::Complete(reg, kUs, kFeudal);
+        const int blacksmith = cfg.GetUnitIdByName("BLAC");
+        entt::entity built[3];
+        for (int i = 0; i < 3; ++i) built[i] = ECS::Buildings::Place(reg, grid, blacksmith, kUs, sx + 4 * i - 4, sy - 9, true);
+        const std::vector<entt::entity> others{built[1], built[2]};
+        for (int tech : kTechs) ECS::Orders::Execute(reg, grid, Core::ResearchCommand{built[0], tech, kUs, others});
+        for (int i = 0; i < 3; ++i) smiths[i] = Queued(reg, built[i]);
+        if (smiths[0] != 1 || smiths[1] != 1 || smiths[2] != 1) {
+            verdict = "technologies were not shared one to each Blacksmith";
+        }
+    }
+    std::printf("queuesplit=%s first=%d second=%d site=%d smiths=%d/%d/%d\n", verdict == nullptr ? "ok" : verdict,
+                counts[0], counts[1], counts[2], smiths[0], smiths[1], smiths[2]);
     return verdict == nullptr;
 }
 

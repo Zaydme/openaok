@@ -75,11 +75,14 @@ struct CancelTrainCommand {
 };
 
 // Research a technology at a building. As with training, whether it may be
-// queued is decided inside the tick from the player's own tech statuses.
+// queued is decided inside the tick from the player's own tech statuses. With
+// `others`, the buildings selected with it, it goes to whichever of them all
+// may take it with the fewest queued.
 struct ResearchCommand {
     entt::entity building;
     int tech_id;
     PlayerId player;
+    std::vector<entt::entity> others = {};
 };
 
 // Set where a building sends the units it trains. `target` is what was under

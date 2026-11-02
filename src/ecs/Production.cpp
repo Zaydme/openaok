@@ -145,15 +145,17 @@ Refusal Enqueue(entt::registry& registry, entt::entity building, int unit_id,
     return Refusal::None;
 }
 
-entt::entity Fewest(const entt::registry& registry, entt::entity first,
-                    const std::vector<entt::entity>& others, int unit_id, Core::PlayerId player) {
-    const R::UnitRules* rules = Players::UnitOf(registry, player, unit_id);
-    if (rules == nullptr) return entt::null;
+namespace {
+
+// Of `first` and `others`, the one owned, finished, of kind `location` and
+// with room that has the fewest items queued, the earliest on a tie.
+entt::entity FewestOfKind(const entt::registry& registry, entt::entity first,
+                          const std::vector<entt::entity>& others, int location, Core::PlayerId player) {
     entt::entity best = entt::null;
     int fewest = Components::ProductionQueue::kCapacity;
     auto consider = [&](entt::entity building) {
         int here = -1;
-        if (CheckBuilding(registry, building, player, here) != Refusal::None || rules->train_loc != here) return;
+        if (CheckBuilding(registry, building, player, here) != Refusal::None || location != here) return;
         const auto* queue = registry.try_get<Components::ProductionQueue>(building);
         const int count = queue != nullptr ? queue->count : 0;
         if (count < fewest) {
@@ -164,6 +166,20 @@ entt::entity Fewest(const entt::registry& registry, entt::entity first,
     consider(first);
     for (entt::entity building : others) consider(building);
     return best;
+}
+
+} // namespace
+
+entt::entity Fewest(const entt::registry& registry, entt::entity first,
+                    const std::vector<entt::entity>& others, int unit_id, Core::PlayerId player) {
+    const R::UnitRules* rules = Players::UnitOf(registry, player, unit_id);
+    return rules != nullptr ? FewestOfKind(registry, first, others, rules->train_loc, player) : entt::null;
+}
+
+entt::entity FewestForTech(const entt::registry& registry, entt::entity first,
+                           const std::vector<entt::entity>& others, int tech_id, Core::PlayerId player) {
+    const R::TechRules* tech = R::Tech(tech_id);
+    return tech != nullptr ? FewestOfKind(registry, first, others, tech->location, player) : entt::null;
 }
 
 Refusal EnqueueTech(entt::registry& registry, entt::entity building, int tech_id,

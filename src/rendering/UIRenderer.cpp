@@ -1861,10 +1861,10 @@ int UIRenderer::BuildCommands(ECS::Simulation& sim, int win_w, int win_h,
             site == nullptr || site->state == ECS::Components::BuildingState::Complete;
         const bool can_queue = finished &&
             (queue == nullptr || queue->count < ECS::Components::ProductionQueue::kCapacity);
-        // Units are shared out among the finished buildings of its kind
-        // selected with it, so any of them with room takes one.
-        bool can_train = can_queue;
-        if (finished && !can_train) {
+        // Units and technologies are shared out among the finished buildings
+        // of its kind selected with it, so any of them with room takes one.
+        bool shared_room = can_queue;
+        if (finished && !shared_room) {
             static std::vector<entt::entity> alike;
             ECS::Selection::Alike(registry, LocalViewer(), selected, alike);
             for (entt::entity other : alike) {
@@ -1872,7 +1872,7 @@ int UIRenderer::BuildCommands(ECS::Simulation& sim, int win_w, int win_h,
                 const auto* other_queue = registry.try_get<ECS::Components::ProductionQueue>(other);
                 if (other_site != nullptr && other_site->state == ECS::Components::BuildingState::Complete &&
                     (other_queue == nullptr || other_queue->count < ECS::Components::ProductionQueue::kCapacity)) {
-                    can_train = true;
+                    shared_room = true;
                     break;
                 }
             }
@@ -1883,7 +1883,7 @@ int UIRenderer::BuildCommands(ECS::Simulation& sim, int win_w, int win_h,
             for (int unit_id = 0; unit_id < static_cast<int>(unit_rules.size()); ++unit_id) {
                 const auto* rules = ECS::Players::UnitOf(registry, LocalViewer(), unit_id);
                 if (!rules || !rules->enabled || rules->train_loc != building_id) continue;
-                place(unit_id, false, can_train);
+                place(unit_id, false, shared_room);
                 trains = true;
             }
             // Where what it trains gathers.
@@ -1892,7 +1892,7 @@ int UIRenderer::BuildCommands(ECS::Simulation& sim, int win_w, int win_h,
                            Core::Hotkeys::kUnitCommands, Core::Hotkeys::kGatherPoint);
             }
             for (int tech_id : ECS::Techs::ResearchableAt(registry, LocalViewer(), building_id)) {
-                research(tech_id, can_queue);
+                research(tech_id, shared_room);
             }
             // The next age is offered from the start, greyed until its
             // requirements are met -- unlike any other technology, which stays

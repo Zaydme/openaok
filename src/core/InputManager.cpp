@@ -1255,11 +1255,14 @@ void InputManager::RunCommand(ECS::Simulation& sim, const Rendering::UIRenderer:
         pending_order = PendingOrder::Follow;
         break;
     case Rendering::UIRenderer::Action::Research: {
+        // Shared out as training is.
         const entt::entity building =
             Rendering::UIRenderer::SelectedBuilding(sim);
         if (building != entt::null) {
+            std::vector<entt::entity> others;
+            ECS::Selection::Alike(registry, Core::LocalPlayer(), building, others);
             CommandQueue::Get().PushCommand(ResearchCommand{
-                building, cmd.tech_id, Core::LocalPlayer()});
+                building, cmd.tech_id, Core::LocalPlayer(), others});
         }
         break;
     }
