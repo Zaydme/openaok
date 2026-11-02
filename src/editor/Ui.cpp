@@ -160,8 +160,11 @@ bool Drop(Ui& ui, const SDL_Rect& rect, const std::vector<std::string>& items, i
         ui.open_drop = key;
         ui.open_items = items;
         ui.open_rect = rect;
+        Screens::DropDown d;
+        d.rect = rect;
+        d.items = items;
         ui.open_scroll = std::max(0, std::min(selected, static_cast<int>(items.size()) -
-                                                            Screens::kDropDownVisible));
+                                                            Screens::DropDownRows(d, ui.screen_h)));
         ui.focus = nullptr;
     }
     return false;
@@ -177,7 +180,7 @@ void DrawOpenDrop(Ui& ui) {
     d.scroll = ui.open_scroll;
     d.font = ui.font;
     // The field itself was drawn with its panel; this is the list below it.
-    const int rows = std::min(Screens::kDropDownVisible, static_cast<int>(d.items.size()));
+    const int rows = Screens::DropDownRows(d, ui.screen_h);
     for (int i = d.scroll; i < d.scroll + rows && i < static_cast<int>(d.items.size()); ++i) {
         const SDL_Rect item = Screens::DropDownItemRect(d, i, ui.screen_h);
         SDL_SetRenderDrawColor(ui.r, ui.theme->bevel[5].r, ui.theme->bevel[5].g, ui.theme->bevel[5].b, 255);
@@ -191,7 +194,6 @@ void DrawOpenDrop(Ui& ui) {
         const SDL_Rect first = Screens::DropDownItemRect(d, d.scroll, ui.screen_h);
         Screens::DrawBevel(ui.r, *ui.theme, SDL_Rect{first.x, first.y, first.w, rows * d.rect.h}, false);
     }
-    // More than fit: the arrow keys' and the wheel's to scroll.
 }
 
 bool ClickOpenDrop(Ui& ui, int x, int y, int* chosen) {
@@ -200,7 +202,7 @@ bool ClickOpenDrop(Ui& ui, int x, int y, int* chosen) {
     d.rect = ui.open_rect;
     d.items = ui.open_items;
     d.scroll = ui.open_scroll;
-    const int rows = std::min(Screens::kDropDownVisible, static_cast<int>(d.items.size()));
+    const int rows = Screens::DropDownRows(d, ui.screen_h);
     for (int i = d.scroll; i < d.scroll + rows && i < static_cast<int>(d.items.size()); ++i) {
         if (Hit(Screens::DropDownItemRect(d, i, ui.screen_h), x, y)) {
             ui.pending_key = ui.open_drop;

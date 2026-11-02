@@ -342,13 +342,17 @@ constexpr int kUp = 8;
 constexpr int kDown = 10;
 } // namespace Art
 
+int DropDownRows(const DropDown& d, int screen_h) {
+    return std::min(static_cast<int>(d.items.size()), std::max(1, screen_h / std::max(1, d.rect.h)));
+}
+
 SDL_Rect DropDownItemRect(const DropDown& d, int i, int screen_h) {
-    const int rows = std::min(kDropDownVisible, static_cast<int>(d.items.size()));
     const int h = d.rect.h;
-    const bool above = d.rect.y + h + rows * h > screen_h;
-    const int row = i - d.scroll;
-    if (above) return SDL_Rect{d.rect.x, d.rect.y - (rows - row) * h, d.rect.w - kDropDownArrowW, h};
-    return SDL_Rect{d.rect.x, d.rect.y + h + row * h, d.rect.w - kDropDownArrowW, h};
+    const int list_h = DropDownRows(d, screen_h) * h;
+    int top = d.rect.y + h;
+    if (top + list_h > screen_h) top = d.rect.y - list_h;
+    if (top < 0) top = std::max(0, screen_h - list_h);
+    return SDL_Rect{d.rect.x, top + (i - d.scroll) * h, d.rect.w - kDropDownArrowW, h};
 }
 
 namespace {
@@ -412,7 +416,7 @@ void DrawDropDown(SDL_Renderer* r, const Theme& theme, const DropDown& d, int mx
     if (!d.open) return;
     }
     // The choices, on the darker shade, the one under the mouse lit.
-    const int rows = std::min(kDropDownVisible, static_cast<int>(d.items.size()));
+    const int rows = DropDownRows(d, screen_h);
     for (int i = d.scroll; i < d.scroll + rows && i < static_cast<int>(d.items.size()); ++i) {
         const SDL_Rect item = DropDownItemRect(d, i, screen_h);
         Line(r, item.x, item.y, item.w, item.h, theme.bevel[5]);
@@ -428,7 +432,7 @@ void DrawDropDown(SDL_Renderer* r, const Theme& theme, const DropDown& d, int mx
 bool ClickDropDown(DropDown& d, int x, int y, int screen_h) {
     if (!d.enabled) return false;
     if (d.open) {
-        const int rows = std::min(kDropDownVisible, static_cast<int>(d.items.size()));
+        const int rows = DropDownRows(d, screen_h);
         for (int i = d.scroll; i < d.scroll + rows && i < static_cast<int>(d.items.size()); ++i) {
             if (Hit(DropDownItemRect(d, i, screen_h), x, y)) {
                 d.selected = i;
@@ -443,7 +447,7 @@ bool ClickDropDown(DropDown& d, int x, int y, int screen_h) {
         d.open = true;
         // Open with the current choice in view.
         d.scroll = std::max(0, std::min(d.selected,
-                                        static_cast<int>(d.items.size()) - kDropDownVisible));
+                                        static_cast<int>(d.items.size()) - DropDownRows(d, screen_h)));
         return true;
     }
     return false;

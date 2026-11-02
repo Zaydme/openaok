@@ -92,9 +92,9 @@ bool Network() { return State().net != nullptr; }
 bool Hosting() { return Network() && State().net->role == Net::Role::Host; }
 
 // The settings rows: label on the left, the drop-down on the right.
-constexpr int kSettingLabelRight = 649;
-constexpr int kSettingX = 677;
-constexpr int kSettingW = 114;
+constexpr int kSettingLabelRight = 608;
+constexpr int kSettingX = 615;
+constexpr int kSettingW = 166;
 constexpr int kSettingH = 21;
 constexpr int kSettingRows[] = {88, 117, 146, 175, 204, 233, 262, 291, 320, 349};
 // The Time a time limit game plays to, in tenths of a year, beside its line

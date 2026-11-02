@@ -85,6 +85,7 @@ ADVANCEDBUTTONS="$(echo "$OUTPUT" | grep '^advancedbuttons=')"
 LOBBYVICTORY="$(echo "$OUTPUT" | grep '^lobbyvictory=')"
 TOWNSTRUCK="$(echo "$OUTPUT" | grep '^townstruck=')"
 MAPSCRIPTS="$(echo "$OUTPUT" | grep '^mapscripts=')"
+DROPDOWNROWS="$(echo "$OUTPUT" | grep '^dropdownrows=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -599,6 +600,12 @@ esac
 case "$MAPSCRIPTS" in
     mapscripts=ok*) echo "mapscripts OK" ;;
     *) echo "MAPSCRIPTS FAILED" >&2; echo "  $MAPSCRIPTS" >&2; STATUS=1 ;;
+esac
+
+# A long drop-down list shows every choice to click.
+case "$DROPDOWNROWS" in
+    dropdownrows=ok*) echo "dropdownrows OK" ;;
+    *) echo "DROPDOWNROWS FAILED" >&2; echo "  $DROPDOWNROWS" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

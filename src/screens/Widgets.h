@@ -154,9 +154,12 @@ struct DropDown {
     SDL_Color colour{255, 255, 255, 255};
 };
 constexpr int kDropDownArrowW = 20;
-constexpr int kDropDownVisible = 8;   // choices shown at once when open
-// The rectangle of choice `i` while open, below (or above, near the bottom
-// of the screen) the field.
+// The choices shown at once while open: all of them, or as many as the
+// screen holds.
+int DropDownRows(const DropDown& d, int screen_h);
+// The rectangle of choice `i` while open: every choice is shown, or as many
+// as the screen holds, below the field, else above it, else against the
+// screen's bottom edge.
 SDL_Rect DropDownItemRect(const DropDown& d, int i, int screen_h);
 void DrawDropDown(SDL_Renderer* r, const Theme& theme, const DropDown& d, int mx, int my,
                   bool held, int screen_h);
