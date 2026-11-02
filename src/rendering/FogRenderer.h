@@ -10,8 +10,9 @@ class Renderer;
 // The fog of war over the ground, for the player at this machine.
 //
 // * Each tile has one of three states: seen now, explored but not seen, never
-//   explored. A never-explored tile is not drawn at all, so it stays black.
-//   With the map revealed, nothing counts as unexplored.
+//   explored. A never-explored tile is covered black, and so is a ring of
+//   tiles a tile out past the map's edge, which the ground's edge drawn zoomed
+//   can reach. With the map revealed, nothing counts as unexplored.
 // * Two neighbour patterns are taken for a tile: which of its eight
 //   neighbours are not seen now, and which are not explored. Bits:
 //   0x01 left corner, 0x02 bottom corner, 0x04 right corner, 0x08 top corner,
@@ -56,6 +57,9 @@ public:
     // After the terrain and the ground-level objects, before anything
     // standing on the ground.
     static void Draw(ECS::Simulation& sim, Renderer& renderer, SDL_Renderer* sdl_r);
+    // Drops the textures it made, which belong to the renderer it drew with:
+    // before that renderer is destroyed.
+    static void Forget();
 
     // Dithering whole objects: between these, draw (at the world's scale) the
     // silhouette in black of every object in the fog, and wipe with

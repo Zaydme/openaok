@@ -13,6 +13,7 @@
 #include "ecs/components/Transform.h"
 #include "hal/GraphicCache.h"
 #include "rendering/EntityRenderer.h"
+#include "rendering/FogRenderer.h"
 #include "rendering/Renderer.h"
 
 namespace Verify {
@@ -95,6 +96,7 @@ bool CheckOutline() {
             }
         }
     }
+    Rendering::FogRenderer::Forget();
     cache.Shutdown();
     // As the game's start left it: the scripts' archive open, no art.
     cache.OpenGameData("../assets/original/Data/gamedata.drs");

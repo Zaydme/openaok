@@ -60,6 +60,7 @@ MARKS="$(echo "$OUTPUT" | grep '^marks=')"
 SMALLTEXTURES="$(echo "$OUTPUT" | grep '^smalltextures=')"
 OUTLINE="$(echo "$OUTPUT" | grep '^outline=')"
 CURSOR="$(echo "$OUTPUT" | grep '^cursor=')"
+FOGEDGE="$(echo "$OUTPUT" | grep '^fogedge=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -418,6 +419,12 @@ esac
 case "$CURSOR" in
     cursor=ok*) echo "cursor OK" ;;
     *) echo "CURSOR FAILED" >&2; echo "  $CURSOR" >&2; STATUS=1 ;;
+esac
+
+# Black covers the map's unexplored edge and past it, zoomed out.
+case "$FOGEDGE" in
+    fogedge=ok*) echo "fogedge OK: ${FOGEDGE#fogedge=ok }" ;;
+    *) echo "FOGEDGE FAILED" >&2; echo "  $FOGEDGE" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

@@ -281,6 +281,9 @@ bool CheckOutline();
 // The pointer over a mine's foot shows a villager's hand zoomed out.
 // Prints "cursor=".
 bool CheckCursor();
+// Black covers the map's unexplored edge and past it, zoomed out. Prints
+// "fogedge=".
+bool CheckFogEdge();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

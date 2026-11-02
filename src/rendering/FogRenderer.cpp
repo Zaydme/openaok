@@ -202,7 +202,8 @@ void AddTile(std::vector<SDL_Vertex>& vertices, std::vector<int>& indices,
     const float h_right = Ground::CornerLevel(grid, x + 1, y);
     const float h_bottom = Ground::CornerLevel(grid, x + 1, y + 1);
     const float h_left = Ground::CornerLevel(grid, x, y + 1);
-    const float h_mid = static_cast<float>(grid.GetTile(x, y).elevation);
+    const float h_mid = static_cast<float>(
+        grid.GetTile(std::clamp(x, 0, grid.GetWidth() - 1), std::clamp(y, 0, grid.GetHeight() - 1)).elevation);
     const int base = static_cast<int>(vertices.size());
 
     if (h_top == 0.0f && h_right == 0.0f && h_bottom == 0.0f && h_left == 0.0f && h_mid == 0.0f) {
@@ -364,6 +365,24 @@ void FogRenderer::Draw(ECS::Simulation& sim, Renderer& renderer, SDL_Renderer* s
             }
         }
     }
+    // A tile out past the map's edge, black unless the map is all explored:
+    // drawn zoomed, the ground's edge may reach a pixel or two past the
+    // map's, where no tile of the map is there to hide it.
+    if (!all_explored) {
+        for (int y = y0 - 1; y <= y1; ++y) {
+            for (int x = x0 - 1; x <= x1; ++x) {
+                if (state(x, y) != kOffMap) continue;
+                const float sx = (static_cast<float>(x) - static_cast<float>(y)) * half_w;
+                const float sy = (static_cast<float>(x) + static_cast<float>(y)) *
+                                 (Core::IsometricMath::TILE_HEIGHT / 2.0f);
+                if (sx + 50.0f < cx || sx - 50.0f > view_x1 || sy + 26.0f < cy ||
+                    sy - 26.0f - 8.0f * Ground::kLevelPx > view_y1) {
+                    continue;
+                }
+                AddTile(g.black_vertices, g.black_indices, grid, x, y, kWholeTile, cx, cy, zoom);
+            }
+        }
+    }
     if (g.dither_indices.empty() && g.black_indices.empty()) return;
 
     const int fw = static_cast<int>(renderer.view_w);
@@ -398,6 +417,13 @@ void FogRenderer::Draw(ECS::Simulation& sim, Renderer& renderer, SDL_Renderer* s
 namespace {
 SDL_Texture* g_objects_frame = nullptr;
 } // namespace
+
+void FogRenderer::Forget() {
+    for (SDL_Texture* texture : {g.atlas, g.checker, g.layer}) {
+        if (texture != nullptr) SDL_DestroyTexture(texture);
+    }
+    g = State{};
+}
 
 bool FogRenderer::BeginObjects(Renderer& renderer, SDL_Renderer* sdl_r) {
     if (!EnsureLayer(sdl_r, static_cast<int>(renderer.view_w), static_cast<int>(renderer.view_h))) {
