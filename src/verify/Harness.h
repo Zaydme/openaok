@@ -297,6 +297,9 @@ bool CheckTerrainCell();
 // Scroll Speed, Allow Audio Taunts and the mouse interface act as the
 // Options say. Prints "options=".
 bool CheckOptions();
+// Random maps' connections join every start to every other by land.
+// Prints "connections=".
+bool CheckConnections();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

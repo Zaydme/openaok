@@ -1,5 +1,6 @@
 #include "MapGenerator.h"
 #include "core/Cliffs.h"
+#include "core/Connections.h"
 #include "core/LandGenerator.h"
 #include "core/Random.h"
 #include "core/Types.h"
@@ -521,6 +522,14 @@ std::vector<std::pair<int, int>> MapGenerator::GenerateFromScript(
                 }
             }
         }
+    }
+
+    // --- Connections -----------------------------------------------------
+    // Paths between the players' lands, cut through forest and forded over
+    // water, on a random stream of their own (core/Connections). Before the
+    // shore, so a ford's shallows meet the land without a beach.
+    if (const RMSSection* connections = script.GetSection("CONNECTION_GENERATION")) {
+        Connections::Generate(grid, registry, *connections, player_starts, config.teams, seed);
     }
 
     // --- Shore -----------------------------------------------------------

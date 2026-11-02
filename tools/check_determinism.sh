@@ -65,6 +65,7 @@ QUEUESPLIT="$(echo "$OUTPUT" | grep '^queuesplit=')"
 QUEUEOVERVIEW="$(echo "$OUTPUT" | grep '^queueoverview=')"
 TERRAINCELL="$(echo "$OUTPUT" | grep '^terraincell=')"
 OPTIONS="$(echo "$OUTPUT" | grep '^options=')"
+CONNECTIONS="$(echo "$OUTPUT" | grep '^connections=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -459,6 +460,12 @@ esac
 case "$OPTIONS" in
     options=ok*) echo "options OK: ${OPTIONS#options=ok }" ;;
     *) echo "OPTIONS FAILED" >&2; echo "  $OPTIONS" >&2; STATUS=1 ;;
+esac
+
+# Random maps' connections join every start to every other by land.
+case "$CONNECTIONS" in
+    connections=ok*) echo "connections OK: ${CONNECTIONS#connections=ok }" ;;
+    *) echo "CONNECTIONS FAILED" >&2; echo "  $CONNECTIONS" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

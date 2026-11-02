@@ -101,6 +101,7 @@ int Run(int ticks) {
     if (runs("queueoverview")) ok &= CheckQueueOverview();
     if (runs("terraincell")) ok &= CheckTerrainCell();
     if (runs("options")) ok &= CheckOptions();
+    if (runs("connections")) ok &= CheckConnections();
     if (runs("wolves")) ok &= CheckWolves();
     if (runs("lobby")) ok &= CheckLobby();
     if (runs("formations")) ok &= CheckFormations();
