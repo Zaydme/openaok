@@ -2370,6 +2370,17 @@ std::string UIRenderer::CommandHelp(ECS::Simulation& sim, const Command& command
     return text;
 }
 
+SDL_Rect UIRenderer::HelpBox(int lines, int win_w, int win_h) {
+    const HudSpace panel = PanelSpace(win_w, win_h);
+    const HudLayout& layout = Lay(panel.w);
+    const int bottom =
+        static_cast<int>(std::lround(panel.FrameY(static_cast<float>(layout.help.y + layout.help.h))));
+    const int high = lines * static_cast<int>(std::lround(kHelpLinePitch * panel.scale)) +
+                     2 * static_cast<int>(std::lround(kHelpInsetY * panel.scale));
+    return {static_cast<int>(std::lround(layout.help.x * panel.scale)), bottom - high,
+            static_cast<int>(std::lround(layout.help.w * panel.scale)), high};
+}
+
 void UIRenderer::DrawHelpText(ECS::Simulation& sim, SDL_Renderer* sdl_r, int win_w, int win_h) {
     Hud& hud = HudState();
     int fx = 0, fy = 0;
@@ -2412,26 +2423,15 @@ void UIRenderer::DrawHelpText(ECS::Simulation& sim, SDL_Renderer* sdl_r, int win
 
     // In its box over the map just above the panel, the map darkened through
     // it: white with a shadow, from the box's top down, wrapped to its width,
-    // all at the panel's size. A help longer than the box holds takes the
-    // box's top up with it.
-    const HudLayout& layout = Lay(panel.w);
+    // all at the panel's size.
     const int font = Text::Scaled(Text::kGeorgia9, static_cast<int>(std::lround(panel.scale * 100.0f)));
-    const int box_top = static_cast<int>(std::lround(panel.FrameY(static_cast<float>(layout.help.y))));
-    const int box_bottom =
-        static_cast<int>(std::lround(panel.FrameY(static_cast<float>(layout.help.y + layout.help.h))));
-    SDL_Rect box{static_cast<int>(std::lround(layout.help.x * panel.scale)), box_top,
-                 static_cast<int>(std::lround(layout.help.w * panel.scale)), box_bottom - box_top};
     const int inset_x = static_cast<int>(std::lround(kHelpInsetX * panel.scale));
     const int inset_y = static_cast<int>(std::lround(kHelpInsetY * panel.scale));
     std::vector<std::vector<Run>> lines;
-    LayoutRich(text, font, box.w - 2 * inset_x, lines);
+    LayoutRich(text, font, HelpBox(0, win_w, win_h).w - 2 * inset_x, lines);
     while (!lines.empty() && lines.back().empty()) lines.pop_back();
+    const SDL_Rect box = HelpBox(static_cast<int>(lines.size()), win_w, win_h);
     const int line_h = static_cast<int>(std::lround(kHelpLinePitch * panel.scale));
-    const int needed = static_cast<int>(lines.size()) * line_h + 2 * inset_y;
-    if (needed > box.h) {
-        box.y -= needed - box.h;
-        box.h = needed;
-    }
     Darken(sdl_r, box);
     int y = box.y + inset_y;
     for (const auto& line : lines) {

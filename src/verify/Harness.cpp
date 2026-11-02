@@ -91,6 +91,7 @@ int Run(int ticks) {
     if (runs("minimapdead")) ok &= CheckMinimapDead();
     if (runs("help")) ok &= CheckHelp();
     if (runs("halve")) ok &= CheckHalve();
+    if (runs("helpbox")) ok &= CheckHelpBox();
     if (runs("wolves")) ok &= CheckWolves();
     if (runs("lobby")) ok &= CheckLobby();
     if (runs("formations")) ok &= CheckFormations();

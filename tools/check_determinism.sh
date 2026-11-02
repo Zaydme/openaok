@@ -55,6 +55,7 @@ PAGES="$(echo "$OUTPUT" | grep '^pages=')"
 MINIMAPDEAD="$(echo "$OUTPUT" | grep '^minimapdead=')"
 HELP="$(echo "$OUTPUT" | grep '^help=')"
 HALVE="$(echo "$OUTPUT" | grep '^halve=')"
+HELPBOX="$(echo "$OUTPUT" | grep '^helpbox=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -383,6 +384,12 @@ esac
 case "$HALVE" in
     halve=ok*) echo "halve OK: ${HALVE#halve=ok }" ;;
     *) echo "HALVE FAILED" >&2; echo "  $HALVE" >&2; STATUS=1 ;;
+esac
+
+# The rollover help's box is as tall as its lines.
+case "$HELPBOX" in
+    helpbox=ok*) echo "helpbox OK" ;;
+    *) echo "HELPBOX FAILED" >&2; echo "  $HELPBOX" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

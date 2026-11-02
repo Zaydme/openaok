@@ -266,6 +266,9 @@ bool CheckHelp();
 // meet with no gap between them, a pixel out of place, and keep every pixel a
 // plain shrink keeps. Prints "halve=".
 bool CheckHalve();
+// The rollover help's box is as tall as its lines, on the same bottom.
+// Prints "helpbox=".
+bool CheckHelpBox();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

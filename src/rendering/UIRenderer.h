@@ -189,6 +189,9 @@ public:
 
     // What the rollover help says over a command button, its hotkey last.
     static std::string CommandHelp(ECS::Simulation& sim, const Command& command);
+    // The rollover help's box in a win_w x win_h frame, holding `lines` lines:
+    // at the layout's left, width and bottom, as tall as its lines.
+    static SDL_Rect HelpBox(int lines, int win_w, int win_h);
 
     // Whether a player's unit or building has its dot on the minimap at all:
     // not once it is falling or lying dead.

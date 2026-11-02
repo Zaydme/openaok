@@ -52,7 +52,9 @@ struct HudLayout {
     SDL_Point minimap_button[8];
 
     // Rollover help: the box it is shown in, over the map's lower left just
-    // above the panel. At 800 and 1280 the 1024 box's figures in proportion.
+    // above the panel, its left, width and bottom (y + h); the box is as tall
+    // as the help's lines. At 800 and 1280 the 1024 box's figures in
+    // proportion.
     SDL_Rect help;
 };
 
