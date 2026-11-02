@@ -263,7 +263,10 @@ gathered sends the worker home.
 A worker with a load and no drop site chosen takes the nearest finished
 building of its owner's, by straight-line distance, that takes something it
 carries and whose footprint borders the ground the worker stands in (a camp on
-the same land, a Dock on the same sea). A camp still going up takes nothing. Which building takes what is the dat's: each villager
+the same land, a Dock on the same sea). A camp still going up takes nothing.
+One it finds no way to, it passes over: it looks again only further out than
+that one (`Worker::dropoff_beyond`), and with none left it stands, holding its
+load. Which building takes what is the dat's: each villager
 job unit lists the buildings it may hand a load to, and the fishing ship lists
 the Dock.
 

@@ -88,6 +88,7 @@ the gate reads. The names below are those the gate prints.
 | `farmfield` | A farmer works standing on its Farm's field, at one spot after another |
 | `farmorder` | A Farm is worked once built and only by its owner; a right-click on another player's strikes it |
 | `dropoff` | A villager sent to drop off: its whole load, part units included, and then it stands; only at its own finished building that takes it; the load banked on going into the Town Center, not a tower |
+| `dropoffbeyond` | A villager with a load and no way to any drop site stands with it, rather than looking for one every tick |
 | `felling` | A lumberjack's felling stroke with no wood cut, then the tree lying as its felled graphic, then wood cut from it |
 | `herding`, `crowd`, `spread` | Villagers sent at a sheep kill it, take its food and bring it home, walking no further than they must; a crowd at one sheep works side by side, the rest standing by; villagers sent together to a point stand about it side by side |
 | `sequence`, `collapse` | Graphics run their dat sequences (a standing scout rests between plays of its idle); a destroyed building falls in its dying graphic over its rubble |
@@ -115,12 +116,14 @@ the gate reads. The names below are those the gate prints.
 | `animals`, `duties`, `monks` | Herding, fleeing, grazing; patrol, follow, guard; conversion, facing whom they convert, healing, relics |
 | `maps` | Islands, continents, beaches, cliffs and fish across several map scripts |
 | `connections` | A map script's connections: on Black Forest and Rivers, every start reaches every other by land, Town Centers stepped over |
+| `mapscripts` | Every map in the lobby's Map Type list is played from its own script, two-word names such as Black Forest included |
 | `script` | The computer players' rule language: reading, rule passes, every original script loading for every civilisation, difficulty and map, strategic numbers scaled for the difficulty and kept in bounds, civilian explorers, retasking, mining camps and forward builders as the game reckons them, the Hardest's gift of resources, an ally turned on after too many blows, explore groups of one soldier, the scout sent on as sn-consecutive-idle-unit-limit says, Monks fetching relics |
 | `ai`, `pace`, `seven` | Twenty-four minutes of the computer against itself at its hardest, with a twin game that must come out identical; each difficulty's pace; seven computer players, every town grown in three minutes |
 | `crossing`, `landing`, `water`, `fishing`, `navy` | Transport ships, passability on water maps, docks and fishing, warships |
 | `deadtrap` | A fish trap run out leaves its dead unit, which a Fishing Ship builds a new trap over |
 | `boats` | A computer player's boats: fishing ships keep near a Dock as the rules ask, a spare warship explores the water, boat attack groups attack a known enemy or explore |
-| `attackgroups` | A computer player's attack groups: made, filled, gathered and sent on their own once the enemy is known, as the game does; blows answered by a share of the idle soldiers near, none for explorers; allied computer players sharing what they find and answering calls for help; idle soldiers gathered at the Town Center as sn-gather-defense-units asks; attack-soldier-count counting the soldiers of every attack group, out or not |
+| `attackgroups` | A computer player's attack groups: made, filled, gathered and sent on their own once the enemy is known, as the game does; blows away from the town answered by a share of the soldiers near, none for explorers; allied computer players sharing what they find and answering calls for help; idle soldiers gathered at the Town Center as sn-gather-defense-units asks; attack-soldier-count counting the soldiers of every attack group, out or not |
+| `townstruck`, `answerdraft` | A computer player's town, for blows to it, is its size and four tiles; a blow there brings every soldier that is free or fighting of its own accord, none sent elsewhere |
 | `targets` | The game's target evaluation, which an attack group goes for first: each known enemy thing scored out of 100 for how soon the group would destroy it and how near it is, taken in tiers, the economic buildings after the rest and walls last; a Monastery first with sn-special-attack-type1 |
 | `zoom` | The view's zoom, which the original does not have: a step keeps the point under the pointer, the limits hold, and a pinch zooms at once |
 | `march` | Soldiers keep their room: forty sent over open ground keep their width with none over another, through the town they squeeze without stacking, and twenty sent at one enemy stand round it |
@@ -139,6 +142,7 @@ the gate reads. The names below are those the gate prints.
 | `net` | A host and a client in lockstep over loopback, and a desync caught; a client of another version put out of a direct game with the lobby's message |
 | `options` | The Options that change play: Scroll Speed's pace at its slowest, middle and fastest; no taunt sound with Allow Audio Taunts off; with one mouse button a left click over open ground orders a selected villager there |
 | `lobby` | The multiplayer lobby over loopback: the game found, joined, rows, ready checks and chat, a refused start, the game started from the table |
+| `lobbyvictory`, `dropdownrows` | The lobby's Time Limit and Score kept through the setup's encoding and won at their time and score; a long list such as Population shows every choice to click |
 | `victory`, `modes` | Conquest, Wonders, relics; Regicide, Death Match, starting options |
 | `scenariovictory` | A scenario's Score, Time Limit and Custom victories reach its game and are won as they say |
 | `wondercount` | Two players' Wonders count side by side and the first finished wins at its time; the relics' count goes on when they pass to an ally |
@@ -152,6 +156,7 @@ the gate reads. The names below are those the gate prints.
 | `walls`, `waypoints` | Walls, gates going up as their site units, and locking; queued waypoints |
 | `gateplace` | A gate is placed as any building: refused on ground never explored and over a foundation of its own |
 | `scenario`, `editor` | Every scenario on the CD read; triggers; saving and loading; the scenario editor's edits, Map Copy, garrisons and personalities, its view zooming about a point; campaign files written |
+| `advancedbuttons` | A scenario's Use Advanced Buttons turns the advanced commands on; Play Sound with no file plays its dat sound |
 | `scenarioversion` | A scenario read at an older version is written again labelled 1.18, player data 1.20 and triggers 1.6, and reads back so |
 
 ## The golden hash
