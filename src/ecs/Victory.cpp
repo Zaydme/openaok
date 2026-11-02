@@ -28,8 +28,8 @@ namespace {
 
 namespace R = Core::Rules;
 
-// A year of game time.
-constexpr int32_t kYearMs = 3000;
+using Core::kYearMs;
+
 // How often standing is taken.
 constexpr int32_t kCheckMs = 1000;
 // What does not keep a player alive, by dat class: trade carts and cogs,
@@ -136,7 +136,7 @@ Core::PlayerId CountWonders(const entt::registry& registry, State& state, int32_
         }
         if (!o.CountingWonder(seat)) {
             o.wonders |= static_cast<uint16_t>(1u << p);
-            o.wonder_ms[p] = state.setup.wonder_years * kYearMs;
+            o.wonder_ms[p] = Core::VictoryYears(state.setup, true) * kYearMs;
         }
         o.wonder_ms[p] -= dt;
         if (o.wonder_ms[p] <= 0 && (first == 0 || o.wonder_ms[p] < o.wonder_ms[first])) first = seat;
@@ -379,7 +379,7 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
         }
         const Core::PlayerId relics = RelicHolder(registry, *state);
         if (CountRelics(registry, relics, state->outcome.relic_holder, state->outcome.relic_ms,
-                        state->setup.relic_years, dt_ms)) {
+                        Core::VictoryYears(state->setup, false), dt_ms)) {
             Win(registry, *state, relics);
             return;
         }

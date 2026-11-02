@@ -40,17 +40,22 @@ struct PlayerSetup {
 // Eight players besides Gaia.
 constexpr int kMaxPlayers = 9;
 
-// The map sizes: tiles across, and the label a random map script sees for
-// each.
+// The map sizes: tiles across, the label a random map script sees for each,
+// and the years a Wonder must stand, or every relic be held, to win on it.
 struct MapSize {
     const char* name;
     int tiles;
     const char* script_label;
+    int victory_years;
 };
 inline constexpr MapSize kMapSizes[] = {
-    {"tiny", 120, "TINY_MAP"},     {"small", 144, "SMALL_MAP"}, {"medium", 168, "MEDIUM_MAP"},
-    {"normal", 200, "LARGE_MAP"},  {"large", 220, "HUGE_MAP"},  {"giant", 240, "GIGANTIC_MAP"},
+    {"tiny", 120, "TINY_MAP", 200},     {"small", 144, "SMALL_MAP", 200}, {"medium", 168, "MEDIUM_MAP", 200},
+    {"normal", 200, "LARGE_MAP", 300},  {"large", 220, "HUGE_MAP", 350},  {"giant", 240, "GIGANTIC_MAP", 400},
 };
+
+// A year of game time, as the Wonder and relic countdowns and a time limit
+// count it.
+constexpr int32_t kYearMs = 5000;
 
 // How a game is won: standard victory (conquest, a Wonder or the relics),
 // conquest alone, or, a scenario's, the highest score at a time limit, a
@@ -81,8 +86,10 @@ struct GameSetup {
     Reveal reveal = Reveal::Normal;
     VictoryKind victory = VictoryKind::Standard;
     // Years a finished Wonder, or every relic held, must last to win.
-    int wonder_years = 200;
-    int relic_years = 200;
+    // The years a Wonder must stand and every relic be held; 0 for the map
+    // size's (VictoryYears).
+    int wonder_years = 0;
+    int relic_years = 0;
     // A random map game gives each player a Town Center, its villagers (as
     // many as the civ's "starting villagers" resource says) and a Scout
     // Cavalry. The scripts place none of them.
@@ -165,6 +172,19 @@ inline void SettleColours(GameSetup& setup) {
 }
 
 // Two players on the default map: the engine's standing test game.
+// The years a Wonder (`wonder`) or the relics count down in `setup`'s game:
+// its own figure, or else its map size's, the largest size no wider than its
+// map.
+inline int VictoryYears(const GameSetup& setup, bool wonder) {
+    const int own = wonder ? setup.wonder_years : setup.relic_years;
+    if (own > 0) return own;
+    int years = kMapSizes[0].victory_years;
+    for (const MapSize& size : kMapSizes) {
+        if (size.tiles <= setup.map_size) years = size.victory_years;
+    }
+    return years;
+}
+
 inline GameSetup DefaultSetup() {
     GameSetup setup;
     setup.players[PLAYER_GAIA] = {true, 0, 0};

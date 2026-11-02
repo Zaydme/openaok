@@ -103,9 +103,17 @@ never won by being the last one standing; its triggers end it.
 
 Under standard victory a finished Wonder starts a countdown for its owner,
 and so does one side holding every relic on the map in its Monasteries. The
-countdown is in years of game time, three seconds each (`kYearMs`), for
-`GameSetup::wonder_years` and `relic_years` years: 200 unless the setup says
-otherwise, which is ten minutes of game time.
+countdown is in years of game time, five seconds each (`Core::kYearMs`), and
+it is as long as the original's for the map's size (`Core::VictoryYears`, from
+`kMapSizes`), unless the setup's `wonder_years` or `relic_years` names its own:
+
+| Map size | Tiny | Small | Medium | Normal | Large | Giant |
+|---|---|---|---|---|---|---|
+| Years | 200 | 200 | 200 | 300 | 350 | 400 |
+| Game time | 16:40 | 16:40 | 16:40 | 25:00 | 29:10 | 33:20 |
+
+A scenario's map, of any width, counts the years of the largest size no wider
+than it.
 
 Every player has a Wonder countdown of its own. Every tick `CountWonders`
 finds the players with a finished, living Wonder who are still in the game:
@@ -117,7 +125,7 @@ out wins:
 ```cpp
         if (!o.CountingWonder(seat)) {
             o.wonders |= static_cast<uint16_t>(1u << p);
-            o.wonder_ms[p] = state.setup.wonder_years * kYearMs;
+            o.wonder_ms[p] = Core::VictoryYears(state.setup, true) * kYearMs;
         }
         o.wonder_ms[p] -= dt;
         if (o.wonder_ms[p] <= 0 && (first == 0 || o.wonder_ms[p] < o.wonder_ms[first])) first = seat;

@@ -142,7 +142,7 @@ bool IsWonder(const entt::registry& registry, entt::entity e) {
 int Years(const entt::registry& registry, bool wonder) {
     const auto* setup = registry.ctx().find<Core::GameSetup>();
     if (setup == nullptr) return 0;
-    return wonder ? setup->wonder_years : setup->relic_years;
+    return Core::VictoryYears(*setup, wonder);
 }
 
 void Hear(const entt::registry& registry, const ECS::Events::Event& event,

@@ -14,11 +14,12 @@
 // won. A side is players allied each way who have all chosen allied victory
 // (ecs/Diplomacy) -- team-mates from the lobby, or allies made in play; when
 // any of them wins, the whole side wins. Under the standard rules a game is
-// also won by a Wonder that stands for the lobby's number of years once
+// also won by a Wonder that stands for the map size's number of years once
 // finished, or by one side holding every relic on the map in its monasteries
 // for as long.
 //
-// A year of game time is three seconds.
+// A year of game time is five seconds (Core::kYearMs), and a Wonder or the
+// relics count down the map size's years (Core::VictoryYears).
 namespace ECS::Victory {
 
 struct Outcome {

@@ -107,13 +107,13 @@ bool CheckScenarioVictory() {
         }
     }
 
-    // Time Limit: two years, six seconds; the higher score wins at the time.
+    // Time Limit: one year, five seconds; the higher score wins at the time.
     if (ok()) {
         ECS::Simulation sim;
         ECS::Victory::Goal goal;
-        goal.time = 20;
+        goal.time = 10;
         Start(sim, Core::VictoryKind::TimeLimit, goal);
-        Run(sim, 5 * kTicksPerSecond);
+        Run(sim, 4 * kTicksPerSecond);
         const auto* outcome = ECS::Victory::Read(sim.GetRegistry());
         if (outcome->over) verdict = "a time limit game ended before its time";
         Run(sim, 2 * kTicksPerSecond);

@@ -848,7 +848,7 @@ void UIRenderer::DrawTimePanels(ECS::Simulation& sim, SDL_Renderer* sdl_r, int w
         TimeText(sdl_r, font, TextScaled(4), view_top + TextScaled(4), text, kWhite);
     }
     // The countdowns: each player's Wonder standing, nearest to winning
-    // first, then the relics held. A year is three seconds of game time.
+    // first, then the relics held. A year is five seconds of game time.
     const ECS::Victory::Outcome* outcome = ECS::Victory::Read(sim.GetRegistry());
     if (outcome == nullptr || outcome->over) return;
     struct Count { Core::PlayerId holder; int32_t ms; int line; };
@@ -864,7 +864,7 @@ void UIRenderer::DrawTimePanels(ECS::Simulation& sim, SDL_Renderer* sdl_r, int w
     for (int i = 0; i < count_n; ++i) {
         const Count& c = counts[i];
         if (c.holder == 0) continue;
-        const int years = (std::max(0, c.ms) + 2999) / 3000;
+        const int years = (std::max(0, c.ms) + Core::kYearMs - 1) / Core::kYearMs;
         char text[96];
         std::snprintf(text, sizeof(text), Core::Strings::Get(c.line).c_str(), years);
         const int right = win_w - TextScaled(4);

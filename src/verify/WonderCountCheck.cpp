@@ -53,6 +53,8 @@ void Run(ECS::Simulation& sim, int ticks) {
 
 } // namespace
 
+// A Wonder and the relics count down the map size's years, 200 on the
+// smallest maps to 400 on a Giant one, of five seconds of game time each.
 // Each player's Wonder counts its own years: player 1's, finished three
 // seconds before player 2's, wins at its time, both counting meanwhile. The
 // relics' count goes on when they pass from one ally's Monastery to the
@@ -63,20 +65,42 @@ bool CheckWonderCount() {
     auto& cfg = Core::ConfigManager::Get();
 
     {
+        static constexpr int kYears[] = {200, 200, 200, 300, 350, 400};
+        Core::GameSetup sized = Core::DefaultSetup();
+        for (int i = 0; i < 6 && ok(); ++i) {
+            sized.map_size = Core::kMapSizes[i].tiles;
+            if (Core::VictoryYears(sized, true) != kYears[i] || Core::VictoryYears(sized, false) != kYears[i]) {
+                verdict = "a map size's Wonder and relic years are not the original's";
+            }
+        }
+        // A Normal map's Wonder: 300 years of five seconds from when it stands.
+        sized.map_size = Core::kMapSizes[3].tiles;
+        ECS::Simulation sim;
+        sim.Init(sized);
+        if (ok() && Raise(sim, 1, cfg.GetUnitIdByName("WNDR")) == entt::null) verdict = "no ground for a Wonder";
+        Run(sim, kTicksPerSecond);
+        const auto* outcome = ECS::Victory::Read(sim.GetRegistry());
+        const int32_t left = outcome != nullptr ? outcome->wonder_ms[1] : 0;
+        if (ok() && (left > 300 * 5000 - 900 || left < 300 * 5000 - 1100)) {
+            verdict = "a Wonder's countdown is not 300 years of five seconds on a Normal map";
+        }
+    }
+
+    {
         Core::GameSetup setup = Core::DefaultSetup();
-        setup.wonder_years = 2;   // six seconds
+        setup.wonder_years = 2;   // ten seconds
         ECS::Simulation sim;
         sim.Init(setup);
         const int wonder = cfg.GetUnitIdByName("WNDR");
         if (Raise(sim, 1, wonder) == entt::null) verdict = "no ground for player 1's Wonder";
         Run(sim, 3 * kTicksPerSecond);
         if (ok() && Raise(sim, 2, wonder) == entt::null) verdict = "no ground for player 2's Wonder";
-        Run(sim, 2 * kTicksPerSecond);
+        Run(sim, 5 * kTicksPerSecond);
         const auto* outcome = ECS::Victory::Read(sim.GetRegistry());
         if (ok() && (outcome->over || !outcome->CountingWonder(1) || !outcome->CountingWonder(2))) {
             verdict = "two players' Wonders are not both counting";
         }
-        Run(sim, 2 * kTicksPerSecond);
+        Run(sim, 4 * kTicksPerSecond);
         if (ok() && (!outcome->over || !outcome->Won(1) || outcome->Won(2))) {
             verdict = "the first Wonder finished did not win at its time";
         }
@@ -115,10 +139,10 @@ bool CheckWonderCount() {
             auto& from = reg.get<ECS::Components::RelicShrine>(first);
             to.relics = from.relics;
             from.relics.clear();
-            Run(sim, 2 * kTicksPerSecond);
+            Run(sim, 5 * kTicksPerSecond);
             const auto* outcome = ECS::Victory::Read(reg);
             if (outcome->over) verdict = "holding the relics won before their time";
-            Run(sim, 2 * kTicksPerSecond);
+            Run(sim, 4 * kTicksPerSecond);
             if (ok() && (!outcome->over || !outcome->Won(1) || !outcome->Won(2))) {
                 verdict = "the relics' count started again when they passed to an ally";
             }

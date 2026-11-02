@@ -98,7 +98,7 @@ bool CheckVictory() {
     // A Wonder standing its years wins; one destroyed first does not.
     if (ok()) {
         Core::GameSetup setup = Core::DefaultSetup();
-        setup.wonder_years = 2;   // six seconds
+        setup.wonder_years = 1;   // five seconds
         ECS::Simulation sim;
         sim.Init(setup);
         const entt::entity wonder = Raise(sim, 1, cfg.GetUnitIdByName("WNDR"));
@@ -127,7 +127,7 @@ bool CheckVictory() {
     // Every relic on the map in one player's monastery for its years wins.
     if (ok()) {
         Core::GameSetup setup = Core::DefaultSetup();
-        setup.relic_years = 2;
+        setup.relic_years = 1;
         ECS::Simulation sim;
         sim.Init(setup);
         auto& reg = sim.GetRegistry();
