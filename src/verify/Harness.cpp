@@ -92,6 +92,7 @@ int Run(int ticks) {
     if (runs("help")) ok &= CheckHelp();
     if (runs("halve")) ok &= CheckHalve();
     if (runs("helpbox")) ok &= CheckHelpBox();
+    if (runs("marks")) ok &= CheckMarks();
     if (runs("wolves")) ok &= CheckWolves();
     if (runs("lobby")) ok &= CheckLobby();
     if (runs("formations")) ok &= CheckFormations();

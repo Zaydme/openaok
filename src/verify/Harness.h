@@ -269,6 +269,9 @@ bool CheckHalve();
 // The rollover help's box is as tall as its lines, on the same bottom.
 // Prints "helpbox=".
 bool CheckHelpBox();
+// A selected thing's outline and hit point bar still show with the view
+// zoomed far out. Prints "marks=".
+bool CheckMarks();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

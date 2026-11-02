@@ -56,6 +56,7 @@ MINIMAPDEAD="$(echo "$OUTPUT" | grep '^minimapdead=')"
 HELP="$(echo "$OUTPUT" | grep '^help=')"
 HALVE="$(echo "$OUTPUT" | grep '^halve=')"
 HELPBOX="$(echo "$OUTPUT" | grep '^helpbox=')"
+MARKS="$(echo "$OUTPUT" | grep '^marks=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -390,6 +391,12 @@ esac
 case "$HELPBOX" in
     helpbox=ok*) echo "helpbox OK" ;;
     *) echo "HELPBOX FAILED" >&2; echo "  $HELPBOX" >&2; STATUS=1 ;;
+esac
+
+# A selected thing's outline and hit point bar still show zoomed far out.
+case "$MARKS" in
+    marks=ok*) echo "marks OK: ${MARKS#marks=ok }" ;;
+    *) echo "MARKS FAILED" >&2; echo "  $MARKS" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

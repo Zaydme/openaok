@@ -107,17 +107,53 @@ void PlotEllipse(std::vector<SDL_Point>& out, int cx, int cy, float a, float b) 
     }
 }
 
+// One pixel of the frame in the world's pixels at the view's zoom, never less
+// than one: a mark this thick stays a pixel wide however far out the view is
+// zoomed, where a world pixel would thin to nothing.
+float FramePixel(SDL_Renderer* r) {
+    float zoom = 1.0f, unused = 1.0f;
+    SDL_RenderGetScale(r, &zoom, &unused);
+    return zoom < 1.0f ? 1.0f / zoom : 1.0f;
+}
+
+// `points` as squares `t` world pixels wide, each about its pixel's centre.
+void DrawDots(SDL_Renderer* r, const std::vector<SDL_Point>& points, float t) {
+    static std::vector<SDL_FRect> rects;
+    rects.clear();
+    const float from = 0.5f - t / 2.0f;
+    for (const SDL_Point& p : points) {
+        rects.push_back({static_cast<float>(p.x) + from, static_cast<float>(p.y) + from, t, t});
+    }
+    SDL_RenderFillRectsF(r, rects.data(), static_cast<int>(rects.size()));
+}
+
+// The pixels of the line from a to b, one for each step along its longer
+// axis.
+void PlotLine(std::vector<SDL_Point>& out, SDL_FPoint a, SDL_FPoint b) {
+    const float dx = b.x - a.x, dy = b.y - a.y;
+    const int steps = static_cast<int>(std::ceil(std::max(std::fabs(dx), std::fabs(dy))));
+    for (int i = 0; i <= steps; ++i) {
+        const float t = steps > 0 ? static_cast<float>(i) / static_cast<float>(steps) : 0.0f;
+        out.push_back({static_cast<int>(std::floor(a.x + dx * t)), static_cast<int>(std::floor(a.y + dy * t))});
+    }
+}
+
 void DrawOutline(SDL_Renderer* r, const SelectionMark& m, std::vector<SDL_Point>& scratch) {
     constexpr float kHalfW = Core::IsometricMath::TILE_WIDTH / 2.0f;
     constexpr float kHalfH = Core::IsometricMath::TILE_HEIGHT / 2.0f;
     SDL_SetRenderDrawColor(r, m.colour.r, m.colour.g, m.colour.b, 255);
+    const float t = FramePixel(r);
     if (m.round) {
         // A circle of radius r tiles reaches r*sqrt(2) half tiles each way
         // on screen, the world's axes being the screen's diagonals.
         const float reach = std::sqrt(2.0f) * 0.5f * (m.rx + m.ry);
         scratch.clear();
         PlotEllipse(scratch, m.sx, m.sy, reach * kHalfW, reach * kHalfH);
-        SDL_RenderDrawPoints(r, scratch.data(), static_cast<int>(scratch.size()));
+        if (t > 1.0f) {
+            DrawDots(r, scratch, t);
+        } else {
+            SDL_RenderDrawPoints(r, scratch.data(), static_cast<int>(scratch.size()));
+        }
         return;
     }
     // A square outline is the diamond its radii make on the ground.
@@ -130,7 +166,13 @@ void DrawOutline(SDL_Renderer* r, const SelectionMark& m, std::vector<SDL_Point>
         {x - (m.rx + m.ry) * kHalfW, y + (m.ry - m.rx) * kHalfH},
         {x + (m.ry - m.rx) * kHalfW, y - (m.rx + m.ry) * kHalfH},
     };
-    SDL_RenderDrawLinesF(r, corners, 5);
+    if (t > 1.0f) {
+        scratch.clear();
+        for (int i = 0; i < 4; ++i) PlotLine(scratch, corners[i], corners[i + 1]);
+        DrawDots(r, scratch, t);
+    } else {
+        SDL_RenderDrawLinesF(r, corners, 5);
+    }
 }
 
 // The bar's top edge stands `bar_height` half tiles above the outline's top
@@ -145,15 +187,22 @@ void DrawHealthBar(SDL_Renderer* r, const SelectionMark& m) {
     const int hp = std::clamp(m.hp, 0, m.max_hp);
     int green = hp * kHpBarWidth / m.max_hp;
     if (hp > 0 && green == 0) green = 1;
+    // Zoomed out, as many of the frame's pixels high and at least one wide
+    // in each colour that shows.
+    const float t = FramePixel(r);
+    const float high = static_cast<float>(kHpBarHeight) * t;
+    const float green_w = green > 0 ? std::max(static_cast<float>(green), t) : 0.0f;
     if (green > 0) {
         SDL_SetRenderDrawColor(r, 0, 255, 0, 255);
-        const SDL_Rect g{left, top, green, kHpBarHeight};
-        SDL_RenderFillRect(r, &g);
+        const SDL_FRect g{static_cast<float>(left), static_cast<float>(top), green_w, high};
+        SDL_RenderFillRectF(r, &g);
     }
     if (green < kHpBarWidth) {
         SDL_SetRenderDrawColor(r, 255, 0, 0, 255);
-        const SDL_Rect red{left + green, top, kHpBarWidth - green, kHpBarHeight};
-        SDL_RenderFillRect(r, &red);
+        const float red_w = std::max(static_cast<float>(kHpBarWidth) - green_w, t);
+        const SDL_FRect red{static_cast<float>(left) + static_cast<float>(kHpBarWidth) - red_w,
+                            static_cast<float>(top), red_w, high};
+        SDL_RenderFillRectF(r, &red);
     }
 }
 
@@ -1056,6 +1105,20 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
         if (e.mark >= 0) DrawOutline(sdl_r, marks[static_cast<size_t>(e.mark)], RingPoints());
         DrawSprite(sdl_r, e);
     }
+}
+
+void EntityRenderer::DrawMarks(SDL_Renderer* sdl_r, int sx, int sy, float rx, float ry, bool round,
+                               int hp, int max_hp) {
+    SelectionMark m;
+    m.sx = sx;
+    m.sy = sy;
+    m.rx = rx;
+    m.ry = ry;
+    m.round = round;
+    m.hp = hp;
+    m.max_hp = max_hp;
+    DrawOutline(sdl_r, m, RingPoints());
+    DrawHealthBar(sdl_r, m);
 }
 
 void EntityRenderer::DrawStanding(Renderer& renderer, SDL_Renderer* sdl_r) {

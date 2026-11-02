@@ -39,6 +39,13 @@ public:
     // outline.
     static bool PickedByArt(const entt::registry& registry, entt::entity entity);
 
+    // A selected thing's marks at the renderer's zoom: its outline on the
+    // ground, round or square from the dat's radii in tiles, about (sx, sy)
+    // in the world's pixels, and its hit point bar above it. However far out
+    // the view is zoomed, both stay at least a pixel of the frame thick.
+    static void DrawMarks(SDL_Renderer* sdl_r, int sx, int sy, float rx, float ry, bool round,
+                          int hp, int max_hp);
+
     // How far a building's art stands from its origin tile, in world units:
     // a building is drawn about its footprint's middle, which for an even
     // footprint is half a tile up and left of the tile it was placed on.
