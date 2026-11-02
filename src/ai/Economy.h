@@ -22,7 +22,8 @@
 // one further from a drop site than the matching sn-maximum-*-drop-distance
 // is ignored. Food is a carcass already being cut first, then the herd, the
 // forage, deer, farms; the player's sheep are walked in to the Town Center.
-// A boar is left alone.
+// A boar is hunted by a party of the food gatherers (HuntBoar), who cut the
+// carcass after.
 namespace AI::Economy {
 
 void Run(Turn& turn);

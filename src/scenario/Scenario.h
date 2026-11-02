@@ -24,7 +24,7 @@
 // to fixed point -- exactly, from the bits -- and kept in the file's own frame:
 // a tile `t` spans [t, t + 1), so a unit standing in the middle of tile 10 is
 // at 10.5. The engine's tiles are centred on whole numbers, so the world a
-// scenario builds (ecs/ScenarioStart.cpp) stands everything half a tile back.
+// scenario builds (ecs/ScenarioWorld.cpp) stands everything half a tile back.
 namespace Scenario {
 
 // The file's per-player arrays are sixteen wide; eight players play.

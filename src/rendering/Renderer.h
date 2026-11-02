@@ -27,7 +27,6 @@ public:
     float target_camera_y = 0.0f;
     float camera_zoom = 1.0f;
     float target_camera_zoom = 1.0f;
-    float water_phase = 0.0f;
     
     // Dynamic viewport size (updated every frame from the window)
     float view_w = 1600.0f;

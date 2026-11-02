@@ -241,8 +241,9 @@ bool PlaceRound(const entt::registry& registry, const Physics::Grid& grid, const
 
 // The walk: straight along the route at the unit's speed, landing on each
 // corner and going on round it in the same step, and taking a corner early
-// once the one after it is in sight. Units pass over one another as they do
-// in the original; nobody is pushed or slid. A unit sent to a point another
+// once the one after it is in sight. Units overlap a little as they do in the
+// original: nobody standing is pushed, and a walker bends its own step off
+// the bodies about it (KeptApart). A unit sent to a point another
 // already stands on moves on, as it comes up against them, to the free place
 // nearest it round the point. Ground that closes across the way has the route
 // planned again.

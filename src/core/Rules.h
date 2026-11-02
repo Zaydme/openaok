@@ -252,6 +252,10 @@ struct UnitRules {
     ClassAmount armours[kMaxClassEntries];
     int armour_count = 0;
     int base_armour = 1000;
+    // The dat's terrain defence: the terrain table (or -1) the unit's
+    // defence is weighted by, kept as the dat and the technologies set it.
+    // Damage is not weighted by it: Combat::Damage reads attacks and armours
+    // alone.
     int terrain_defense = -1;
     Core::Fixed32 max_range{};
     Core::Fixed32 min_range{};

@@ -7,9 +7,8 @@
 // The rules' own memory -- goals, strategic numbers, timers, escrow, the
 // random number, taunts -- is written here; everything that changes the
 // world is an order through ecs/Orders, given by the executor (ai/Executor)
-// with the same criteria the matching can-* fact checks.
-//
-// Walls, gates and the spy are no-ops.
+// with the same criteria the matching can-* fact checks. Walls and gates are
+// laid about the town by ai/Walls, and the spy is Treason at a Castle.
 namespace AI::Actions {
 
 void Run(Turn& turn, const Script::Act& act, bool& disable_self);

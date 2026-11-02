@@ -1800,8 +1800,9 @@ int main(int argc, char* argv[]) {
     if (!HAL::Platform::Start(argc, argv)) return 0;
 #ifdef __ANDROID__
     PrintToLog();
-    // A phone has OpenGL ES, not desktop OpenGL. The game's data was copied
-    // out of the APK into the app's own storage on first run (the launcher,
+    // A phone has OpenGL ES, not desktop OpenGL. The game's data, a folder the
+    // player made from their CD and chose, was copied into the app's own
+    // storage on first start (the launcher,
     // android/app/src/main/java/org/openaok/game/CopyActivity.java), laid
     // out as the source tree is: it is played from game/build there, as from
     // build/ on a desktop, so every "../assets/..." finds its file.

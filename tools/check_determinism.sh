@@ -632,7 +632,7 @@ else
     STATUS=1
 fi
 
-# The computer players: twenty minutes of a game played unattended.
+# The computer players: 24 minutes of a game played unattended.
 if [ "$AI" = "ai=ok" ]; then
     echo "ai OK"
 else

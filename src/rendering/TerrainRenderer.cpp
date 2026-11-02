@@ -309,11 +309,6 @@ uint64_t ChunkKey(int cx, int cy, bool half) {
 
 } // namespace
 
-void TerrainRenderer::DrawWaterLayer(ECS::Simulation& sim, Renderer& renderer, SDL_Renderer* sdl_r) {
-    // Water is baked into the terrain chunks; no separate layer is drawn.
-    (void)sim; (void)renderer; (void)sdl_r;
-}
-
 // A chunk's box in the world's screen space: its tiles' images, with room
 // above for hills.
 struct ChunkBox {

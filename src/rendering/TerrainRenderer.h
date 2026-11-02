@@ -19,7 +19,6 @@ struct TerrainChunk {
 
 class TerrainRenderer {
 public:
-    static void DrawWaterLayer(ECS::Simulation& sim, Renderer& renderer, SDL_Renderer* sdl_r);
     static void DrawTerrain(ECS::Simulation& sim, Renderer& renderer, SDL_Renderer* sdl_r);
 
     // One tile of ground: where it sits inside its terrain's atlas. The whole

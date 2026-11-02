@@ -117,11 +117,7 @@ void Renderer::Render(ECS::Simulation& sim, HAL::Window& window, float alpha) {
     target_camera_y = std::max(min_cy, std::min(max_cy, target_camera_y));
     camera_x = std::max(min_cx, std::min(max_cx, camera_x));
     camera_y = std::max(min_cy, std::min(max_cy, camera_y));
-    
-    // Animate water phase (single increment, cycles through 100 texture variants)
-    water_phase += 0.15f;
-    if (water_phase >= 100.0f) water_phase -= 100.0f;
-    
+
     window.BeginFrame();
     window.Clear(0, 0, 0);   // black beyond the map's edge
     
@@ -135,7 +131,6 @@ void Renderer::Render(ECS::Simulation& sim, HAL::Window& window, float alpha) {
         return us;
     };
     Clock::time_point mark = Clock::now();
-    TerrainRenderer::DrawWaterLayer(sim, *this, sdl_r);
     TerrainRenderer::DrawTerrain(sim, *this, sdl_r);
     cost.terrain = since(mark);
     // The fog goes over the ground and what lies on it; what stands on seen

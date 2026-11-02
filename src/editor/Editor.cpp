@@ -110,7 +110,6 @@ void DrawWorld(State& s, SDL_Renderer* r) {
     // The whole screen's worth, at the view's zoom; the editor's frame goes
     // over all but the view.
     Rendering::SetZoom(r, v.camera_zoom);
-    Rendering::TerrainRenderer::DrawWaterLayer(*s.sim, v, r);
     Rendering::TerrainRenderer::DrawTerrain(*s.sim, v, r);
     Rendering::EntityRenderer::DrawGroundLevel(*s.sim, v, r, 1.0f);
     Rendering::FogRenderer::Draw(*s.sim, v, r);

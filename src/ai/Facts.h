@@ -5,9 +5,8 @@
 // The script facts, tested against the world.
 //
 // Each reads one thing: the player's own census (ai/Census), every seat's
-// counts (ai/World), the brain's mind (goals, timers, escrow), or the lobby.
-// Walls laid by the rules, spies and scenario triggers are answered as if
-// there were none.
+// counts (ai/World), the brain's mind (goals, timers, escrow, a scenario's
+// events), the walls about the town (ai/Walls), or the lobby.
 namespace AI::Facts {
 
 bool Test(Turn& turn, const Script::Expr& fact);
