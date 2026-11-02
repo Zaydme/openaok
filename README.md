@@ -7,6 +7,12 @@
 </p>
 
 <p align="center">
+  <a href="https://zaydme.github.io/openaok/"><b>Documentation</b></a> ·
+  <a href="https://zaydme.github.io/openaok/guide/"><b>Getting started</b></a> ·
+  <a href="https://github.com/Zaydme/openaok/releases"><b>Download</b></a>
+</p>
+
+<p align="center">
   <img src="docs/public/images/phone-town.png" width="820" alt="OpenAoK running on an Android phone">
 </p>
 
@@ -31,7 +37,7 @@ iPads, and the Nintendo Switch.
   from the original art, laid out as the game laid it out, in its own fonts and
   words.
 - **Your copy, your data.** The repository contains no game files. You copy
-  your CD into a folder, and the build prepares everything it needs from it.
+  your CD into a folder, and OpenAoK prepares everything it needs from it.
 
 ## Screenshots
 
@@ -61,17 +67,28 @@ iPads, and the Nintendo Switch.
   <img src="docs/public/images/iphone-game.png" width="820" alt="OpenAoK running on an iPhone">
 </p>
 
-On a touch screen the game is played as with a mouse, and the controls are
-surprisingly comfortable: tap to click, hold to right-click, drag one finger to
-select, two fingers to scroll the map, pinch to zoom. This is the same on
-Android phones, iPhones and iPads. The top
-bar, the panel and the text can each be drawn larger (Options → Top Bar Size,
-Panel Size, Text Size), and in widescreen the interface reaches the screen's
-edges.
+## Controls
+
+With a mouse and keyboard, the controls are the original's: left-click and
+drag to select, right-click to order, the command panel and its hotkeys for the
+rest. The mouse wheel also zooms the view, which the original could not.
+
+On a touch screen the game is played as with a mouse, and it is surprisingly
+comfortable: tap to click, hold to right-click, drag one finger to select, two
+fingers to scroll the map, pinch to zoom. This is the same on Android phones,
+iPhones and iPads. The top bar, the panel and the text can each be drawn
+larger, and in widescreen the interface reaches the screen's edges.
+
+On the Nintendo Switch the controller plays as a mouse and the game's hotkeys:
 
 <p align="center">
   <img src="docs/public/images/switch-controls.svg" width="900" alt="The Switch's controls: the left stick moves the pointer, the right stick scrolls the map and with ZL held zooms, A and B are the left and right mouse buttons, plus is the game menu, minus is chat, and the other buttons are the game's hotkeys">
 </p>
+
+Every control, the options and what OpenAoK adds to the original are in the
+guide: [Controls](https://zaydme.github.io/openaok/guide/controls),
+[Options](https://zaydme.github.io/openaok/guide/options),
+[Improvements on the original](https://zaydme.github.io/openaok/guide/improvements).
 
 ## What works
 
@@ -88,8 +105,9 @@ edges.
   script language, at every difficulty.
 - **Campaigns and scenarios**, with their triggers, narration and pictures; the
   scenario editor; saved and recorded games.
-- **Victory** by conquest, Wonder or relics; Regicide and Death Match; diplomacy,
-  allied victory, chat, taunts, flares and the cheat codes.
+- **Victory** by conquest, Wonder or relics, and a scenario's score, time limit
+  or custom conditions; Regicide and Death Match; diplomacy, allied victory,
+  chat, taunts, flares and the cheat codes.
 - **Presentation**: sprites straight from the original SLPs with player colours
   and shadows, terrain blending, fog of war, the original interface, sounds,
   music and the start-up movies.
@@ -97,232 +115,50 @@ edges.
   local network found by themselves, others joined by address, and the lobby
   with its chat and ready checks.
 
-What's left, and the known issues, are in [ROADMAP.md](ROADMAP.md).
+What comes next, and the known issues, are on the
+[Roadmap](https://zaydme.github.io/openaok/development/roadmap).
 
 ## How it works
 
-The simulation runs on 32.32 fixed point at a fixed 60 Hz, so the same orders
-produce the same world on every machine. Lockstep multiplayer and the
-self-check rely on this. Rendering, audio and the interface only read the
-simulation; orders reach it as commands. Units move at continuous positions;
-the tile grid holds buildings, terrain and path search.
+A deterministic simulation on 32.32 fixed point at a fixed 60 Hz, so the same
+orders give the same world on every machine, read by a renderer that draws the
+original's sprites straight from its archives. The documentation explains it
+all, from the CD's file formats to the computer players:
 
-At run time the engine reads the original DRS archives directly: SLP sprites,
-terrain, interface art, sounds, map scripts and AI scripts. The rule tables in
-the dat and LANGUAGE.DLL are converted to JSON once, at build time, by the tools
-in `tools/data`. The movies are decoded by the engine's own Indeo 5 decoder.
+- [How the engine is put together](https://zaydme.github.io/openaok/engine/)
+- [The game's data](https://zaydme.github.io/openaok/engine/data) and [random maps](https://zaydme.github.io/openaok/engine/random-maps)
+- [Fixed point and determinism](https://zaydme.github.io/openaok/engine/determinism) and [lockstep multiplayer](https://zaydme.github.io/openaok/engine/multiplayer)
+- The game: [units](https://zaydme.github.io/openaok/engine/units), [movement](https://zaydme.github.io/openaok/engine/pathfinding), [the economy](https://zaydme.github.io/openaok/engine/economy), [buildings](https://zaydme.github.io/openaok/engine/construction), [training and research](https://zaydme.github.io/openaok/engine/production), [combat](https://zaydme.github.io/openaok/engine/combat), [armies and the navy](https://zaydme.github.io/openaok/engine/war), [victory](https://zaydme.github.io/openaok/engine/victory), [scenarios](https://zaydme.github.io/openaok/engine/scenarios), [computer players](https://zaydme.github.io/openaok/engine/ai)
+- [Rendering](https://zaydme.github.io/openaok/engine/rendering/), [the interface](https://zaydme.github.io/openaok/engine/interface) and [sound](https://zaydme.github.io/openaok/engine/audio)
 
-More in [docs/engine/index.md](docs/engine/index.md).
-
-## Getting the game files
+## Getting started
 
 OpenAoK needs **your own, legally obtained copy** of *Age of Empires II: The
-Age of Kings* (1999, version 1.0, the original CD). It does not work with The
-Conquerors expansion or the HD and Definitive editions, which use different
-data.
+Age of Kings* (1999, the original CD), not The Conquerors or the HD and
+Definitive editions. [Your game files](https://zaydme.github.io/openaok/guide/game-files)
+explains what to copy. The downloads hold none of the game's data; the data is
+prepared from your CD.
 
-Copy the CD's files into a folder named `original_game_1999` at the top of the
-repository. From a disc or a mounted image on macOS, for example:
+| Platform | | |
+|---|---|---|
+| **Windows** 10 and 11, 64-bit | A folder to unzip; the data is prepared on first start | [Guide](https://zaydme.github.io/openaok/guide/windows) |
+| **macOS and Linux** | Built from source in one step | [Guide](https://zaydme.github.io/openaok/guide/desktop) |
+| **Android** 10 or later, arm64 | An APK, with a data folder made on a computer | [Guide](https://zaydme.github.io/openaok/guide/android) |
+| **iPhone and iPad**, iOS 15 or later | An IPA to sideload, or built with Xcode | [Guide](https://zaydme.github.io/openaok/guide/ios) |
+| **Nintendo Switch**, homebrew | An `.nro` and a data folder on the SD card | [Guide](https://zaydme.github.io/openaok/guide/switch) |
 
-```sh
-cp -R /Volumes/AOE2/. original_game_1999/
-```
+Downloads are on the [releases](https://github.com/Zaydme/openaok/releases)
+page. Help with problems is in
+[Troubleshooting](https://zaydme.github.io/openaok/guide/troubleshooting).
 
-The folder should then hold `GAME/`, `SYSTEM/` and `GOODIES/`. That's all: the
-build unpacks and converts what it needs. Everything taken from your copy stays
-on your machine and is ignored by git. Please don't share it, or the builds you
-make from it: a desktop build contains your game data. The Android APK, the
-iOS app and the Switch's `OpenAoK.nro` hold none of it; the data folders made
-for them do.
+## Building and contributing
 
-The default hotkeys are read from the CD's `GAME/EMPIRES2.EXE`. On a CD
-protected by SafeDisc that file's code is encrypted, so they can't be: the
-build says so and goes on, and the game plays without hotkeys.
-
-## Building for desktop (macOS, Linux)
-
-Install the tools:
-
-```sh
-# macOS (with the Xcode command-line tools)
-brew install cmake sdl2 freetype cabextract
-
-# Debian / Ubuntu
-sudo apt install build-essential cmake python3 libsdl2-dev libfreetype-dev zlib1g-dev cabextract
-```
-
-Then build and run:
-
-```sh
-./build.sh          # prepares the game data on the first run, then builds
-./build.sh --run    # build and play
-```
-
-The first build takes about a minute longer while it unpacks and converts your
-game files. Run the game from `build/`:
-
-```sh
-cd build && ./OpenAoK
-```
-
-## On Windows
-
-OpenAoK runs on 64-bit Windows 10 and 11. The download holds none of the
-game's data; the data is prepared from your own CD the first time it starts.
-
-1. Unzip `OpenAoK-windows-<version>.zip` from the
-   [releases](https://github.com/Zaydme/openaok/releases).
-2. Copy everything on your CD into its `OpenAoK\original_game_1999` folder.
-3. Install [Python 3](https://www.python.org/downloads/windows/), needed once
-   to prepare the data.
-4. Double-click `OpenAoK.bat`. The first time it prepares the data, which
-   takes a few minutes, and then the game starts.
-
-More, building it yourself included, in [windows/README.md](windows/README.md).
-
-## On Android
-
-OpenAoK runs on arm64 phones and tablets with Android 10 or later. The APK
-holds none of the game's data; the data is a folder made on a computer from
-your own CD and copied to the phone.
-
-1. Install `OpenAoK-<version>.apk` from the
-   [releases](https://github.com/Zaydme/openaok/releases).
-2. With the same release's source code and your CD in `original_game_1999/`,
-   run `python3 android/package.py`. It needs the same tools as the Switch's
-   data (below) and writes `android/build/OpenAoK-data/`, about 350 MB.
-3. Copy `OpenAoK-data` to the phone, into Download for example, open OpenAoK
-   and choose the folder. The app copies it in; then the folder can go.
-
-More, building the APK yourself included, in
-[android/README.md](android/README.md).
-
-## On iPhone and iPad
-
-OpenAoK runs on iPhones and iPads with iOS 15 or later. The app holds none of
-the game's data; the data is a folder made on a computer from your own CD and
-copied to the device.
-
-1. With this source code and your CD in `original_game_1999/`, run
-   `python3 ios/package.py`. It writes `ios/data/OpenAoK-data/`, about 350 MB.
-2. On a Mac with Xcode, run `ios/build.sh --device`, open
-   `ios/build/OpenAoK.xcodeproj`, choose your team and your iPhone or iPad,
-   and Run. Or sideload an unsigned build with AltStore: a release's
-   `OpenAoK-<version>.ipa`, or one made with `ios/build.sh --device --ipa`.
-3. Copy `OpenAoK-data` to the device -- with AirDrop, the Files app, or
-   Finder's File Sharing -- open OpenAoK and choose the folder. The app copies
-   it in; then the folder on the device can go.
-
-Building needs Xcode 15 or later, and Xcode 27's iOS 27 SDK is supported. More,
-the simulator and sideloading included, in [ios/README.md](ios/README.md).
-
-## On the Nintendo Switch
-
-OpenAoK runs as homebrew, from the Homebrew Menu, on a Switch that runs custom
-firmware. The game is one file, `OpenAoK.nro`, which holds none of the game's
-data; the data is a folder made on a computer from your own CD and copied to
-the SD card beside it. Nothing needs building for the Switch itself.
-
-**1. Put the game on the card.** Download `OpenAoK-switch-<version>.zip` from
-the [releases](https://github.com/Zaydme/openaok/releases) and unpack it onto
-the SD card's root. It holds `switch/openaok/OpenAoK.nro` and the licenses.
-
-**2. Make the game's data.** Download the same release's source code (or clone
-the repository) and copy your CD into its `original_game_1999/`, as above.
-Preparing the data needs Python 3, cabextract, CMake and a C++ compiler, which
-build only a small helper that reads the game's rules:
-
-```sh
-# macOS (with the Xcode command-line tools)
-brew install cmake cabextract
-
-# Debian / Ubuntu
-sudo apt install build-essential cmake python3 zlib1g-dev cabextract
-```
-
-Then, with the card in the computer:
-
-```sh
-python3 switch/package.py --out "/Volumes/SWITCH SD"
-```
-
-It prepares the game's data as `build.sh` does and writes `switch/openaok/game/`
-on the card, beside the `.nro`: about 390 MB. Run it again after an update;
-only what changed is copied. Without `--out` it writes to `build-switch/sd/`,
-to copy to the card yourself. Some USB card readers damage what they write to
-large cards; Hekate's USB mass storage (Tools, USB Tools, SD Card) writes
-through the Switch's own card slot instead.
-
-**3. Play.** Put the card back, hold R while starting any game, which opens the
-Homebrew Menu with all of the console's memory, and choose OpenAoK.
-
-In handheld mode the touch screen plays as on a phone; the controller plays as a
-mouse and the game's hotkeys, as above. Chat and a saved game's name bring up
-the system keyboard. More in [switch/README.md](switch/README.md).
-
-### Building the `.nro` yourself
-
-With Docker, or with devkitPro's Switch toolchain (`switch-dev`, `switch-sdl2`,
-`switch-freetype`) when `DEVKITPRO` is set:
-
-```sh
-switch/build.sh               # writes build-switch/OpenAoK.nro
-```
-
-On a Mac, Docker can be `brew install colima docker && colima start`. Then
-`python3 switch/package.py` copies the `.nro` you built to the card with the
-data.
-
-## Playing
-
-Start from the main menu, or straight into a game from the command line:
-
-| Option | |
-|---|---|
-| `--game` | Straight into a random map game against the computer |
-| `--map NAME` | Arabia, Archipelago, Baltic, BlackForest, Coastal, Continental, CraterLake, Fortress, GoldRush, Highland, Islands, Mediterranean, Migration, Nomad, Rivers, TeamIslands |
-| `--size S`, `--seed N` | tiny, small, medium, normal, large, giant; the map's seed |
-| `--resources R`, `--age A`, `--reveal V` | Starting resources, age and map visibility |
-| `--ai-only`, `--no-ai` | The computer plays every seat, or none |
-| `--host PORT --players N`, `--join HOST:PORT` | A network game without the lobby, started once N people are in |
-| `--windowed`, `--fullscreen`, `--widescreen`, `--mute`, `--no-movies` | |
-
-The controls are the original's: left-click and drag to select, right-click to
-order, the command panel and hotkeys for the rest, the arrow keys, the screen's
-edges and the minimap to move the view. One thing the original did not have:
-the mouse wheel zooms the view in and out, in the game and the scenario
-editor, as do `=` and `-`. The original's
-wheel hotkeys (the Town Center, the next idle villager) are on Ctrl and the
-wheel. Everything OpenAoK adds to the original, zoom, the minimap's fog of
-war, no selection limit, populations up to 1000 and the rest, is listed in
-[docs/guide/improvements.md](docs/guide/improvements.md).
-
-## Checking changes
-
-```sh
-bash tools/check_determinism.sh
-```
-
-runs the headless self-check: a bit-exact determinism hash and dozens of
-scenarios covering movement, economy, combat, the computer players, networking,
-water, trade, diplomacy, scenarios and the editor. See
-[docs/development/verification.md](docs/development/verification.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Documentation
-
-**[zaydme.github.io/openaok](https://zaydme.github.io/openaok/)**: the guides
-for every platform, and how the engine works, from the CD's file formats and
-the fixed-point simulation to the renderer and the computer players. Its pages
-are the Markdown in [docs/](docs/):
-
-- [docs/engine/index.md](docs/engine/index.md): how the engine is put together
-- [docs/engine/data.md](docs/engine/data.md): the game files it reads, and how they are prepared
-- [docs/development/verification.md](docs/development/verification.md): the self-check
-- [docs/engine/multiplayer.md](docs/engine/multiplayer.md): lockstep networking
-- [android/README.md](android/README.md): the Android build and touch controls
-- [ios/README.md](ios/README.md): the iPhone and iPad build, data and simulator
-- [switch/README.md](switch/README.md): the Switch build, the SD card and the controller
-- [ROADMAP.md](ROADMAP.md): what's next, and known issues
+[Building from source](https://zaydme.github.io/openaok/development/) covers
+every platform's build. Every change is checked by a headless self-check, a
+bit-exact determinism hash and over a hundred scenarios
+([Self-checks](https://zaydme.github.io/openaok/development/verification)), and
+[Contributing](https://zaydme.github.io/openaok/development/contributing) says
+how to work on the project.
 
 ## AI-assisted development
 

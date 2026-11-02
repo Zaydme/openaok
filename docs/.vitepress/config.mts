@@ -114,6 +114,7 @@ export default withMermaid(defineConfig({
             { text: 'Performance', link: '/development/performance' },
             { text: 'Optimizations', link: '/development/optimizations' },
             { text: 'Contributing', link: '/development/contributing' },
+            { text: 'Roadmap', link: '/development/roadmap' },
           ],
         },
       ],

@@ -2,15 +2,16 @@
 
 The 1999 game plays end to end: random maps, campaigns, scenarios, the scenario
 editor, saved and recorded games, multiplayer and computer players, on Windows,
-macOS, Linux, Android and the Nintendo Switch. What remains is the last of the
-editor and campaigns, the computer players' finer play, and polish.
+macOS, Linux, Android, iPhone and iPad, and the Nintendo Switch. What remains is
+the last of the editor and campaigns, the computer players' finer play, and
+polish.
 
 ## Done
 
 - **Engine**: deterministic fixed-point simulation, lockstep multiplayer, the
   headless self-check.
-- **Data**: everything read from the 1999 CD -- rules, art, sounds, music,
-  movies, text, map and AI scripts -- prepared at build time.
+- **Data**: everything read from the 1999 CD (rules, art, sounds, music,
+  movies, text, map and AI scripts), prepared at build time.
 - **World**: random maps from the original scripts, terrain blending,
   elevation, cliffs, water, fog of war; units sent to one point standing round
   it, each in a place of its own.
@@ -26,7 +27,7 @@ editor and campaigns, the computer players' finer play, and polish.
   found on the local network or joined by address, chat and ready checks;
   locked formations and Disband Formation. Beyond the original: zoom, the
   minimap's fog of war, no selection limit, populations up to 1000 and the
-  rest listed in [docs/guide/improvements.md](docs/guide/improvements.md).
+  rest listed in [Improvements on the original](/guide/improvements).
 - **Performance**: the stress scenario in the self-check, eight computer
   players on a giant map in the Imperial Age with nearly three thousand units
   and buildings, runs at about a third of a millisecond a tick on a desktop.
@@ -34,6 +35,8 @@ editor and campaigns, the computer players' finer play, and polish.
 - **Windows**: 64-bit, built with MinGW-w64 (windows/build.sh) and released
   as a folder to unzip; the data prepared from the CD on first start.
 - **Android**: touch controls, larger interface options, widescreen.
+- **iPhone and iPad**: the same touch controls, built by CI and released as an
+  IPA to sideload.
 - **Nintendo Switch**: homebrew, with the touch controls and the controller
   played as a mouse and the game's hotkeys.
 
