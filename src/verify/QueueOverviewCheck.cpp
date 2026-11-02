@@ -17,6 +17,7 @@
 #include "ecs/Simulation.h"
 #include "ecs/components/Building.h"
 #include "ecs/components/Identity.h"
+#include "ecs/components/ProductionQueue.h"
 #include "ecs/components/Selectable.h"
 #include "ecs/components/Transform.h"
 #include "rendering/Renderer.h"
@@ -66,11 +67,12 @@ void Click(ECS::Simulation& sim, Rendering::Renderer& view, const SDL_Rect& cell
 // The Town Center told to train two villagers, research Loom and train one
 // more, two Barracks each two militia: the overview shows what leads the
 // queues -- two villagers, partly done, and four militia -- then what waits
-// behind something else -- Loom and one villager. Clicking the militia
-// selects one Barracks, then
-// the other, then the first again, the view zoomed out centred on each. What
-// is done greens an icon from the left by its share. The overview shows, and
-// takes clicks, only while the Options' Production Queue is on.
+// behind something else -- Loom and one villager; a Barracks held up for want
+// of houses has its militia waiting too. Clicking the militia selects one
+// Barracks, then the other, then the first again, the view zoomed out centred
+// on each. What is done greens an icon from the left by its share. The
+// overview shows, and takes clicks, only while the Options' Production Queue
+// is on.
 bool CheckQueueOverview() {
     const char* verdict = nullptr;
     ECS::Simulation sim;
@@ -125,6 +127,19 @@ bool CheckQueueOverview() {
         } else if (!Is(entries[1], false, militia, false, 4) || !Is(entries[2], true, kLoom, true, 1) ||
                    !Is(entries[3], false, villager, true, 1)) {
             verdict = "what leads and what waits behind something else are not counted by kind, in that order";
+        }
+
+        // A Barracks held up for want of houses: its militia wait, yellowed.
+        if (verdict == nullptr) {
+            auto& held = reg.get<ECS::Components::ProductionQueue>(barracks[1]);
+            const bool was_housed = held.housed;
+            held.housed = true;
+            UI::QueueEntry stalled[UI::kMaxQueueEntries];
+            const int m = UI::QueueOverview(reg, stalled, UI::kMaxQueueEntries);
+            held.housed = was_housed;
+            if (m != 5 || !Is(stalled[1], false, militia, false, 2) || !Is(stalled[4], false, militia, true, 2)) {
+                verdict = "a queue held up for want of houses is not all waiting";
+            }
         }
 
         // Clicks on the militia being made: each Barracks in turn.

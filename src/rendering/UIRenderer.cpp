@@ -886,9 +886,11 @@ const std::vector<entt::entity>& QueueingBuildings(const entt::registry& registr
 }
 
 // How many items lead `queue`: the front one and those of its kind straight
-// behind it, being made one after another. What follows waits behind
-// something else.
+// behind it, being made one after another; none while the front waits for
+// houses. What follows waits behind something else.
 int LeadingRun(const ECS::Components::ProductionQueue& queue) {
+    // Held up for want of houses, nothing of it is being made.
+    if (queue.housed) return 0;
     int run = queue.count > 0 ? 1 : 0;
     while (run < queue.count && queue.items[run].tech == queue.items[0].tech &&
            queue.items[run].id == queue.items[0].id) {

@@ -24,7 +24,8 @@ out of the way of the original's own look and rules.
   training shows in a row of icons at the map's top left. What leads each
   queue, the item being made and those of its kind straight behind it, is
   greened from the left as far as the one being made has got; what waits
-  behind something else in its queue is yellowed. Each kind shows how many.
+  behind something else in its queue, or in a queue held up for want of
+  houses, is yellowed. Each kind shows how many.
   Clicking one selects the building making it and brings the view there;
   clicking again goes on to the next such building (Options, Production Queue,
   on by default). The game's messages move down below it.
