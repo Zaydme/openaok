@@ -963,24 +963,25 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
     {
         auto& cfg = Core::ConfigManager::Get();
         const uint32_t now = SDL_GetTicks();
-        auto holders = registry.view<ECS::Components::Identity, ECS::Components::Owner,
-                                     ECS::Components::Transform>();
-        for (auto b : holders) {
+        auto overlay = [&](entt::entity b) {
+            const auto* who = registry.try_get<ECS::Components::Owner>(b);
+            const auto* what = registry.try_get<ECS::Components::Identity>(b);
+            if (who == nullptr || what == nullptr || !registry.all_of<ECS::Components::Transform>(b)) return;
             const auto* building = registry.try_get<ECS::Components::Building>(b);
             if (building != nullptr && building->state != ECS::Components::BuildingState::Complete) {
-                continue;
+                return;
             }
             const auto* garrison = registry.try_get<ECS::Components::Garrison>(b);
             const bool occupied = garrison != nullptr && !garrison->inside.empty();
             const auto* hp = registry.try_get<ECS::Components::Health>(b);
             const bool hurt = building != nullptr && hp != nullptr && hp->max_hp > 0 &&
                               hp->current_hp < hp->max_hp;
-            if (!occupied && !hurt) continue;
-            if (!ECS::Vision::Shows(registry, Core::LocalPlayer(), b)) continue;
-            const Core::PlayerId owner = holders.get<ECS::Components::Owner>(b).player_id;
-            const int unit_id = holders.get<ECS::Components::Identity>(b).unit_id;
+            if (!occupied && !hurt) return;
+            if (!ECS::Vision::Shows(registry, Core::LocalPlayer(), b)) return;
+            const Core::PlayerId owner = who->player_id;
+            const int unit_id = what->unit_id;
             const auto* rules = ECS::Players::UnitOf(registry, owner, unit_id);
-            if (rules == nullptr) continue;
+            if (rules == nullptr) return;
             int stage = -1;
             if (hurt) {
                 const int damage = 100 - hp->current_hp * 100 / hp->max_hp;
@@ -994,7 +995,7 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
                 }
             }
             const int flags = occupied ? rules->garrison_graphic : -1;
-            if (stage < 0 && flags < 0) continue;
+            if (stage < 0 && flags < 0) return;
 
             // A building's are anchored on the building unit's own piece,
             // which in a composed building need not be the origin tile.
@@ -1026,7 +1027,7 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
             const float bx = (wx - wy) * (Core::IsometricMath::TILE_WIDTH / 2.0f) - cx;
             const float by = (wx + wy) * (Core::IsometricMath::TILE_HEIGHT / 2.0f) - cy -
                              Ground::HeightPx(grid, wx, wy);
-            if (bx < cull_min_x || bx > cull_max_x || by < cull_min_y || by > cull_max_y) continue;
+            if (bx < cull_min_x || bx > cull_max_x || by < cull_min_y || by > cull_max_y) return;
 
             auto add_flame = [&](int graphic, int ox, int oy, int phase) {
                 const auto info = cfg.GetGraphic(graphic);
@@ -1072,6 +1073,11 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
             };
             if (stage >= 0) add_composite(stage);
             if (flags >= 0) add_composite(flags);
+        };
+        // Only a building or something holding a garrison wears either.
+        for (auto b : registry.view<ECS::Components::Building>()) overlay(b);
+        for (auto b : registry.view<ECS::Components::Garrison>(entt::exclude<ECS::Components::Building>)) {
+            overlay(b);
         }
     }
 
