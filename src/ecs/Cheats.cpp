@@ -7,6 +7,7 @@
 #include "core/GameSetup.h"
 #include "ecs/Buildings.h"
 #include "ecs/Combat.h"
+#include "ecs/Diplomacy.h"
 #include "ecs/Events.h"
 #include "ecs/Navigation.h"
 #include "ecs/Players.h"
@@ -129,16 +130,12 @@ bool Apply(entt::registry& registry, Physics::Grid& grid, Core::PlayerId player,
     case kWinner: Victory::Win(registry, player); break;
     case kWimpy: Victory::Resign(registry, grid, player); break;
     case kBlackDeath: {
-        // Every player still in the game who is not on the cheater's side.
-        const Players::Player* mine = Players::Find(registry, player);
+        // Every player still in the game whom the cheater does not regard
+        // as an ally.
         for (int p = 1; p < Core::kMaxPlayers; ++p) {
             const auto other = static_cast<Core::PlayerId>(p);
             if (other == player || !Active(registry, other)) continue;
-            const Players::Player* theirs = Players::Find(registry, other);
-            if (mine != nullptr && theirs != nullptr && mine->team != 0 &&
-                mine->team == theirs->team) {
-                continue;
-            }
+            if (Diplomacy::StanceOf(registry, player, other) == Diplomacy::Stance::Ally) continue;
             Victory::Resign(registry, grid, other);
         }
         break;

@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include "ecs/Combat.h"
+#include "ecs/Diplomacy.h"
 #include "ecs/Events.h"
 #include "ecs/Players.h"
 #include "ecs/VillagerJobs.h"
@@ -27,13 +28,11 @@ Core::PlayerId OwnerOf(const entt::registry& registry, entt::entity e) {
     return owner != nullptr ? owner->player_id : Core::PLAYER_GAIA;
 }
 
-// The side's test the repair task's target diplomacy (4) makes: one's own, an
-// ally's, or Gaia's.
+// The side's test the repair task's target diplomacy (4) makes: one's own,
+// Gaia's, or a player the worker's owner regards as an ally.
 bool OwnSide(const entt::registry& registry, Core::PlayerId worker, Core::PlayerId target) {
     if (worker == target || target == Core::PLAYER_GAIA) return true;
-    const Players::Player* a = Players::Find(registry, worker);
-    const Players::Player* b = Players::Find(registry, target);
-    return a != nullptr && b != nullptr && a->team != 0 && a->team == b->team;
+    return Diplomacy::StanceOf(registry, worker, target) == Diplomacy::Stance::Ally;
 }
 
 const R::UnitRules* RepairerRules(const entt::registry& registry, Core::PlayerId player) {

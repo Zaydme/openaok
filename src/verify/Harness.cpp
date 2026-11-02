@@ -107,6 +107,7 @@ int Run(int ticks) {
     if (runs("corpsecolour")) ok &= CheckCorpseColour();
     if (runs("wondercount")) ok &= CheckWonderCount();
     if (runs("savecheats")) ok &= CheckSaveCheats();
+    if (runs("stanceside")) ok &= CheckStanceSide();
     if (runs("wolves")) ok &= CheckWolves();
     if (runs("lobby")) ok &= CheckLobby();
     if (runs("formations")) ok &= CheckFormations();

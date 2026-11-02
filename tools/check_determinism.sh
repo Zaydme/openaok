@@ -71,6 +71,7 @@ GARRISONFALL="$(echo "$OUTPUT" | grep '^garrisonfall=')"
 CORPSECOLOUR="$(echo "$OUTPUT" | grep '^corpsecolour=')"
 WONDERCOUNT="$(echo "$OUTPUT" | grep '^wondercount=')"
 SAVECHEATS="$(echo "$OUTPUT" | grep '^savecheats=')"
+STANCESIDE="$(echo "$OUTPUT" | grep '^stanceside=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -501,6 +502,12 @@ esac
 case "$SAVECHEATS" in
     savecheats=ok*) echo "savecheats OK" ;;
     *) echo "SAVECHEATS FAILED" >&2; echo "  $SAVECHEATS" >&2; STATUS=1 ;;
+esac
+
+# Repairs and black death follow the players' stances, not the lobby's teams.
+case "$STANCESIDE" in
+    stanceside=ok*) echo "stanceside OK" ;;
+    *) echo "STANCESIDE FAILED" >&2; echo "  $STANCESIDE" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

@@ -315,6 +315,9 @@ bool CheckWonderCount();
 // The cheats left on (aegis, natural wonders) come back with a saved game.
 // Prints "savecheats=".
 bool CheckSaveCheats();
+// Repairs and "black death" follow the players' stances, not the lobby's
+// teams. Prints "stanceside=".
+bool CheckStanceSide();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();
