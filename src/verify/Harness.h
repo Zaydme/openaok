@@ -318,6 +318,9 @@ bool CheckSaveCheats();
 // Repairs and "black death" follow the players' stances, not the lobby's
 // teams. Prints "stanceside=".
 bool CheckStanceSide();
+// A gate is placed only on explored ground, never over a foundation of its
+// own side. Prints "gateplace=".
+bool CheckGatePlace();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

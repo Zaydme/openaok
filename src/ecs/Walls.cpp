@@ -490,7 +490,9 @@ bool CanPlaceGate(const entt::registry& registry, const Physics::Grid& grid,
             clear = false;
         }
     });
-    return clear;
+    // Then as any building: explored, and no foundation or foe in the way.
+    return clear && Buildings::CheckAboveGround(registry, player, unit_id, tile_x, tile_y,
+                                                Buildings::Ask::Placing) == Buildings::Site::Clear;
 }
 
 void ClearForGate(entt::registry& registry, Physics::Grid& grid, Core::PlayerId player,

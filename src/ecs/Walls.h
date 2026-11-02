@@ -83,7 +83,9 @@ int GateFor(const entt::registry& registry, Core::PlayerId player, int button_un
             int tile_x, int tile_y);
 
 // Whether a gate of `unit_id` can go up at the tile: every tile of it open
-// ground it may stand on, or one of the player's own wall segments.
+// ground it may stand on, or one of the player's own wall segments; some tile
+// of it explored by the player; and no foundation of its side nor a foe's
+// unit in the way (Buildings::CheckAboveGround).
 bool CanPlaceGate(const entt::registry& registry, const Physics::Grid& grid,
                   Core::PlayerId player, int unit_id, int tile_x, int tile_y);
 

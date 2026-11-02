@@ -458,6 +458,12 @@ Site Check(const entt::registry& registry, const Physics::Grid& grid, Core::Play
         });
         if (!open) return Site::Ground;
     }
+    return CheckAboveGround(registry, player, unit_id, tile_x, tile_y, ask, self);
+}
+
+Site CheckAboveGround(const entt::registry& registry, Core::PlayerId player, int unit_id, int tile_x,
+                      int tile_y, Ask ask, entt::entity self) {
+    const int placed = PlacedUnit(unit_id);
     if (ask == Ask::Placing) {
         bool seen = false;
         ForEachFootprintTile(placed, tile_x, tile_y, [&](int x, int y) {

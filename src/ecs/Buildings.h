@@ -39,6 +39,11 @@ enum class Site : uint8_t { Clear, Ground, Unexplored, Foundation, Unit };
 enum class Ask : uint8_t { Placing, Beginning };
 Site Check(const entt::registry& registry, const Physics::Grid& grid, Core::PlayerId player,
            int unit_id, int tile_x, int tile_y, Ask ask, entt::entity self = entt::null);
+// Check's tests past the ground itself, for a building whose ground is tested
+// its own way (a gate, over its owner's wall): explored, when placing, then
+// foundations and units.
+Site CheckAboveGround(const entt::registry& registry, Core::PlayerId player, int unit_id, int tile_x,
+                      int tile_y, Ask ask, entt::entity self = entt::null);
 
 // Whether `building` holds its ground: anything finished, and a foundation
 // once worked on.
