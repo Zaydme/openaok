@@ -334,7 +334,7 @@ bool CheckScenarioVersion();
 // "unfinisheddrop=".
 bool CheckUnfinishedDrop();
 // A farmer works standing on its Farm's field, at one spot of it after
-// another. Prints "farmfield=".
+// another, gathering as it steps between them. Prints "farmfield=".
 bool CheckFarmField();
 // A fish trap run out leaves its dead unit, which a Fishing Ship builds over.
 // Prints "deadtrap=".

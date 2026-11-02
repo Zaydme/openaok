@@ -519,9 +519,10 @@ at the price of a new Farm.
   when it is finished (see [Buildings and construction](/engine/construction)).
   The villager that finishes it farms it.
 - **On the field.** A farmer works standing on the field, not beside it, as
-  in the original: it walks to a spot inside the Farm, works there until it
-  has taken a unit of food, then walks a tile or so to another spot and works
-  again, gathering nothing while it walks. Each spot is drawn from the
+  in the original: it walks to a spot inside the Farm, works there for a
+  unit of food's time, then walks a tile or so to another spot and works
+  again. It goes on gathering as it steps from spot to spot; only the walk to
+  and from the drop site stops it. Each spot is drawn from the
   farmer, the Farm and the count of spots so far (`FieldSpot`), so it is the
   same on every machine and draws on no random stream.
 - **One farmer.** A Farm takes one farmer. One sent to a Farm that someone else

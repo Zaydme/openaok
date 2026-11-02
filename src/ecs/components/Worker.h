@@ -77,10 +77,12 @@ struct Worker {
     entt::entity target_building = entt::null;
 
     // A farmer works on its Farm's field (`field_of`), at one spot of it
-    // after another: `field_spot`, the `field_step`th, a new one after each
-    // unit of food it takes. `on_field` once it has first worked there.
+    // after another: `field_spot`, the `field_step`th, a new one once it has
+    // worked a spot for a unit of food's time (`field_stint`, in units),
+    // gathering as it steps there. `on_field` once it has first worked there.
     entt::entity field_of = entt::null;
     Vector2D field_spot{};
+    Core::Fixed32 field_stint{};
     uint32_t field_step = 0;
     bool on_field = false;
 

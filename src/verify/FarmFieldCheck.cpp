@@ -15,6 +15,7 @@
 #include "ecs/Orders.h"
 #include "ecs/ScenarioWorld.h"
 #include "ecs/Simulation.h"
+#include "ecs/components/Path.h"
 #include "ecs/components/Transform.h"
 #include "ecs/components/Worker.h"
 
@@ -28,7 +29,7 @@ constexpr int kTicksPerSecond = 1000 / 16;
 
 // A farmer at a finished Farm of its player's for forty seconds: every tick
 // it works, it stands on the field, and it works at several spots of it in
-// turn.
+// turn, still gathering as it steps from one to the next.
 bool CheckFarmField() {
     const char* verdict = "ok";
     ECS::Simulation sim;
@@ -58,7 +59,8 @@ bool CheckFarmField() {
         farm == entt::null ? entt::null
                            : ECS::ScenarioWorld::Place(reg, grid, cfg.GetUnitIdByName("VMBAS"), 1,
                                                        {Core::Fixed32(fx - 2), Core::Fixed32(fy - 2)}, {}, 0);
-    int worked = 0, off = 0;
+    int worked = 0, off = 0, stepping = 0;
+    Core::Fixed32 progress{};
     std::vector<ECS::Components::Vector2D> spots;
     if (farm == entt::null || farmer == entt::null) {
         verdict = "no farm or farmer placed";
@@ -67,6 +69,13 @@ bool CheckFarmField() {
         for (int t = 0; t < 40 * kTicksPerSecond; ++t) {
             sim.Update(16);
             const auto& worker = reg.get<ECS::Components::Worker>(farmer);
+            const Core::Fixed32 was = progress;
+            progress = worker.gather_progress;
+            const auto* step = reg.try_get<ECS::Components::Path>(farmer);
+            if (worker.state == Core::UnitState::Gathering && !worker.working && step != nullptr &&
+                step->current_waypoint_index < step->waypoints.size() && progress > was) {
+                ++stepping;
+            }
             if (worker.state != Core::UnitState::Gathering || !worker.working) continue;
             ++worked;
             const auto& at = reg.get<ECS::Components::Transform>(farmer).position;
@@ -84,9 +93,11 @@ bool CheckFarmField() {
             verdict = "a farmer worked from off its field";
         } else if (spots.size() < 3) {
             verdict = "a farmer worked its field from one spot";
+        } else if (stepping == 0) {
+            verdict = "a farmer stopped gathering while it stepped to its next spot";
         }
     }
-    std::printf("farmfield=%s worked=%d off=%d spots=%zu\n", verdict, worked, off, spots.size());
+    std::printf("farmfield=%s worked=%d off=%d spots=%zu stepping=%d\n", verdict, worked, off, spots.size(), stepping);
     return std::strcmp(verdict, "ok") == 0;
 }
 

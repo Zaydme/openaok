@@ -848,16 +848,25 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                 }
                 worker.resource_at = registry.get<Components::Transform>(worker.target_resource).position;
 
+                // A farmer stepping to its next spot on the field gathers as
+                // it goes, walking.
+                const auto* step = registry.try_get<Components::Path>(entity);
+                const bool stepping = step != nullptr && step->current_waypoint_index < step->waypoints.size() &&
+                                      OnField(registry, worker.target_resource);
                 // Face what is being worked on, so an axe swings at the tree
                 // rather than wherever the villager happened to walk in from;
                 // a fishing ship turns to it an angle at a time and only then
                 // fishes. Standing at the resource and taking from it: the job
                 // animation, not the standing one.
-                worker.working = Turning::Toward(
-                    registry, entity,
-                    registry.get<Components::Transform>(worker.target_resource).position,
-                    fixed_dt_ms);
-                if (!worker.working) break;
+                if (stepping) {
+                    worker.working = false;
+                } else {
+                    worker.working = Turning::Toward(
+                        registry, entity,
+                        registry.get<Components::Transform>(worker.target_resource).position,
+                        fixed_dt_ms);
+                    if (!worker.working) break;
+                }
 
                 auto& resource = registry.get<Components::Resource>(worker.target_resource);
 
@@ -948,13 +957,20 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                     else if (worker.carried[slot] >= capacity) {
                         worker.state = Core::UnitState::Returning;
                     }
-                    // A farmer steps to another spot of the field after each
-                    // unit it takes.
-                    else if (taken > 0 && OnField(registry, worker.target_resource)) {
+                }
+                // A farmer works a spot of the field for a unit of food's
+                // time, then steps to another, gathering on the way.
+                if (worker.state == Core::UnitState::Gathering && !stepping &&
+                    OnField(registry, worker.target_resource)) {
+                    worker.field_stint = worker.field_stint +
+                        per_second * Core::Fixed32(fixed_dt_ms) / Core::Fixed32(1000);
+                    if (worker.field_stint >= Core::Fixed32(1)) {
+                        worker.field_stint = Core::Fixed32(0);
                         ++worker.field_step;
                         worker.field_spot = FieldSpot(registry, worker.target_resource, entity, worker.field_step);
-                        worker.state = Core::UnitState::Moving;
-                        worker.working = false;
+                        auto walk = Navigation::Route(registry, grid, entity, transform.position, worker.field_spot,
+                                                      entt::null, Core::Fixed32(0));
+                        if (!walk.waypoints.empty()) registry.emplace_or_replace<Components::Path>(entity, std::move(walk));
                     }
                 }
                 break;
