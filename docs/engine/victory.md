@@ -31,9 +31,12 @@ struct Outcome {
     bool over = false;
     uint16_t defeated = 0;   // a bit per seat
     uint16_t winners = 0;
-    // A Wonder or the relics counting down: whose, and what is left.
-    Core::PlayerId wonder_holder = 0;
-    int32_t wonder_ms = 0;
+    // Each seat's Wonder counting down, from when its first finished Wonder
+    // stood: a bit per seat counting, and what each has left.
+    uint16_t wonders = 0;
+    int32_t wonder_ms[Core::kMaxPlayers] = {};
+    // The relics counting down for the side holding them all: which of its
+    // players, and what is left.
     Core::PlayerId relic_holder = 0;
     int32_t relic_ms = 0;
     // ...
@@ -104,51 +107,51 @@ countdown is in years of game time, three seconds each (`kYearMs`), for
 `GameSetup::wonder_years` and `relic_years` years: 200 unless the setup says
 otherwise, which is ten minutes of game time.
 
-Every tick `WonderHolder` looks for a finished, living Wonder whose owner is a
-player still in the game, and `RelicHolder` for a side whose Monasteries hold
-as many relics as there are relics in the world (and at least one). Each
-holder found is handed to the same countdown:
+Every player has a Wonder countdown of its own. Every tick `CountWonders`
+finds the players with a finished, living Wonder who are still in the game:
+one that has just begun to hold one starts its count at the full number of
+years, one still holding counts on, and one that holds none any more has its
+count cleared. Two players' Wonders count side by side, and the first to run
+out wins:
 
 ```cpp
-// Counts down a Wonder or the relics: started when someone takes it, reset
-// when it changes hands or is lost. True once it has run out.
-bool CountDown(Core::PlayerId holder, Core::PlayerId& counted, int32_t& left, int years, int32_t dt) {
-    if (holder == 0) {
-        counted = 0;
-        left = 0;
-        return false;
-    }
-    if (holder != counted) {
-        counted = holder;
-        left = years * kYearMs;
-    }
-    left -= dt;
-    return left <= 0;
-}
+        if (!o.CountingWonder(seat)) {
+            o.wonders |= static_cast<uint16_t>(1u << p);
+            o.wonder_ms[p] = state.setup.wonder_years * kYearMs;
+        }
+        o.wonder_ms[p] -= dt;
+        if (o.wonder_ms[p] <= 0 && (first == 0 || o.wonder_ms[p] < o.wonder_ms[first])) first = seat;
 ```
 
 ```mermaid
 flowchart TD
-    tick["Victory::Update, each tick of a standard game"] --> find["WonderHolder: the owner of a finished,<br/>living Wonder, not Gaia, not defeated"]
-    find --> any{"Anyone?"}
-    any -->|no| clear["Countdown cleared:<br/>no holder, nothing left"]
-    any -->|yes| same{"The holder<br/>already counted?"}
-    same -->|no| start["Holder taken;<br/>left = years × 3000 ms"]
-    same -->|yes| take["left = left − 16 ms"]
+    tick["Victory::Update, each tick of a standard game"] --> seat["For each seat"]
+    seat --> holds{"A finished, living Wonder,<br/>the seat still in the game?"}
+    holds -->|no| clear["Its count cleared"]
+    holds -->|yes| counting{"Already counting?"}
+    counting -->|no| start["left = years × 3000 ms"]
+    counting -->|yes| take["left = left − 16 ms"]
     start --> take
     take --> out{"left ≤ 0?"}
-    out -->|no| next["Next tick"]
+    out -->|no| next["Next seat"]
     clear --> next
-    out -->|yes| win["Win: the holder's side wins,<br/>every other player still in is defeated"]
+    out -->|yes| win["The seat that ran out first:<br/>its side wins, every other player still in is defeated"]
 ```
 
-A Wonder that is destroyed, or whose owner is defeated, stops its countdown;
-a new holder starts it again from the full number of years. The relics run
-the same way, with their own holder and time left.
+A Wonder that is destroyed, or whose owner is defeated, stops its owner's
+countdown, unless the owner has another standing; a Wonder finished after
+that starts again from the full number of years.
 
-The interface shows each countdown at the top right of the view, in the
-holder's colour and in whole years rounded up
-(`UIRenderer::DrawTimePanels`), marks the holder in the score list, and posts
+`RelicHolder` looks for a side whose Monasteries hold as many relics as there
+are relics in the world (and at least one), and the relics have one countdown,
+for that side (`CountRelics`). It starts when a side takes them all and starts
+again when another side does, or when they are lost; passed from one player's
+Monastery to an ally's, the count goes on.
+
+The interface shows each countdown at the top right of the view, every
+player's Wonder nearest to winning first and then the relics, in the holder's
+colour and in whole years rounded up (`UIRenderer::DrawTimePanels`), marks the
+holders in the score list, and posts
 a message when the relics change hands. As soon as anyone starts work on a
 Wonder's site, the tiles under it are explored for every player
 (`Victory::Begun`), so everyone can see where it is going up.
@@ -386,7 +389,7 @@ machine.
 | `aegis` | Buildings go up, villagers fill their loads and buildings finish what they make, at once; again to undo |
 | `natural wonders` | Nature's animals take the player's orders; again to undo |
 | `i r winner` | The player's side wins (`Victory::Win`) |
-| `black death` | Every other player not on the player's lobby team resigns, everything it has destroyed |
+| `black death` | Every other player the player does not regard as an ally resigns, everything it has destroyed |
 | `wimpywimpywimpy` | The player resigns |
 | `torpedo1` to `torpedo8` | That player resigns |
 | `how do you turn this on` | A Cobra car (the dat's `COBRA`) at the player's first Town Center |
@@ -394,6 +397,9 @@ machine.
 
 Each code carried out is logged as a `Cheat` event. The two gifts step out of
 the player's first Town Center, or beside its first building if it has none.
+The codes that stay on until typed again, `aegis` and `natural wonders`, are a
+bit per player in `Cheats::Toggles`, in the registry's context, which a saved
+game carries and the network digest covers.
 
 ## The score
 

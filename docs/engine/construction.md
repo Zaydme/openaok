@@ -426,7 +426,10 @@ has the Gate button turn to the wall under the cursor (`Walls::GateFor`): of
 the dat's gate buttons of the same grade, the one whose line from post to post
 covers most of the player's walls within two tiles either side of the tile.
 `Walls::CanPlaceGate` wants every tile of it buildable and either open or one
-of the player's own wall segments; `Walls::ClearForGate` takes those segments
+of the player's own wall segments, and then makes the rest of a building's
+tests (`Buildings::CheckAboveGround`): some tile of it explored, no foundation
+of its side overlapping it, and no foe's unit on it. `Walls::ClearForGate`
+takes those segments
 down, leaving no rubble, and the gate's foundation takes their place.
 
 Finished, a gate's arch (the gate unit's own size about its middle, two tiles
@@ -454,7 +457,8 @@ and they turn to repairing if it says yes. A villager may mend something that:
   any building-type object (buildings, and the trebuchet, which the dat makes
   one); others name the ship classes; no other siege weapon is named, so a ram
   is never mended;
-- is its own side's (its own, a team-mate's) or Gaia's;
+- is its own, Gaia's, or a player's the repairer's owner regards as an ally
+  (the stance in play, not the lobby's team);
 - is finished, alive and short of hit points.
 
 The pace is the repairer's work rate from the dat, 12.5 hit points a second,

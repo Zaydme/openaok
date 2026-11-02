@@ -84,6 +84,7 @@ the gate reads. The names below are those the gate prints.
 | `movement` | Every unit given an order reaches it |
 | `planner` | Standing spots spread along a building's sides |
 | `gathering` | A villager's round trip to a resource and a drop site; farms |
+| `farmorder` | A Farm is worked once built and only by its owner; a right-click on another player's strikes it |
 | `dropoff` | A villager sent to drop off: its whole load, part units included, and then it stands; only at its own finished building that takes it; the load banked on going into the Town Center, not a tower |
 | `felling` | A lumberjack's felling stroke with no wood cut, then the tree lying as its felled graphic, then wood cut from it |
 | `herding`, `crowd`, `spread` | Villagers sent at a sheep kill it, take its food and bring it home, walking no further than they must; a crowd at one sheep works side by side, the rest standing by; villagers sent together to a point stand about it side by side |
@@ -95,6 +96,7 @@ the gate reads. The names below are those the gate prints.
 | `fog` | What a player keeps of what it does not see: no building drawn that it never saw; a picture of one gone out of sight, its alone, kept after the building is destroyed until its ground is seen; a picture of a mine used up unseen; ground laid unseen remembered as it was |
 | `notices` | The news the interface notifies the player of: a sheep claimed, a farm run out, a Wonder begun and seen by every player, production halted, research finished, a building site found taken, a relic picked up |
 | `building` | A crew raising a Town Center; demolition |
+| `backtowork` | A builder that fought off a wolf goes back to its site, not to the bush it gathered before; a repairer the bell called in goes back to mending |
 | `production` | Prices, refusals, births beside the building, the population cap, cancelling, rally points |
 | `queuesplit`, `queueoverview` | Units ordered at several selected buildings shared out among the finished ones; the production overview listing what is made, then what waits, by kind, a click going round the buildings making an entry |
 | `techs` | Civilisation bonuses and tech trees, ages, research, upgrades in place |
@@ -106,6 +108,7 @@ the gate reads. The names below are those the gate prints.
 | `setoff`, `crowdgoal`, `sharedwalk`, `replanspread` | A hundred soldiers set on one enemy all have routes the tick after the order and all reach it; a route into a crowd goes straight in; a hundred sent to one place in one tick share their routes; an army's chases plan again over several ticks, not all in one |
 | `vision` | Fog per player, explored ground, buildings remembered in the fog |
 | `garrison` | Entering and leaving, refusals, garrison arrows, healing, the town bell; the count inside told for our own only |
+| `garrisonfall` | A walled-in tower destroyed: its garrison stands on the ground the tower held |
 | `animals`, `duties`, `monks` | Herding, fleeing, grazing; patrol, follow, guard; conversion, facing whom they convert, healing, relics |
 | `maps` | Islands, continents, beaches, cliffs and fish across several map scripts |
 | `connections` | A map script's connections: on Black Forest and Rivers, every start reaches every other by land, Town Centers stepped over |
@@ -127,17 +130,24 @@ the gate reads. The names below are those the gate prints.
 | `pages`, `smalltextures`, `halve` | Many graphics' art shares a page or two, a villager drawn from its page its SLP frame in its player's colours; graphics too tall for a small renderer's textures still draw; halved chunks of ground meet with no gap |
 | `terraincell` | A tile draws its terrain's own pattern cell for its place, and draws the new terrain's cell once its terrain changes |
 | `minimapdead`, `marks`, `outline`, `cursor`, `fogedge` | A soldier struck down leaves the minimap as it falls; a selected thing's outline and hit point bar show zoomed far out; a trebuchet's silhouette shows behind a Castle, not in the open; the pointer over a mine's foot shows a villager's hand zoomed out; black covers the map's unexplored edge, zoomed out |
+| `corpsecolour` | A converted unit's body lies in its new owner's colour |
+| `idlemilitary` | The idle military button never finds a soldier on guard, patrol or follow |
 | `net` | A host and a client in lockstep over loopback, and a desync caught; a client of another version put out of a direct game with the lobby's message |
 | `options` | The Options that change play: Scroll Speed's pace at its slowest, middle and fastest; no taunt sound with Allow Audio Taunts off; with one mouse button a left click over open ground orders a selected villager there |
 | `lobby` | The multiplayer lobby over loopback: the game found, joined, rows, ready checks and chat, a refused start, the game started from the table |
 | `victory`, `modes` | Conquest, Wonders, relics; Regicide, Death Match, starting options |
+| `wondercount` | Two players' Wonders count side by side and the first finished wins at its time; the relics' count goes on when they pass to an ally |
 | `trade`, `tribute`, `market` | Trade routes and their pay; tribute and its fee; market prices |
 | `diplomacy`, `chat`, `cheats` | Stances, teams and shared sight, a stance told only when it changes; chat and flares; the cheat codes |
 | `score`, `save`, `recording` | Each scoring element's figure as its event happens, the Achievements' statistics; a saved game loaded into a fresh world runs on as the one that never stopped, a damaged save refused; a recorded game played back is the game recorded at every digest it noted |
+| `savecheats` | The cheats left on, aegis and natural wonders, come back with a saved game, for their players only |
 | `repair`, `packing`, `converted` | Repairing; siege engines packing, their icons from the units' sheet, placed as units from a scenario; converted units keeping their maker's rules |
+| `stanceside` | Repairs and the black death cheat follow the stances in play: an ally's House mended, an enemy's not; black death spares an ally |
 | `formations` | Locked formations: kept wherever one of the group is sent, lit on the panel, Disband Formation, another formation for some, a member lost |
 | `walls`, `waypoints` | Walls, gates going up as their site units, and locking; queued waypoints |
+| `gateplace` | A gate is placed as any building: refused on ground never explored and over a foundation of its own |
 | `scenario`, `editor` | Every scenario on the CD read; triggers; saving and loading; the scenario editor's edits, Map Copy, garrisons and personalities, its view zooming about a point; campaign files written |
+| `scenarioversion` | A scenario read at an older version is written again labelled 1.18, player data 1.20 and triggers 1.6, and reads back so |
 
 ## The golden hash
 

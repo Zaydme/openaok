@@ -29,7 +29,8 @@ scenario of a campaign file. The reader knows the layouts of versions 1.14 to
 1.22 and refuses others, and it refuses a file with bytes left over at the
 end, so every file it accepts has been read to its last byte. The writer lays
 a file out as version 1.18, with player data 1.20 and triggers 1.6, the
-version of every scenario on the CD.
+version of every scenario on the CD, and labels it so; a file read at an
+older version is written, and labelled, at this one.
 
 The result is a `Scenario::File`:
 
@@ -537,13 +538,13 @@ differently refuses the save rather than misread it.
 
 | Part | Holds |
 |---|---|
-| Magic, version | `AOKCSAVE`, then the format's version (`kVersion`, 9) |
+| Magic, version | `AOKCSAVE`, then the format's version (`kVersion`, 10) |
 | Fingerprint | A hash of the sizes of the components and tables written raw |
 | Lobby | The `GameSetup` the game was started from, in the network's encoding (`net/Wire`) |
 | Tick | The ticks run |
 | Player starts | Where each player starts on the map |
 | Entities | Every entity with its id and version, then each component pool in its own order (EnTT's snapshot) |
-| Context | The random streams; the formation groups; each player's resources, unit rules, art and technology statuses, and the population limit; the victory state; sight and the explored ground; the computer players' state; the Market's prices; diplomacy; chat; flares; the fog's memory; the score table; the histories; the event log; a scenario's triggers and display log |
+| Context | The random streams; the formation groups; each player's resources, unit rules, art and technology statuses, and the population limit; the victory state; the cheats left on; sight and the explored ground; the computer players' state; the Market's prices; diplomacy; chat; flares; the fog's memory; the score table; the histories; the event log; a scenario's triggers and display log |
 | Grid | Every tile |
 | Digest | The world's digest, which the restored world must match |
 

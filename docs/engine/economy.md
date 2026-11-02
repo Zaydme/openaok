@@ -151,7 +151,10 @@ dat counts a tree as hunted too, since it is felled before it is cut. When no
 task names the target, the job follows the resource it holds.
 
 The gather order (`Orders::GatherFrom`) sets the job at once, so a villager
-sent to a tree walks out as a lumberjack. From then on everything about its
+sent to a tree walks out as a lumberjack. A Farm or a fish trap is worked
+only once it stands and only by its owner: an order at one still a
+foundation, or at another player's, is refused, and a right-click on another
+player's Farm strikes it, as the cursor there shows. From then on everything about its
 gathering comes from that job's unit in its owner's copy of the rules
 (`GathererRules` in the worker system): its gather rate (the dat's work rate,
 in units a second), its carry capacity, the work range it gathers from and the

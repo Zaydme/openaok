@@ -257,9 +257,11 @@ trades, and anything else walks there (see
 
 A villager struck by a wolf fights it off, and one struck by another player's
 unit runs (see [answering an attack](/engine/combat#answering-an-attack)).
-Either way it keeps its job: `Orders::Interrupt` notes the resource and the
-site it was working in an `Interrupted` component before dropping the job. At
-the end of each combat pass, every villager with an `Interrupted` that is no
+Either way it keeps its job: `Orders::Interrupt` notes what it was working
+in an `Interrupted` component before dropping the job, the building for a
+builder or a repairer and the resource for anyone else. A repairer struck
+keeps mending, so in practice the building kept is a builder's site. At the
+end of each combat pass, every villager with an `Interrupted` that is no
 longer fighting and has no walk left goes back:
 
 ```cpp
@@ -268,19 +270,23 @@ void GoBackToWork(entt::registry& registry, const Physics::Grid& grid, entt::ent
     (void)grid;
     if (!registry.valid(unit) || !registry.all_of<Components::Worker>(unit)) return;
     if (GatherFrom(registry, unit, resource)) return;
-    if (registry.valid(site) && registry.all_of<Components::Building>(site) &&
-        registry.get<Components::Building>(site).state ==
-            Components::BuildingState::UnderConstruction) {
+    if (!registry.valid(site) || !registry.all_of<Components::Building>(site)) return;
+    if (registry.get<Components::Building>(site).state == Components::BuildingState::UnderConstruction) {
         PutToWork(registry, unit, site);
+    } else if (Repairs::CanRepair(registry, unit, site)) {
+        Mend(registry, unit, site);
     }
 }
 ```
 
-It gathers the resource if that is still there, or builds the site if that is
-still going up; with both gone it stands. The town bell uses the same call: a
-villager the bell sent for cover remembers its job in its `Boarding` and
-`Garrisoned` components, and goes back to it when the bell is rung again or
-the Back to Work button turns the villagers out (see
+It gathers the resource if that is still there, builds the site if that is
+still going up, or mends the building if it still needs it; otherwise it
+stands. Setting a villager to build or mend forgets the resource it worked
+before, so a builder never wanders back to an old tree. The town bell uses the
+same call: a villager the bell sent for cover remembers its job in its
+`Boarding` and `Garrisoned` components, its building if it was building or
+mending, and goes back to it when the bell is rung again or the Back to Work
+button turns the villagers out (see
 [the town bell](/engine/war#garrisons-and-the-town-bell)). Any order given
 meanwhile drops the kept job, since the player has decided what comes next.
 
@@ -290,7 +296,9 @@ An idle worker is one in the `Idle` state with no walk to finish. It does
 nothing of its own accord: the gatherer's search for the next resource runs
 only when the one it was on runs out, never from standing. The interface's
 idle villager button picks out the player's idle workers in turn, in entity
-order, starting after the one it found last.
+order, starting after the one it found last. Its idle military button does
+the same for the player's soldiers that stand with no target, nowhere to go
+and no standing order (patrol, guard or follow).
 
 An idle soldier is one whose combat is idle, with no target and nowhere to
 go. It is not still: every half a second or so it looks about it for an enemy,
@@ -408,7 +416,9 @@ played by:
 
 - **A body.** A still sprite of the dead unit's standing graphic, facing the
   way the unit fell, that lies for the dead unit's corpse decay time (a figure
-  the dat stores among its resources) and is then gone.
+  the dat stores among its resources) and is then gone. It lies in its owner's
+  colour: a converted unit's body is its new owner's, though its dead unit is
+  its maker's.
 - **A carcass.** An animal with food left keeps it: the carcass takes the
   animal's `Resource`, the dead unit's `Identity` and a `Selectable`, so it
   can be clicked and gathered. It loses food at the animal's decay rate each

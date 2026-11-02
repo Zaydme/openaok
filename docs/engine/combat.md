@@ -392,14 +392,16 @@ says who may go where, from both sides: the unit's garrison task names the
 building's class, and the building's garrison type and capacity say which kinds
 it takes (villagers, foot soldiers, cavalry, monks) and how many. Inside, units
 heal at the building's own garrison heal rate and add to its arrows; turned
-out, or when the building falls, they step out at the door.
+out, or when the building falls, they step out at the door. When it falls,
+anyone with no room at the door stands on the ground the building held.
 
 **The town bell** is the Town Center's (`Garrisons::RingBell`; a building has a
 bell when its owner's villagers are trained there). Rung, every villager of its
 owner within 25 tiles of it (`kBellReach`) runs to the nearest finished
 building of its owner that takes villagers and has room, within 25 tiles of
 both the bell and itself; those nearest a shelter go first, so each building
-fills with those closest to it. Each remembers the job it left. Rung again,
+fills with those closest to it. Each remembers the job it left: the building
+for one building or mending, the resource for anyone else. Rung again,
 the shelters in its reach that hold anyone it sent are emptied, those still
 running turn round, and the bell's villagers go back to what they were doing.
 

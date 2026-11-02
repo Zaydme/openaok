@@ -138,7 +138,9 @@ Units come out at the door (`Buildings::Doorstep`):
 - **Back to Work** turns out only the villagers, each one the bell sent back
   to the job it left; the rest stay in.
 - **The building falls, or is converted**: everyone is turned out. The units
-  inside are not converted with it.
+  inside are not converted with it. A building that falls has already given
+  up its ground, so anyone with no room at the door stands on the ground it
+  held.
 
 **The town bell** is rung at a Town Center (`TownBellCommand`). Every villager
 of its owner within 25 tiles runs to the nearest shelter that takes villagers
