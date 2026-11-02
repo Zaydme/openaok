@@ -10,7 +10,7 @@
 //
 // The game's scenarios -- GOODIES/DEMO.SCN and the 31 inside the five
 // campaign files -- are version "1.18" with player data 1.20 and triggers
-// 1.6, and each is read here to its last byte. docs/DATA.md has the byte
+// 1.6, and each is read here to its last byte. docs/engine/data.md has the byte
 // layout.
 //
 // A file is a short plain header -- the version, the instructions, how many

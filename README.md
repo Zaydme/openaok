@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/logo.png" width="680" alt="OpenAoK">
+  <img src="docs/public/images/logo.png" width="680" alt="OpenAoK">
 </p>
 
 <p align="center">
@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/phone-town.png" width="820" alt="OpenAoK running on an Android phone">
+  <img src="docs/public/images/phone-town.png" width="820" alt="OpenAoK running on an Android phone">
 </p>
 
 ## Why
@@ -37,28 +37,28 @@ iPads, and the Nintendo Switch.
 
 <table>
   <tr>
-    <td><img src="docs/images/economy.jpg" alt="A computer player's town after fifteen minutes"></td>
-    <td><img src="docs/images/battle.jpg" alt="Two armies meeting"></td>
+    <td><img src="docs/public/images/economy.jpg" alt="A computer player's town after fifteen minutes"></td>
+    <td><img src="docs/public/images/battle.jpg" alt="Two armies meeting"></td>
   </tr>
   <tr>
-    <td><img src="docs/images/town.jpg" alt="The bonus scenario"></td>
-    <td><img src="docs/images/tech-tree.jpg" alt="The technology tree"></td>
+    <td><img src="docs/public/images/town.jpg" alt="The bonus scenario"></td>
+    <td><img src="docs/public/images/tech-tree.jpg" alt="The technology tree"></td>
   </tr>
   <tr>
-    <td><img src="docs/images/campaign.jpg" alt="The William Wallace campaign map"></td>
-    <td><img src="docs/images/achievements.jpg" alt="The Achievements timeline"></td>
+    <td><img src="docs/public/images/campaign.jpg" alt="The William Wallace campaign map"></td>
+    <td><img src="docs/public/images/achievements.jpg" alt="The Achievements timeline"></td>
   </tr>
 </table>
 
 ### On a phone
 
 <p align="center">
-  <img src="docs/images/phone-build.png" width="49%" alt="Building on a phone, with the larger interface">
-  <img src="docs/images/phone-start.png" width="49%" alt="A new random map game on a phone">
+  <img src="docs/public/images/phone-build.png" width="49%" alt="Building on a phone, with the larger interface">
+  <img src="docs/public/images/phone-start.png" width="49%" alt="A new random map game on a phone">
 </p>
 
 <p align="center">
-  <img src="docs/images/iphone-game.png" width="820" alt="OpenAoK running on an iPhone">
+  <img src="docs/public/images/iphone-game.png" width="820" alt="OpenAoK running on an iPhone">
 </p>
 
 On a touch screen the game is played as with a mouse, and the controls are
@@ -70,7 +70,7 @@ Panel Size, Text Size), and in widescreen the interface reaches the screen's
 edges.
 
 <p align="center">
-  <img src="docs/images/switch-controls.svg" width="900" alt="The Switch's controls: the left stick moves the pointer, the right stick scrolls the map and with ZL held zooms, A and B are the left and right mouse buttons, plus is the game menu, minus is chat, and the other buttons are the game's hotkeys">
+  <img src="docs/public/images/switch-controls.svg" width="900" alt="The Switch's controls: the left stick moves the pointer, the right stick scrolls the map and with ZL held zooms, A and B are the left and right mouse buttons, plus is the game menu, minus is chat, and the other buttons are the game's hotkeys">
 </p>
 
 ## What works
@@ -112,7 +112,7 @@ terrain, interface art, sounds, map scripts and AI scripts. The rule tables in
 the dat and LANGUAGE.DLL are converted to JSON once, at build time, by the tools
 in `tools/data`. The movies are decoded by the engine's own Indeo 5 decoder.
 
-More in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+More in [docs/engine/index.md](docs/engine/index.md).
 
 ## Getting the game files
 
@@ -295,7 +295,7 @@ editor, as do `=` and `-`. The original's
 wheel hotkeys (the Town Center, the next idle villager) are on Ctrl and the
 wheel. Everything OpenAoK adds to the original, zoom, the minimap's fog of
 war, no selection limit, populations up to 1000 and the rest, is listed in
-[docs/IMPROVEMENTS.md](docs/IMPROVEMENTS.md).
+[docs/guide/improvements.md](docs/guide/improvements.md).
 
 ## Checking changes
 
@@ -306,14 +306,19 @@ bash tools/check_determinism.sh
 runs the headless self-check: a bit-exact determinism hash and dozens of
 scenarios covering movement, economy, combat, the computer players, networking,
 water, trade, diplomacy, scenarios and the editor. See
-[docs/VERIFY.md](docs/VERIFY.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
+[docs/development/verification.md](docs/development/verification.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Documentation
 
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): how the engine is put together
-- [docs/DATA.md](docs/DATA.md): the game files it reads, and how they are prepared
-- [docs/VERIFY.md](docs/VERIFY.md): the self-check
-- [docs/MULTIPLAYER.md](docs/MULTIPLAYER.md): lockstep networking
+**[zaydme.github.io/openaok](https://zaydme.github.io/openaok/)**: the guides
+for every platform, and how the engine works, from the CD's file formats and
+the fixed-point simulation to the renderer and the computer players. Its pages
+are the Markdown in [docs/](docs/):
+
+- [docs/engine/index.md](docs/engine/index.md): how the engine is put together
+- [docs/engine/data.md](docs/engine/data.md): the game files it reads, and how they are prepared
+- [docs/development/verification.md](docs/development/verification.md): the self-check
+- [docs/engine/multiplayer.md](docs/engine/multiplayer.md): lockstep networking
 - [android/README.md](android/README.md): the Android build and touch controls
 - [ios/README.md](ios/README.md): the iPhone and iPad build, data and simulator
 - [switch/README.md](switch/README.md): the Switch build, the SD card and the controller

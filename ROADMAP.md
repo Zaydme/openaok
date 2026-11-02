@@ -26,7 +26,7 @@ editor and campaigns, the computer players' finer play, and polish.
   found on the local network or joined by address, chat and ready checks;
   locked formations and Disband Formation. Beyond the original: zoom, the
   minimap's fog of war, no selection limit, populations up to 1000 and the
-  rest listed in [docs/IMPROVEMENTS.md](docs/IMPROVEMENTS.md).
+  rest listed in [docs/guide/improvements.md](docs/guide/improvements.md).
 - **Performance**: the stress scenario in the self-check, eight computer
   players on a giant map in the Imperial Age with nearly three thousand units
   and buildings, runs at about a third of a millisecond a tick on a desktop.

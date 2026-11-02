@@ -40,7 +40,7 @@ Nothing outside the simulation writes to it.
 
 Run `bash tools/check_determinism.sh` before and after a change. New behaviour
 comes with a check, and the check is seen to fail once with the bug it guards
-against (see [docs/VERIFY.md](docs/VERIFY.md)).
+against (see [docs/development/verification.md](docs/development/verification.md)).
 
 ## Comments
 

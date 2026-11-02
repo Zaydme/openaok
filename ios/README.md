@@ -15,7 +15,7 @@ Android builds use, the touch controls with one part of their own on iOS (see
 How it is built).
 
 <p align="center">
-  <img src="../docs/images/iphone-game.png" width="820" alt="OpenAoK running on an iPhone">
+  <img src="../docs/public/images/iphone-game.png" width="820" alt="OpenAoK running on an iPhone">
 </p>
 
 ## What you need

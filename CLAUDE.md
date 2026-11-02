@@ -3,7 +3,7 @@
 A from-scratch C++20 / SDL 2 engine for *Age of Empires II: The Age of Kings*
 (1999) that plays from the user's own copy of the CD. Gameplay and looks must
 match the original; the code underneath is our own. Read
-`docs/ARCHITECTURE.md` for the module map and `docs/DATA.md` for the data.
+`docs/engine/index.md` for the module map and `docs/engine/data.md` for the data.
 
 ## Build, run, check
 

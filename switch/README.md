@@ -85,7 +85,7 @@ prints goes to `switch/openaok/openaok.log`.
 ## Controls
 
 <p align="center">
-  <img src="../docs/images/switch-controls.svg" width="900" alt="The Switch's controls, as the tables below list them">
+  <img src="../docs/public/images/switch-controls.svg" width="900" alt="The Switch's controls, as the tables below list them">
 </p>
 
 In handheld mode the touch screen plays as on a phone:
