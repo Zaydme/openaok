@@ -1,6 +1,7 @@
 #pragma once
 #include <algorithm>
 #include <cstdint>
+#include <cstdlib>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -46,6 +47,22 @@ public:
             const std::string name = it.value().value("name", std::string{});
             if (!name.empty()) graphic_by_name.emplace(name, it.key());
         }
+        // Each graphic's figures by id, so GetGraphic, which the renderer asks
+        // every frame, is an index.
+        graphic_info.clear();
+        for (auto it = graphics_json.begin(); it != graphics_json.end(); ++it) {
+            const std::string& key = it.key();
+            char* end = nullptr;
+            const long id = std::strtol(key.c_str(), &end, 10);
+            if (end == key.c_str() || *end != '\0' || id < 0 || std::to_string(id) != key) continue;
+            if (static_cast<size_t>(id) >= graphic_info.size()) graphic_info.resize(static_cast<size_t>(id) + 1);
+            GraphicInfo& info = graphic_info[static_cast<size_t>(id)];
+            info.graphic_id = static_cast<int>(id);
+            info.slp_id = it->value("slp_id", -1);
+            info.frame_count = it->value("frame_count", 0);
+            info.angle_count = it->value("angle_count", 0);
+            info.layer = it->value("layer", 0);
+        }
 
         std::cout << "[ConfigManager] Loaded authentic dat files: "
                   << units_json.size() << " units, "
@@ -66,16 +83,8 @@ public:
     };
 
     GraphicInfo GetGraphic(int graphic_id) const {
-        GraphicInfo info;
-        if (graphic_id < 0) return info;
-        auto it = graphics_json.find(std::to_string(graphic_id));
-        if (it == graphics_json.end()) return info;
-        info.graphic_id = graphic_id;
-        info.slp_id = it->value("slp_id", -1);
-        info.frame_count = it->value("frame_count", 0);
-        info.angle_count = it->value("angle_count", 0);
-        info.layer = it->value("layer", 0);
-        return info;
+        if (graphic_id < 0 || static_cast<size_t>(graphic_id) >= graphic_info.size()) return GraphicInfo{};
+        return graphic_info[static_cast<size_t>(graphic_id)];
     }
 
     // Look a graphic up by its dat name, e.g. "RTWC1NNG" for the Dark Age
@@ -1046,6 +1055,8 @@ public:
     std::unordered_map<std::string, std::string> graphic_by_name;
     nlohmann::json units_json;
     nlohmann::json graphics_json;
+    // graphics_json's figures by graphic id; ids it lacks are invalid.
+    std::vector<GraphicInfo> graphic_info;
 };
 
 } // namespace Core
