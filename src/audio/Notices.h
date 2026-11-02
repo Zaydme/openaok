@@ -41,5 +41,8 @@ void HearMessages(const entt::registry& registry, Core::PlayerId listener);
 
 // The taunt file for a number from 1 to 30; empty when there is none.
 std::string TauntFile(int taunt);
+// Whether a chat line's taunt plays its sound: unless the Options' Allow
+// Audio Taunts is off.
+bool PlaysTaunt(int taunt);
 
 } // namespace Audio::Notices

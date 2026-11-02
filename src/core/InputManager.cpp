@@ -421,6 +421,31 @@ void InputManager::GoToBuilding(ECS::Simulation& sim, Rendering::Renderer& rende
     LookAt(renderer, at.x.ToFloat(), at.y.ToFloat());
 }
 
+float InputManager::PanPerSecond(int scroll_speed) {
+    const int speed = std::clamp(scroll_speed, 0, 10);
+    return kPanPerSecond * std::pow(2.0f, static_cast<float>(speed - kMiddleScrollSpeed) / kStepsToDouble);
+}
+
+bool InputManager::LeftClickOrders(ECS::Simulation& sim, const Rendering::Renderer& renderer, int mx,
+                                   int my) const {
+    auto& registry = sim.GetRegistry();
+    bool commanding = false;
+    auto picked = registry.view<ECS::Components::Selectable, ECS::Components::Owner>();
+    for (auto e : picked) {
+        if (picked.get<ECS::Components::Selectable>(e).is_selected &&
+            picked.get<ECS::Components::Owner>(e).player_id == Core::LocalPlayer()) {
+            commanding = true;
+            break;
+        }
+    }
+    if (!commanding) return false;
+    // The cursor shows an order, or the pointer is over open ground.
+    if (intent != Intent::None) return true;
+    const float zoom = renderer.camera_zoom > 0.0f ? renderer.camera_zoom : 1.0f;
+    return Rendering::EntityRenderer::PickAt(registry, static_cast<float>(mx) / zoom,
+                                             static_cast<float>(my) / zoom) == entt::null;
+}
+
 void InputManager::GoToQueued(ECS::Simulation& sim, Rendering::Renderer& renderer,
                               const Rendering::UIRenderer::QueueEntry& entry) {
     auto& registry = sim.GetRegistry();
@@ -1007,7 +1032,8 @@ void InputManager::Update(Rendering::Renderer& renderer, float dt_seconds, int w
     
     // Pan speed is in screen pixels per second, so panning feels the same at
     // any zoom; dividing by zoom converts it to world units.
-    const float pan_speed = 800.0f * dt_seconds / renderer.target_camera_zoom;
+    const float pan_speed = PanPerSecond(Core::Profile::Current().scroll_speed) * dt_seconds /
+                            renderer.target_camera_zoom;
     float cx = renderer.target_camera_x;
     float cy = renderer.target_camera_y;
 
@@ -1554,6 +1580,16 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
                 }
                 if (ordered) Audio::Voices::Placed(registry, building_to_place, Core::LocalPlayer());
                 placing_building = false;
+                return;
+            }
+
+            // With one mouse button (Options, Two-Button Mouse Interface
+            // off), a left click both selects and orders: it gives the order
+            // a right click would wherever there is one.
+            if (!Core::Profile::Current().two_button_mouse && LeftClickOrders(sim, renderer, mx, my)) {
+                SDL_Event as_right = event;
+                as_right.button.button = SDL_BUTTON_RIGHT;
+                ProcessEvent(as_right, sim, renderer);
                 return;
             }
 

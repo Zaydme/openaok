@@ -34,6 +34,15 @@ public:
         return out.w > 2 && out.h > 2;
     }
     void Update(Rendering::Renderer& renderer, float dt_seconds, int win_w, int win_h);
+
+    // How fast the arrow keys, the screen's edges and the stick scroll the
+    // map, in screen pixels a second, at the Options' Scroll Speed (0 slow
+    // to 10 fast): kPanPerSecond at the middle setting, doubled every
+    // kStepsToDouble steps faster and halved every as many slower.
+    static constexpr float kPanPerSecond = 800.0f;
+    static constexpr int kMiddleScrollSpeed = 5;
+    static constexpr float kStepsToDouble = 2.5f;
+    static float PanPerSecond(int scroll_speed);
     // Once a frame with the world at hand: the cursor and the help.
     void Hover(ECS::Simulation& sim, Rendering::Renderer& renderer) { UpdateIntent(sim, renderer); }
 
@@ -170,6 +179,11 @@ private:
     entt::entity last_queued = entt::null;
     // A left press taken by the production overview, whose release is too.
     bool overview_pressed = false;
+    // With one mouse button: whether a left click at frame point (mx, my)
+    // gives an order rather than selecting. It does when the player has
+    // something selected and the cursor shows an order there, or the pointer
+    // is over open ground.
+    bool LeftClickOrders(ECS::Simulation& sim, const Rendering::Renderer& renderer, int mx, int my) const;
     // The next idle military unit, as the idle villager button finds villagers.
     void NextIdleMilitary(ECS::Simulation& sim, Rendering::Renderer& renderer);
     entt::entity last_idle_military = entt::null;

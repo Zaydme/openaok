@@ -7,6 +7,7 @@
 
 #include "audio/InterfaceSounds.h"
 #include "core/ConfigManager.h"
+#include "core/Profile.h"
 #include "ecs/Diplomacy.h"
 #include "ecs/Techs.h"
 #include "ecs/Chat.h"
@@ -71,6 +72,10 @@ void Reset() {
 void CatchUp(uint64_t tick) {
     g_heard = tick;
     g_heard_display = UINT64_MAX;   // until the display log is next read
+}
+
+bool PlaysTaunt(int taunt) {
+    return taunt > 0 && Core::Profile::Current().audio_taunts;
 }
 
 std::string TauntFile(int taunt) {
@@ -163,7 +168,9 @@ void HearMessages(const entt::registry& registry, Core::PlayerId listener) {
     if (const ECS::Chat::Log* chat = ECS::Chat::Read(registry)) {
         for (const ECS::Chat::Line& line : chat->lines) {
             if (line.tick <= g_heard || !line.Heard(listener)) continue;
-            if (line.taunt > 0) {
+            // A taunt plays its sound unless the Options' Allow Audio Taunts
+            // is off; then it is heard as any other line.
+            if (PlaysTaunt(line.taunt)) {
                 const std::string file = TauntFile(line.taunt);
                 if (!file.empty()) HAL::Audio::PlayMp3(file, 1.0f);
             } else if (line.from != listener) {

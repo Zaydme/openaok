@@ -294,6 +294,9 @@ bool CheckQueueOverview();
 // A tile draws its terrain's own pattern cell for its place, its terrain
 // changed or not. Prints "terraincell=".
 bool CheckTerrainCell();
+// Scroll Speed, Allow Audio Taunts and the mouse interface act as the
+// Options say. Prints "options=".
+bool CheckOptions();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

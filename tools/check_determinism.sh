@@ -64,6 +64,7 @@ FOGEDGE="$(echo "$OUTPUT" | grep '^fogedge=')"
 QUEUESPLIT="$(echo "$OUTPUT" | grep '^queuesplit=')"
 QUEUEOVERVIEW="$(echo "$OUTPUT" | grep '^queueoverview=')"
 TERRAINCELL="$(echo "$OUTPUT" | grep '^terraincell=')"
+OPTIONS="$(echo "$OUTPUT" | grep '^options=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -452,6 +453,12 @@ esac
 case "$TERRAINCELL" in
     terraincell=ok*) echo "terraincell OK" ;;
     *) echo "TERRAINCELL FAILED" >&2; echo "  $TERRAINCELL" >&2; STATUS=1 ;;
+esac
+
+# Scroll Speed, Allow Audio Taunts and the mouse interface act as the Options say.
+case "$OPTIONS" in
+    options=ok*) echo "options OK: ${OPTIONS#options=ok }" ;;
+    *) echo "OPTIONS FAILED" >&2; echo "  $OPTIONS" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and
