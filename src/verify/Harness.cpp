@@ -94,6 +94,7 @@ int Run(int ticks) {
     if (runs("helpbox")) ok &= CheckHelpBox();
     if (runs("marks")) ok &= CheckMarks();
     if (runs("smalltextures")) ok &= CheckSmallTextures();
+    if (runs("outline")) ok &= CheckOutline();
     if (runs("wolves")) ok &= CheckWolves();
     if (runs("lobby")) ok &= CheckLobby();
     if (runs("formations")) ok &= CheckFormations();

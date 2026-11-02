@@ -303,6 +303,9 @@ int ColourOf(const entt::registry& registry, entt::entity entity) {
     return 1;
 }
 
+// How many outlines the last frame drew.
+int g_outlines_drawn = 0;
+
 std::vector<SDL_Point>& RingPoints() {
     static std::vector<SDL_Point> points;
     return points;
@@ -1107,6 +1110,8 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
     }
 }
 
+int EntityRenderer::OutlinesDrawn() { return g_outlines_drawn; }
+
 void EntityRenderer::DrawMarks(SDL_Renderer* sdl_r, int sx, int sy, float rx, float ry, bool round,
                                int hp, int max_hp) {
     SelectionMark m;
@@ -1126,8 +1131,10 @@ void EntityRenderer::DrawStanding(Renderer& renderer, SDL_Renderer* sdl_r) {
     auto& entries = Entries();
     auto& marks = Marks();
 
-    // Outline pass: a unit's silhouette shows through whatever hides it.
-    // Anything taller than a tile occludes -- buildings and trees --
+    // Outline pass: what standing has outline pixels in its art -- units,
+    // animals, mines, relics; trees and buildings have none -- shows its
+    // silhouette through whatever hides it, however tall it is, and nowhere
+    // else. Anything taller than a tile occludes -- buildings and trees --
     // and only entries drawn later (greater depth) can cover an entity, so the
     // search runs forward from each candidate and stops once the depth gap is
     // wide enough that no sprite could still reach back over it.
@@ -1135,7 +1142,11 @@ void EntityRenderer::DrawStanding(Renderer& renderer, SDL_Renderer* sdl_r) {
     constexpr float kDepthWindow = 12.0f;      // tiles ahead worth testing
     for (size_t i = 0; i < entries.size(); ++i) {
         RenderEntry& e = entries[i];
-        if (!e.outline_tex || !e.tex_ptr || e.ground || e.dest.h > kOccluderHeight) continue;
+        if (!e.outline_tex) continue;
+        if (!e.tex_ptr || e.ground) {
+            e.outline_tex = nullptr;
+            continue;
+        }
         bool covered = false;
         // Points down the middle of the unit: head, chest and feet. It counts
         // as hidden only where the occluder's own art is opaque at one of them
@@ -1237,8 +1248,10 @@ void EntityRenderer::DrawStanding(Renderer& renderer, SDL_Renderer* sdl_r) {
     }
 
     // Drawn after everything, tinted with the owner's colour.
+    g_outlines_drawn = 0;
     for (const auto& e : entries) {
         if (!e.outline_tex) continue;
+        ++g_outlines_drawn;
         SDL_Texture* ol = static_cast<SDL_Texture*>(e.outline_tex);
         const HAL::PaletteColor pc = graphics.GetPlayerColor(e.outline_player);
         SDL_SetTextureColorMod(ol, pc.r, pc.g, pc.b);

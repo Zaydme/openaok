@@ -58,6 +58,7 @@ HALVE="$(echo "$OUTPUT" | grep '^halve=')"
 HELPBOX="$(echo "$OUTPUT" | grep '^helpbox=')"
 MARKS="$(echo "$OUTPUT" | grep '^marks=')"
 SMALLTEXTURES="$(echo "$OUTPUT" | grep '^smalltextures=')"
+OUTLINE="$(echo "$OUTPUT" | grep '^outline=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -404,6 +405,12 @@ esac
 case "$SMALLTEXTURES" in
     smalltextures=ok*) echo "smalltextures OK: ${SMALLTEXTURES#smalltextures=ok }" ;;
     *) echo "SMALLTEXTURES FAILED" >&2; echo "  $SMALLTEXTURES" >&2; STATUS=1 ;;
+esac
+
+# A trebuchet shows its silhouette behind a Castle, not in the open.
+case "$OUTLINE" in
+    outline=ok*) echo "outline OK: ${OUTLINE#outline=ok }" ;;
+    *) echo "OUTLINE FAILED" >&2; echo "  $OUTLINE" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

@@ -46,6 +46,10 @@ public:
     static void DrawMarks(SDL_Renderer* sdl_r, int sx, int sy, float rx, float ry, bool round,
                           int hp, int max_hp);
 
+    // How many silhouettes the last frame drew: what has outline pixels in
+    // its art, standing hidden behind something.
+    static int OutlinesDrawn();
+
     // How far a building's art stands from its origin tile, in world units:
     // a building is drawn about its footprint's middle, which for an even
     // footprint is half a tile up and left of the tile it was placed on.
