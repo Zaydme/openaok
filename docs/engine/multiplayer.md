@@ -210,7 +210,7 @@ machine speaks, and it must match:
 
 ```cpp
 // The lobby's language: machines speaking another cannot play together.
-constexpr uint8_t kVersion = 2;
+constexpr uint8_t kVersion = 3;
 ```
 
 A client says hello with its version, and a host turns away a hello of another
