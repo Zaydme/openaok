@@ -78,10 +78,6 @@ struct Worker {
 
     // Failed attempts to reach `target_building`, so a site walled in by its
     // own crew is given up rather than re-routed to forever.
-    //
-    // No standing spot is reserved: a villager walks to the nearest point on
-    // the building's wall from wherever it happens to be, and the crowd sorts
-    // itself out by shoving.
     int build_attempts = 0;
 };
 

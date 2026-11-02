@@ -48,12 +48,12 @@ constexpr int kTakesMonks = 8;
 // where villagers do.
 int KindOf(int unit_class) {
     switch (unit_class) {
-    case 4: case 19: case 59:                         // civilian, the King
+    case 4: case 19: case 59:                         // civilian, trade cart, King
         return kTakesVillagers;
-    case 0: case 6: case 44: case 45: case 46:        // archer, infantry, hand
-    case 50: case 56:                                 // cannoneer, two-handed, pike, spear
+    case 0: case 6: case 44: case 45: case 46:        // archer, infantry, hand cannoneer,
+    case 50: case 56:                                 // two-handed, pikeman, spearman, raider
         return kTakesInfantry;
-    case 12: case 36: case 47: case 57:               // cavalry, cav archer, scout
+    case 12: case 36: case 47: case 57:               // cavalry, cavalry archer, scout, cavalry raider
         return kTakesCavalry;
     case 18: case 43:                                 // monk, monk with relic
         return kTakesMonks;

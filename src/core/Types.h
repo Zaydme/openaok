@@ -98,8 +98,6 @@ enum class UnitState : uint8_t {
     Gathering,
     Returning,
     Building,
-    Attacking,
-    Dying,
     // Mending something of its own side's: a building, a ship, a trebuchet.
     Repairing,
     COUNT

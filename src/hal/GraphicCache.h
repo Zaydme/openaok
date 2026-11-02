@@ -196,7 +196,8 @@ public:
     // may still have drawn from them is shown: after every present.
     void EndFrame();
 
-    // A player's colour, taken from the middle of their 16-entry palette ramp.
+    // A player's colour: shade 4 of their eight-entry palette ramp, the pure
+    // colour before it washes out.
     PaletteColor GetPlayerColor(int player) const;
 
     // One entry of the game's 256-colour palette. The dat stores minimap

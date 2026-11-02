@@ -18,7 +18,7 @@ void Patrol(entt::registry& registry, entt::entity unit, const Components::Vecto
 void Guard(entt::registry& registry, entt::entity unit, entt::entity charge);
 void Follow(entt::registry& registry, entt::entity unit, entt::entity charge);
 
-// Once a tick, after orders and before movement.
+// Once a tick, after orders and movement.
 void Update(entt::registry& registry, const Physics::Grid& grid, int32_t dt_ms);
 
 } // namespace ECS::Duties

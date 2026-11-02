@@ -4,9 +4,9 @@
 #include "core/Types.h"
 #include "physics/Grid.h"
 
-// Changing sides: a unit or building passing from one player to another --
-// converted by a monk, or a herdable claimed, or one of Gaia's taken by the
-// first player to see it.
+// Changing sides: a unit or building passing from one player to another,
+// converted by a monk or one of Gaia's taken by the first player to see it.
+// A herdable claimed changes owner by itself (ecs/Animals).
 //
 // Everything it contributes to its owner (a villager's place in the
 // population, a House's headroom) moves with it. Whatever it was doing stops,

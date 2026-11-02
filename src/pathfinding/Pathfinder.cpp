@@ -18,8 +18,8 @@ namespace {
 constexpr int kStraight = 10;
 constexpr int kDiagonal = 14;
 
-// Caps the work per request; a unit that cannot find a path within it does
-// not move.
+// Caps the work per request. FindPath gives no path when the goal is not
+// reached within it; FindRoute gives the way to the nearest tile it reached.
 constexpr int kMaxExpansions = 20000;
 // A route shorter than kShortRoute tiles is searched within kShortBudget
 // expansions and kShortBudgetPerTile more for each tile of it.
