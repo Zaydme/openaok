@@ -219,8 +219,6 @@ void Simulation::Init(const Core::GameSetup& game) {
         map_cfg.players.push_back(seat);
         map_cfg.teams.push_back(setup.players[seat].team);
     }
-    map_cfg.forest_density = 0.35f;
-    map_cfg.water_density = 0.15f;
 
     // Maps come from the random map scripts held in gamedata.drs; the
     // built-in generator stands in when the archive is missing.

@@ -133,11 +133,17 @@ STATUS=0
 
 # No floating point in simulation code: floats differ across CPUs and
 # compilers, which breaks lockstep, and the hash cannot see that until two
-# machines disagree. Comment lines are skipped; fractional data is converted to
-# fixed point once, at load, in ConfigManager.
-FLOATS="$(grep -rnE '\b(float|double)\b|ToFloat\(\)' \
+# machines disagree. A float literal (0.35f, 1.5) counts as the words do.
+# Comments are skipped, what follows // on a line; fractional data is
+# converted to fixed point once, at load, in ConfigManager.
+FLOAT_PATTERN='\b(float|double)\b|ToFloat\(\)|\b[0-9]+\.[0-9]*f\b|(^|[^0-9A-Za-z_.])[0-9]*\.[0-9]+\b'
+FLOATS="$(grep -rnE "$FLOAT_PATTERN" \
     "$ROOT/src/ecs" "$ROOT/src/pathfinding" "$ROOT/src/physics" "$ROOT/src/ai" \
-    | grep -vE '^[^:]+:[0-9]+:\s*//' || true)"   # no match is the good case
+    | while IFS= read -r line; do
+        code="${line#*:*:}"
+        code="${code%%//*}"
+        if printf '%s\n' "$code" | grep -qE "$FLOAT_PATTERN"; then printf '%s\n' "$line"; fi
+    done || true)"   # no match is the good case
 if [ -z "$FLOATS" ]; then
     echo "fixed point OK: no float in simulation code"
 else
