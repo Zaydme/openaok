@@ -262,6 +262,10 @@ bool CheckPages();
 bool CheckMinimapDead();
 // A command button's rollover help ends with its hotkey. Prints "help=".
 bool CheckHelp();
+// Two neighbouring chunks of ground halved for the view zoomed far out still
+// meet with no gap between them, a pixel out of place, and keep every pixel a
+// plain shrink keeps. Prints "halve=".
+bool CheckHalve();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

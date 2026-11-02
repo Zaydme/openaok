@@ -337,13 +337,14 @@ static ChunkBox BoxOf(int cx, int cy) {
             static_cast<int>(std::ceil(max_y - min_y + Core::IsometricMath::TILE_HEIGHT))};
 }
 
-// A scratch a chunk is drawn into whole at full size, to be shrunk.
+// A scratch a chunk is drawn into whole at full size, to be shrunk: w x h,
+// with a clear column and row to spare for Halve.
 static SDL_Texture* FullScratch(SDL_Renderer* sdl_r, int w, int h) {
     static SDL_Texture* full = nullptr;
     static int full_w = 0, full_h = 0;
     if (full == nullptr || full_w != w || full_h != h) {
         if (full != nullptr) SDL_DestroyTexture(full);
-        full = SDL_CreateTexture(sdl_r, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, w, h);
+        full = SDL_CreateTexture(sdl_r, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, w + 1, h + 1);
         if (full != nullptr) SDL_SetTextureBlendMode(full, SDL_BLENDMODE_BLEND);
         full_w = w;
         full_h = h;
@@ -574,13 +575,23 @@ static TerrainChunk BakeChunk(SDL_Renderer* sdl_r, const Physics::Grid& grid,
         SDL_SetRenderDrawBlendMode(sdl_r, SDL_BLENDMODE_NONE);
         SDL_SetRenderDrawColor(sdl_r, 0, 0, 0, 0);
         SDL_RenderClear(sdl_r);
-        SDL_SetTextureBlendMode(bake, SDL_BLENDMODE_NONE);
-        SDL_RenderCopy(sdl_r, bake, nullptr, nullptr);
-        SDL_SetTextureBlendMode(bake, SDL_BLENDMODE_BLEND);
+        TerrainRenderer::Halve(sdl_r, bake, box.w, box.h);
         SDL_SetRenderDrawBlendMode(sdl_r, SDL_BLENDMODE_BLEND);
     }
     Restore(sdl_r, saved);
     return chunk;
+}
+
+void TerrainRenderer::Halve(SDL_Renderer* sdl_r, SDL_Texture* full, int w, int h) {
+    // The pixel a plain shrink keeps is drawn last, over the three beside it:
+    // a chunk's pixels are clear or solid, so it shows exactly where it is
+    // ground.
+    static const SDL_Point kSamples[4] = {{1, 1}, {1, 0}, {0, 1}, {0, 0}};
+    SDL_SetTextureBlendMode(full, SDL_BLENDMODE_BLEND);
+    for (const SDL_Point& at : kSamples) {
+        const SDL_Rect src{at.x, at.y, w, h};
+        SDL_RenderCopy(sdl_r, full, &src, nullptr);
+    }
 }
 
 // The whole map drawn once at a fraction of its size, under the chunks: what
@@ -661,10 +672,11 @@ void DrawIntoOverview(SDL_Renderer* sdl_r, const Physics::Grid& grid, int cx, in
     const float s = static_cast<float>(o.shrink);
     const SDL_FRect dest = {(box.x - o.x) / s, (box.y - o.y) / s,
                             static_cast<float>(box.w) / s, static_cast<float>(box.h) / s};
+    const SDL_Rect src{0, 0, box.w, box.h};
     SDL_ScaleMode was = SDL_ScaleModeNearest;
     SDL_GetTextureScaleMode(bake, &was);
     SDL_SetTextureScaleMode(bake, SDL_ScaleModeLinear);
-    SDL_RenderCopyF(sdl_r, bake, nullptr, &dest);
+    SDL_RenderCopyF(sdl_r, bake, &src, &dest);
     SDL_SetTextureScaleMode(bake, was);
     Restore(sdl_r, saved);
 }

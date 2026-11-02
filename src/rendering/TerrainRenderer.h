@@ -30,7 +30,14 @@ public:
         SDL_Rect src{0, 0, 0, 0};
     };
     static TerrainTile GetTerrainTile(Core::TerrainType type, uint8_t variant);
-    
+
+    // Draws the w x h top left of `full`, which has a clear column and row
+    // beyond it, into the whole of the render target at half its size. Each
+    // pixel is ground where any of the four it stands for is, so neighbouring
+    // chunks still overlap where they meet and no gap opens between them when
+    // drawn at any zoom.
+    static void Halve(SDL_Renderer* sdl_r, SDL_Texture* full, int w, int h);
+
     // Tiles per chunk side; small, so little texture goes to the empty
     // corners of each chunk's isometric bounding box.
     static const int CHUNK_SIZE = 8;

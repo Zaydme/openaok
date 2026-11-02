@@ -54,6 +54,7 @@ REPLANSPREAD="$(echo "$OUTPUT" | grep '^replanspread=')"
 PAGES="$(echo "$OUTPUT" | grep '^pages=')"
 MINIMAPDEAD="$(echo "$OUTPUT" | grep '^minimapdead=')"
 HELP="$(echo "$OUTPUT" | grep '^help=')"
+HALVE="$(echo "$OUTPUT" | grep '^halve=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -376,6 +377,12 @@ esac
 case "$HELP" in
     help=ok*) echo "help OK" ;;
     *) echo "HELP FAILED" >&2; echo "  $HELP" >&2; STATUS=1 ;;
+esac
+
+# Halved chunks of ground still meet with no gap between them.
+case "$HALVE" in
+    halve=ok*) echo "halve OK: ${HALVE#halve=ok }" ;;
+    *) echo "HALVE FAILED" >&2; echo "  $HALVE" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and
