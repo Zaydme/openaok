@@ -26,6 +26,7 @@
 #include "ecs/components/Identity.h"
 #include "ecs/components/Owner.h"
 #include "ecs/components/Path.h"
+#include "ecs/components/Duty.h"
 #include "core/ConfigManager.h"
 #include "core/Hotkeys.h"
 #include "core/Strings.h"
@@ -367,13 +368,16 @@ void InputManager::LookAt(Rendering::Renderer& renderer, float wx, float wy) {
 void InputManager::NextIdleMilitary(ECS::Simulation& sim, Rendering::Renderer& renderer) {
     auto& registry = sim.GetRegistry();
     // The player's fighting units standing about: no target, nowhere to go,
-    // no standing order -- the villager button's question asked of soldiers.
+    // no standing order (patrol, guard, follow): the villager button's
+    // question asked of soldiers.
     std::vector<entt::entity> idle;
     auto fighters = registry.view<ECS::Components::Combat, ECS::Components::Owner,
                                   ECS::Components::Transform>();
     for (auto e : fighters) {
         if (fighters.get<ECS::Components::Owner>(e).player_id != Core::LocalPlayer()) continue;
-        if (registry.any_of<ECS::Components::Worker, ECS::Components::Building>(e)) continue;
+        if (registry.any_of<ECS::Components::Worker, ECS::Components::Building, ECS::Components::Duty>(e)) {
+            continue;
+        }
         const auto& combat = fighters.get<ECS::Components::Combat>(e);
         if (combat.state != ECS::Components::CombatState::Idle || combat.target != entt::null) {
             continue;

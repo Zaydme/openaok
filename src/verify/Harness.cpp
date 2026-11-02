@@ -110,6 +110,7 @@ int Run(int ticks) {
     if (runs("stanceside")) ok &= CheckStanceSide();
     if (runs("gateplace")) ok &= CheckGatePlace();
     if (runs("farmorder")) ok &= CheckFarmOrder();
+    if (runs("idlemilitary")) ok &= CheckIdleMilitary();
     if (runs("wolves")) ok &= CheckWolves();
     if (runs("lobby")) ok &= CheckLobby();
     if (runs("formations")) ok &= CheckFormations();

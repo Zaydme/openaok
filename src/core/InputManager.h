@@ -45,6 +45,9 @@ public:
     static float PanPerSecond(int scroll_speed);
     // Once a frame with the world at hand: the cursor and the help.
     void Hover(ECS::Simulation& sim, Rendering::Renderer& renderer) { UpdateIntent(sim, renderer); }
+    // The next idle military unit, as the idle villager button finds villagers:
+    // selected, and the view on it.
+    void NextIdleMilitary(ECS::Simulation& sim, Rendering::Renderer& renderer);
 
     // The building waiting to be placed, so the renderer can show where it
     // would go. False when nothing is being placed.
@@ -184,8 +187,6 @@ private:
     // something selected and the cursor shows an order there, or the pointer
     // is over open ground.
     bool LeftClickOrders(ECS::Simulation& sim, const Rendering::Renderer& renderer, int mx, int my) const;
-    // The next idle military unit, as the idle villager button finds villagers.
-    void NextIdleMilitary(ECS::Simulation& sim, Rendering::Renderer& renderer);
     entt::entity last_idle_military = entt::null;
 };
 

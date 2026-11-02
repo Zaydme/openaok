@@ -74,6 +74,7 @@ SAVECHEATS="$(echo "$OUTPUT" | grep '^savecheats=')"
 STANCESIDE="$(echo "$OUTPUT" | grep '^stanceside=')"
 GATEPLACE="$(echo "$OUTPUT" | grep '^gateplace=')"
 FARMORDER="$(echo "$OUTPUT" | grep '^farmorder=')"
+IDLEMILITARY="$(echo "$OUTPUT" | grep '^idlemilitary=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -522,6 +523,12 @@ esac
 case "$FARMORDER" in
     farmorder=ok*) echo "farmorder OK" ;;
     *) echo "FARMORDER FAILED" >&2; echo "  $FARMORDER" >&2; STATUS=1 ;;
+esac
+
+# The idle military button never finds a unit on a standing order.
+case "$IDLEMILITARY" in
+    idlemilitary=ok*) echo "idlemilitary OK" ;;
+    *) echo "IDLEMILITARY FAILED" >&2; echo "  $IDLEMILITARY" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and
