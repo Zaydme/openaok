@@ -20,7 +20,17 @@ It writes `ios/data/OpenAoK-data/`, about 350 MB, with `manifest.txt` and
 
 Either way needs an Apple ID to sign the app; a free one works.
 
-**With Xcode** (15 or later):
+**From a release**: download `OpenAoK-<version>.ipa` from the
+[releases](https://github.com/Zaydme/openaok/releases). It is unsigned, for a
+sideloading tool such as AltStore or Sideloadly to sign with your Apple ID and
+install on the iPhone or iPad.
+
+::: warning Your Apple ID
+A sideloading tool signs in to Apple with the Apple ID you give it. A separate
+Apple ID made for it keeps your main one out of it.
+:::
+
+**Built yourself, with Xcode** (15 or later):
 
 ```sh
 ios/build.sh --device
@@ -28,10 +38,8 @@ ios/build.sh --device
 
 Open `ios/build/OpenAoK.xcodeproj`, choose your team under Signing &
 Capabilities and your iPhone or iPad as the destination, and Run.
-
-**Sideloaded**: a release's `OpenAoK-<version>.ipa` is unsigned, for a
-sideloading tool such as AltStore or Sideloadly to sign with your Apple ID and
-install. `ios/build.sh --device --ipa` makes the same `.ipa` from source.
+`ios/build.sh --device --ipa` makes the same unsigned `.ipa` as a release's,
+from source.
 
 ::: tip Seven days
 An app signed with a free Apple ID runs for seven days; then it has to be

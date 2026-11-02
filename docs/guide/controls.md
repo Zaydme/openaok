@@ -47,6 +47,8 @@ hardware keyboard works as on a desktop; on Android the back gesture is Escape.
 
 The controller plays as a mouse and the game's own hotkeys:
 
+![The Switch's controls, as the table below lists them](/images/switch-controls.svg)
+
 | Control | Does |
 |---|---|
 | Left stick | Moves the pointer, the faster the further it is pushed |
