@@ -79,6 +79,7 @@ SCENARIOVERSION="$(echo "$OUTPUT" | grep '^scenarioversion=')"
 UNFINISHEDDROP="$(echo "$OUTPUT" | grep '^unfinisheddrop=')"
 FARMFIELD="$(echo "$OUTPUT" | grep '^farmfield=')"
 DEADTRAP="$(echo "$OUTPUT" | grep '^deadtrap=')"
+STRAYARROW="$(echo "$OUTPUT" | grep '^strayarrow=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -557,6 +558,12 @@ esac
 case "$DEADTRAP" in
     deadtrap=ok*) echo "deadtrap OK" ;;
     *) echo "DEADTRAP FAILED" >&2; echo "  $DEADTRAP" >&2; STATUS=1 ;;
+esac
+
+# A stray arrow hurts an enemy and never an ally.
+case "$STRAYARROW" in
+    strayarrow=ok*) echo "strayarrow OK" ;;
+    *) echo "STRAYARROW FAILED" >&2; echo "  $STRAYARROW" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

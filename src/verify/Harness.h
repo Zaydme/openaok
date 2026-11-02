@@ -339,6 +339,8 @@ bool CheckFarmField();
 // A fish trap run out leaves its dead unit, which a Fishing Ship builds over.
 // Prints "deadtrap=".
 bool CheckDeadTrap();
+// A stray arrow hurts an enemy and never an ally. Prints "strayarrow=".
+bool CheckStrayArrow();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

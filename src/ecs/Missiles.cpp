@@ -9,6 +9,7 @@
 #include "core/Random.h"
 #include "ecs/BuildingGeometry.h"
 #include "ecs/Combat.h"
+#include "ecs/Diplomacy.h"
 #include "ecs/Garrisons.h"
 #include "ecs/Mortality.h"
 #include "ecs/Players.h"
@@ -129,10 +130,10 @@ constexpr int kBlastTargetOnly = 3;
 const Core::Fixed32 kFarthestBody(5);
 
 // Who a missile coming down at its point hits: its target, if it is still
-// there -- aimed true or a near miss alike -- or else the first enemy of its
-// owner standing there, a stray. A blast takes every unit and building in its
-// reach, whosever they are -- a mangonel's stone falls on its own side too --
-// and at the lowest levels fells the trees there.
+// there, aimed true or a near miss alike, or else the first unit standing
+// there that its owner does not regard as an ally, a stray. A blast takes
+// every unit and building in its reach, whosever they are (a mangonel's stone
+// falls on its own side too), and at the lowest levels fells the trees there.
 void Victims(const entt::registry& registry, const Components::Projectile& flight,
              entt::entity arrow, std::vector<std::pair<entt::entity, bool>>& out,
              std::vector<entt::entity>& felled) {
@@ -180,13 +181,17 @@ void Victims(const entt::registry& registry, const Components::Projectile& fligh
         out.emplace_back(flight.target, false);
         return;
     }
-    // A stray: the first enemy standing where it lands.
+    // A stray: the first standing where it lands that is not on its owner's
+    // side; only a blast falls on friends.
     auto all = registry.view<const Components::Transform, const Components::Health,
                              const Components::Owner>();
     for (auto e : all) {
         if (far(e, Core::Fixed32(0))) continue;
         if (e == arrow || !Combat::Alive(registry, e)) continue;
-        if (registry.get<Components::Owner>(e).player_id == flight.owner) continue;
+        if (Diplomacy::StanceOf(registry, flight.owner, all.get<const Components::Owner>(e).player_id) ==
+            Diplomacy::Stance::Ally) {
+            continue;
+        }
         if (registry.all_of<Components::Building>(e)) continue;
         if (near(e, Core::Fixed32(0))) {
             out.emplace_back(e, true);
