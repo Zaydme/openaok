@@ -58,6 +58,7 @@
 #include "audio/Music.h"
 #include "audio/SoundSystem.h"
 #include "ai/Doctrine.h"
+#include "net/Lobby.h"
 #include "net/Lockstep.h"
 #include "ecs/Triggers.h"
 #include "ecs/Victory.h"
@@ -1675,10 +1676,16 @@ bool RunLobby(Net::Session& session, Core::GameSetup& setup, int host_port, int 
             std::cerr << "[Net] " << session.failure << std::endl;
             return false;
         }
-        while (!session.started && session.failure.empty()) {
+        while (!session.started && session.failure.empty() && !session.ejected) {
             Net::Pump(session);
             SDL_PumpEvents();
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        }
+        // Put out by the host, another version's: what it said.
+        if (session.ejected) {
+            std::cerr << "[Net] " << Core::Strings::Get(session.refused != 0 ? session.refused : Net::kWrongVersion)
+                      << std::endl;
+            return false;
         }
         setup = session.setup;
         Core::SetLocalPlayer(session.seat);

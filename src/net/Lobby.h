@@ -24,6 +24,12 @@ namespace Net {
 constexpr uint16_t kPort = 27015;
 // The lobby's language: machines speaking another cannot play together.
 constexpr uint8_t kVersion = 2;
+// A client's first message, its hello: kVersion and its name. A host puts
+// out a client of another version with kEject and kWrongVersion, in the
+// lobby and in a game started from the command line alike.
+constexpr uint8_t kHello = 'H';
+constexpr uint8_t kEject = 'E';
+constexpr int kWrongVersion = 9699;   // LANGUAGE.DLL
 
 // Opens a lobby on `port` for `name`, in the first row. `settings` are the
 // game's; a restored game's seats are its own and fixed.

@@ -16,6 +16,7 @@
 #include "ecs/components/Owner.h"
 #include "ecs/components/Transform.h"
 #include "ecs/components/Worker.h"
+#include "net/Lobby.h"
 #include "net/Lockstep.h"
 #include "net/Wire.h"
 #include "save/Save.h"
@@ -123,6 +124,32 @@ bool CheckNet() {
     Core::GameSetup setup = Core::DefaultSetup();
     if (ok() && !Net::Host(host.session, 0, setup, 2)) verdict = "could not open a game";
     const uint16_t port = ok() ? HAL::Net::BoundPort(host.session.listener) : 0;
+
+    // One saying hello in another version is put out with that version's
+    // message, and takes no seat.
+    if (ok()) {
+        HAL::Net::Connection other;
+        if (!HAL::Net::Connect("127.0.0.1", port, other)) verdict = "could not reach the game";
+        Net::Wire::Writer hello;
+        hello.U8(Net::kHello);
+        hello.U8(static_cast<uint8_t>(Net::kVersion + 1));
+        hello.Text("other");
+        HAL::Net::Send(other, hello.bytes);
+        std::vector<uint8_t> answer;
+        bool answered = false;
+        for (int i = 0; i < 400 && ok() && !answered; ++i) {
+            Net::Pump(host.session);
+            HAL::Net::Pump(other);
+            answered = HAL::Net::Receive(other, answer);
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        }
+        Net::Wire::Reader in(answer);
+        if (ok() && (!answered || in.U8() != Net::kEject || in.U16() != Net::kWrongVersion)) {
+            verdict = "a client of another version was not put out";
+        }
+        if (ok() && !host.session.peers.empty()) verdict = "a client of another version took a seat";
+        HAL::Net::Close(other);
+    }
     if (ok() && !Net::Join(client.session, "127.0.0.1", port)) verdict = "could not join the game";
 
     // The lobby: welcomed, seated, started.

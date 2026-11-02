@@ -9,16 +9,14 @@ namespace Net {
 
 namespace {
 
-// Message kinds: a client's hello, its row, chat; the host's table, a ping
-// and its answer, the game canceled, a client put out.
-constexpr uint8_t kHello = 'H';
+// Message kinds (with kHello and kEject, Lobby.h): a client's row, chat; the
+// host's table, a ping and its answer, the game canceled.
 constexpr uint8_t kRowAsk = 'R';
 constexpr uint8_t kChat = 'C';
 constexpr uint8_t kTable = 'L';
 constexpr uint8_t kPing = 'P';
 constexpr uint8_t kPong = 'p';
 constexpr uint8_t kCancel = 'X';
-constexpr uint8_t kEject = 'E';
 
 // What the datagrams that find games begin with.
 constexpr uint8_t kQuery[4] = {'A', 'o', 'K', '?'};
@@ -37,7 +35,6 @@ constexpr size_t kChatKept = 100;
 constexpr int kAllReady = 9665;
 constexpr int kOnlyOne = 9670;
 constexpr int kDropped = 9673;
-constexpr int kWrongVersion = 9699;
 
 uint32_t Clock() {
     using namespace std::chrono;

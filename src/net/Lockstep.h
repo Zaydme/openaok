@@ -80,6 +80,7 @@ struct Session {
     int expected = 0;                      // the host: people it waits for, itself included
     HAL::Net::Socket listener = HAL::Net::kNoSocket;
     std::vector<Peer> peers;               // the host: one per client; a client: the host
+    std::vector<Peer> arriving;            // the host of a command-line game: not yet said hello
     bool welcomed = false;
     bool started = false;
 

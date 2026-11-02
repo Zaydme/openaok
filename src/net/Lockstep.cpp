@@ -181,6 +181,8 @@ bool Join(Session& session, const std::string& host, uint16_t port) {
     }
     peer.seat = 1;
     session.peers.push_back(std::move(peer));
+    // Says hello, with this build's version, once through (Pump).
+    session.dialing = true;
     return true;
 }
 
@@ -205,21 +207,40 @@ void Pump(Session& session) {
     if (session.role == Role::Host && !session.started && session.lobby) {
         ServeLobby(session);
     } else if (session.role == Role::Host && !session.started) {
-        // The host seats whoever connects, in seat order, until the table
-        // is full.
+        // The host seats whoever connects and says hello with this build's
+        // version, in seat order, until the table is full; one of another
+        // version is put out with the lobby's message for it.
         HAL::Net::Connection incoming;
         while (HAL::Net::Accept(session.listener, incoming)) {
             Peer peer;
             peer.connection = std::move(incoming);
-            peer.seat = session.humans.size() > session.peers.size() + 1
+            session.arriving.push_back(std::move(peer));
+        }
+        std::vector<uint8_t> hello;
+        for (Peer& peer : session.arriving) {
+            HAL::Net::Pump(peer.connection);
+            if (!HAL::Net::Receive(peer.connection, hello)) continue;
+            Wire::Reader in(hello);
+            const bool greeting = in.U8() == kHello;
+            const uint8_t version = in.U8();
+            const Core::PlayerId seat = session.humans.size() > session.peers.size() + 1
                 ? session.humans[session.peers.size() + 1] : 0;
-            if (peer.seat == 0) {
+            if (!in.ok || !greeting || version != kVersion || seat == 0) {
+                if (in.ok && greeting && version != kVersion) {
+                    Wire::Writer out;
+                    out.U8(kEject);
+                    out.U16(static_cast<uint16_t>(kWrongVersion));
+                    HAL::Net::Send(peer.connection, out.bytes);
+                    HAL::Net::Pump(peer.connection);
+                }
                 HAL::Net::Close(peer.connection);
                 continue;
             }
+            peer.seat = seat;
             HAL::Net::Send(peer.connection, Welcome(session, peer.seat));
             session.peers.push_back(std::move(peer));
         }
+        std::erase_if(session.arriving, [](const Peer& p) { return p.seat != 0 || p.connection.closed; });
         if (static_cast<int>(session.peers.size()) + 1 >= session.expected) {
             Broadcast(session, Start(), 0);
             Begin(session);
