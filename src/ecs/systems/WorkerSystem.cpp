@@ -349,14 +349,17 @@ Core::Fixed32 TaskValue(const entt::registry& registry, const Core::Rules::UnitR
 }
 
 // Whether a worker can take its load to `site`: the worker's own player's,
-// and on ground its layer reaches -- a fishing ship's dock on the same sea, a
-// villager's camp on the same land. A site still going up is accepted too;
-// the computer players' economy relies on that.
+// finished, and on ground its layer reaches, a fishing ship's dock on the
+// same sea, a villager's camp on the same land.
 bool UsableDropSite(const entt::registry& registry, const Physics::Grid& grid,
                     entt::entity self, entt::entity site, int region) {
     const auto* mine = registry.try_get<Components::Owner>(self);
     const auto* theirs = registry.try_get<Components::Owner>(site);
     if (mine == nullptr || theirs == nullptr || mine->player_id != theirs->player_id) return false;
+    if (const auto* building = registry.try_get<Components::Building>(site);
+        building != nullptr && building->state != Components::BuildingState::Complete) {
+        return false;
+    }
     const auto* identity = registry.try_get<Components::Identity>(site);
     if (identity == nullptr || region < 0) return identity != nullptr;
     const auto ground = ECS::Buildings::FootprintBounds(

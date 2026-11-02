@@ -76,6 +76,7 @@ GATEPLACE="$(echo "$OUTPUT" | grep '^gateplace=')"
 FARMORDER="$(echo "$OUTPUT" | grep '^farmorder=')"
 IDLEMILITARY="$(echo "$OUTPUT" | grep '^idlemilitary=')"
 SCENARIOVERSION="$(echo "$OUTPUT" | grep '^scenarioversion=')"
+UNFINISHEDDROP="$(echo "$OUTPUT" | grep '^unfinisheddrop=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -536,6 +537,12 @@ esac
 case "$SCENARIOVERSION" in
     scenarioversion=ok*) echo "scenarioversion OK" ;;
     *) echo "SCENARIOVERSION FAILED" >&2; echo "  $SCENARIOVERSION" >&2; STATUS=1 ;;
+esac
+
+# A load is taken to a finished drop site, never to a foundation.
+case "$UNFINISHEDDROP" in
+    unfinisheddrop=ok*) echo "unfinisheddrop OK" ;;
+    *) echo "UNFINISHEDDROP FAILED" >&2; echo "  $UNFINISHEDDROP" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and
