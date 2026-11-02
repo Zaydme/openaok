@@ -1,6 +1,7 @@
 // The scenario writer: Scenario::Read's inverse, field for field in the same
-// order, for version 1.18 with player data 1.20 and triggers 1.6 -- the
-// version of every game file and the one the scenario editor saves.
+// order, for version 1.18 with player data 1.20 and triggers 1.6, the
+// version of every game file and the one the scenario editor saves. A file
+// read at another version is written, and labelled, at this one.
 //
 // What the game plays is written from the File's fields; what it does not
 // (the editor's copies, the sixteen-slot tables' last eight slots, unnamed
@@ -187,7 +188,8 @@ uint32_t EditorStance(const Player& player, int self, int toward) {
 void WritePlayerData(Out& out, const File& file) {
     const Kept& kept = file.kept;
     out.U32(file.next_unit_id);
-    out.U32(kept.player_data_version_bits);
+    // Player data 1.20: a file read at it keeps the bits it had.
+    out.U32(file.player_data_version == 120 ? kept.player_data_version_bits : Kept{}.player_data_version_bits);
     for (int s = 0; s < kFileSlots; ++s) {
         const Kept::Slot& slot = kept.slots[s];
         if (s < kPlayers) {
@@ -416,7 +418,8 @@ void Order(Out& out, const std::vector<int32_t>& order, size_t count) {
 }
 
 void WriteTriggers(Out& out, const File& file) {
-    out.U64(file.kept.trigger_version_bits);
+    // Triggers 1.6: a file read at it keeps the bits it had.
+    out.U64(file.trigger_version == 16 ? file.kept.trigger_version_bits : Kept{}.trigger_version_bits);
     out.U8(static_cast<uint8_t>(file.objectives_state));
     out.U32(static_cast<uint32_t>(file.triggers.size()));
     for (const Trigger& t : file.triggers) {
@@ -490,8 +493,8 @@ std::vector<uint8_t> Write(const File& file) {
 
     Out header;
     header.I32(file.kept.save_type);
-    std::string version = file.version.size() == 4 ? file.version : std::string("1.18");
-    if (version[2] >= '1') header.U32(file.save_time);
+    const std::string version = "1.18";
+    header.U32(file.save_time);
     Str32(header, Stored(file.header_instructions, true, file.kept.header_nul_when_empty));
     header.I32(file.kept.victory_type);
     header.I32(file.enabled_players);

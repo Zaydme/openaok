@@ -75,6 +75,7 @@ STANCESIDE="$(echo "$OUTPUT" | grep '^stanceside=')"
 GATEPLACE="$(echo "$OUTPUT" | grep '^gateplace=')"
 FARMORDER="$(echo "$OUTPUT" | grep '^farmorder=')"
 IDLEMILITARY="$(echo "$OUTPUT" | grep '^idlemilitary=')"
+SCENARIOVERSION="$(echo "$OUTPUT" | grep '^scenarioversion=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -529,6 +530,12 @@ esac
 case "$IDLEMILITARY" in
     idlemilitary=ok*) echo "idlemilitary OK" ;;
     *) echo "IDLEMILITARY FAILED" >&2; echo "  $IDLEMILITARY" >&2; STATUS=1 ;;
+esac
+
+# A scenario of an older version written again is labelled 1.18.
+case "$SCENARIOVERSION" in
+    scenarioversion=ok*) echo "scenarioversion OK" ;;
+    *) echo "SCENARIOVERSION FAILED" >&2; echo "  $SCENARIOVERSION" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

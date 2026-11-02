@@ -327,6 +327,9 @@ bool CheckFarmOrder();
 // The idle military button never finds a unit on a standing order. Prints
 // "idlemilitary=".
 bool CheckIdleMilitary();
+// A scenario of an older version written again is labelled the version
+// written, 1.18. Prints "scenarioversion=".
+bool CheckScenarioVersion();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();
