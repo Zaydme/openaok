@@ -306,6 +306,9 @@ bool CheckBackToWork();
 // A building destroyed with nowhere round it to step out: its garrison
 // stands on the ground it held. Prints "garrisonfall=".
 bool CheckGarrisonFall();
+// A converted unit's body lies in its new owner's colour. Prints
+// "corpsecolour=".
+bool CheckCorpseColour();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

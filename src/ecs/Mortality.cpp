@@ -77,7 +77,8 @@ void LayDown(entt::registry& registry, entt::entity dead) {
         sprite.heading = fell->heading;
     }
     registry.emplace<Components::Sprite>(body, sprite);
-    registry.emplace<Components::Owner>(body, owner);
+    // It lies in its owner's colour, a converted unit's new owner's.
+    registry.emplace<Components::Owner>(body, OwnerOf(registry, dead));
 
     Components::Corpse corpse;
     if (remains != nullptr) {

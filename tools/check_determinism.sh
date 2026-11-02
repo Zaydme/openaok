@@ -68,6 +68,7 @@ OPTIONS="$(echo "$OUTPUT" | grep '^options=')"
 CONNECTIONS="$(echo "$OUTPUT" | grep '^connections=')"
 BACKTOWORK="$(echo "$OUTPUT" | grep '^backtowork=')"
 GARRISONFALL="$(echo "$OUTPUT" | grep '^garrisonfall=')"
+CORPSECOLOUR="$(echo "$OUTPUT" | grep '^corpsecolour=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -480,6 +481,12 @@ esac
 case "$GARRISONFALL" in
     garrisonfall=ok*) echo "garrisonfall OK" ;;
     *) echo "GARRISONFALL FAILED" >&2; echo "  $GARRISONFALL" >&2; STATUS=1 ;;
+esac
+
+# A converted unit's body lies in its new owner's colour.
+case "$CORPSECOLOUR" in
+    corpsecolour=ok*) echo "corpsecolour OK" ;;
+    *) echo "CORPSECOLOUR FAILED" >&2; echo "  $CORPSECOLOUR" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

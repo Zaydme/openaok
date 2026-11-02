@@ -104,6 +104,7 @@ int Run(int ticks) {
     if (runs("connections")) ok &= CheckConnections();
     if (runs("backtowork")) ok &= CheckBackToWork();
     if (runs("garrisonfall")) ok &= CheckGarrisonFall();
+    if (runs("corpsecolour")) ok &= CheckCorpseColour();
     if (runs("wolves")) ok &= CheckWolves();
     if (runs("lobby")) ok &= CheckLobby();
     if (runs("formations")) ok &= CheckFormations();
