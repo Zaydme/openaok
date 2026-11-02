@@ -993,8 +993,10 @@ Components::Path Route(const entt::registry& registry, const Physics::Grid& grid
 ```
 
 The search's heap and scratch, the survey's keys, the buckets, the lists of
-spots a crew has taken and the fog's list of buildings just lost from sight
-are kept the same way.
+spots a crew has taken, the fog's lists of buildings lost from sight and of
+pictures seen again, the combat pass's blows, volleys and villagers going back
+to work, the grazers' steps and the gatherer's list of worked Farms are kept
+the same way.
 
 Lookups that would be the same for every entity of a loop are made once before
 it. An EnTT `try_get` finds the component's storage each time, and the
@@ -1169,7 +1171,9 @@ and kept for the rest of the evaluation:
 
 The group's own rate against each defending table is cached the same way.
 A defender is tested against a target by its two axes before its range is
-measured. How the scores are made is on [The military](/engine/ai#the-military).
+measured. The score asks of the defences only whether they are alike round
+every prospect, so they are counted prospect by prospect and the count stops
+at the first that differs from the first's. How the scores are made is on [The military](/engine/ai#the-military).
 
 ## The data
 
@@ -1200,8 +1204,9 @@ about 70 MB), so a graphic, a sound or a script is found with one hash lookup
 and no file access.
 
 An SLP is decoded only when its graphic is first asked for. Its layout needs
-only the frame headers (`SlpReadHeaders`, no pixels decoded), and its
-coverage bits are one bit a pixel. A graphic that is missing or fails is
+only the frame headers (`SlpReadHeaders`, no pixels decoded), a frame is
+decoded from its own header alone (`SlpReadHeader`), and its coverage bits
+are one bit a pixel. A graphic that is missing or fails is
 remembered as such, so it is not tried again every frame:
 
 ```cpp
