@@ -11,7 +11,11 @@ export default withMermaid(defineConfig({
   lastUpdated: false,
   srcExclude: ['**/node_modules/**', 'README.md'],
   head: [['link', { rel: 'icon', type: 'image/svg+xml', href: '/openaok/images/key.svg' }]],
-  vite: { build: { chunkSizeWarningLimit: 4000 } },
+  vite: {
+    build: { chunkSizeWarningLimit: 4000 },
+    // Mermaid's CommonJS dependencies (fastdom) pre-bundled for the dev server.
+    optimizeDeps: { include: ['mermaid'] },
+  },
   themeConfig: {
     logo: '/images/key.svg',
     nav: [
