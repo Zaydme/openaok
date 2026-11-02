@@ -30,6 +30,7 @@ int TauntOf(const std::string& text) {
     size_t first = text.find_first_not_of(' ');
     if (first == std::string::npos) return 0;
     const size_t last = text.find_last_not_of(' ');
+    if ((text[first] == '/' || text[first] == '!') && first < last) ++first;
     int value = 0;
     for (size_t i = first; i <= last; ++i) {
         const char c = text[i];

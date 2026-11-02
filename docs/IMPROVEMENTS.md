@@ -35,6 +35,8 @@ out of the way of the original's own look and rules.
 - **Training from several buildings.** With several buildings of a kind
   selected, each unit ordered goes to the finished one with the fewest queued,
   so the queues fill evenly; one still being built takes none.
+- **Taunts after / or !.** A taunt can be typed as its number after a `/` or a
+  `!` (`!11`), as well as on its own.
 - **Larger populations.** Besides the original's limits of 25 to 200, a game
   can be set up with a population limit of 250 to 500 in steps of 50, and of
   600 to 1000 in steps of 100. The computer players' scripts, written for

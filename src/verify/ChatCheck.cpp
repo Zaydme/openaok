@@ -97,10 +97,12 @@ bool CheckChat() {
                 verdict = "a message to one player did not reach just that player";
             }
         }
-        // Taunts: a number from 1 to 30, alone.
+        // Taunts: a number from 1 to 30, alone or after a / or a !.
         if (ok()) {
             const struct { const char* text; int taunt; } cases[] = {
                 {"1", 1}, {"30", 30}, {" 14 ", 14}, {"31", 0}, {"0", 0}, {"11a", 0}, {"gg", 0},
+                {"/11", 11}, {"!11", 11}, {" !3 ", 3}, {"!", 0}, {"/", 0}, {"!0", 0}, {"!!1", 0},
+                {"/31", 0}, {"1!", 0},
             };
             for (const auto& c : cases) {
                 if (ECS::Chat::TauntOf(c.text) != c.taunt) verdict = "a taunt was misread";

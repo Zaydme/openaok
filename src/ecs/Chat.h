@@ -55,7 +55,7 @@ struct Log {
 void Setup(entt::registry& registry);
 
 // The taunt a message is: 1 to 30 when it is that number alone (spaces
-// round it aside), else 0.
+// round it aside), or after a / or a !, else 0.
 int TauntOf(const std::string& text);
 
 // Carries out a message from `from`: to everyone, to its allies, or to
