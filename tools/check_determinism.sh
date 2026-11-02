@@ -81,6 +81,7 @@ FARMFIELD="$(echo "$OUTPUT" | grep '^farmfield=')"
 DEADTRAP="$(echo "$OUTPUT" | grep '^deadtrap=')"
 STRAYARROW="$(echo "$OUTPUT" | grep '^strayarrow=')"
 SCENARIOVICTORY="$(echo "$OUTPUT" | grep '^scenariovictory=')"
+ADVANCEDBUTTONS="$(echo "$OUTPUT" | grep '^advancedbuttons=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -571,6 +572,12 @@ esac
 case "$SCENARIOVICTORY" in
     scenariovictory=ok*) echo "scenariovictory OK" ;;
     *) echo "SCENARIOVICTORY FAILED" >&2; echo "  $SCENARIOVICTORY" >&2; STATUS=1 ;;
+esac
+
+# A scenario's Use Advanced Buttons and Play Sound do what they say.
+case "$ADVANCEDBUTTONS" in
+    advancedbuttons=ok*) echo "advancedbuttons OK" ;;
+    *) echo "ADVANCEDBUTTONS FAILED" >&2; echo "  $ADVANCEDBUTTONS" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

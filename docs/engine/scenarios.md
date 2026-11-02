@@ -335,7 +335,7 @@ have.
 | Change Diplomacy | Sets the source player's stance toward the target player |
 | Research Technology | Completes the technology for the source player at once |
 | Send Chat | A chat line to the source player (to everyone, naming none), with its narration |
-| Play Sound | A scenario sound for the source player |
+| Play Sound | A scenario sound for the source player: its file, or else its dat sound |
 | Send Tribute | Moves a resource from the source to the target player, free, no more than the giver has; from Gaia, out of nothing |
 | Unlock Gate, Lock Gate | Locks or unlocks the gates, as their owner's Lock button would, and keeps the trigger's locks |
 | Activate Trigger, Deactivate Trigger | Turns another trigger on (its timers from nothing) or off |
@@ -351,7 +351,7 @@ have.
 | Patrol | Units patrol to the location |
 | Display Instructions | Text on one of three instruction lines, for its time, with its narration |
 | Clear Instructions | Empties an instruction line |
-| Use Advanced Buttons | Logged for the interface |
+| Use Advanced Buttons | The advanced commands turned on |
 
 The conditions Bring Object to Object, Capture Object, Object Has Target and
 Object Not Visible, and the effect Freeze Unit, are read and kept but never
@@ -372,12 +372,14 @@ pass's tick. The simulation never reads it; presentation does, as it reads the
 event log:
 
 - `Rendering::Messages` puts instructions on their line (0, 1 or 2) for the
-  number of seconds the effect gives, or until cleared when that is 0, and
-  prints a trigger's chat line: to everyone in plain text, or, sent to one
-  player, to that player alone in its colour;
+  number of seconds the effect gives, or until cleared when that is 0, prints
+  a trigger's chat line (to everyone in plain text, or, sent to one player, to
+  that player alone in its colour), and turns the advanced commands on for a
+  Use Advanced Buttons;
 - `Audio::Notices` plays the narration an instruction or a chat line carries,
   and a Play Sound's file, each an MP3 of `Sound/scenario` (see
-  [Sound, music and movies](/engine/audio));
+  [Sound, music and movies](/engine/audio)); a Play Sound that names no file
+  plays its dat sound, in the listener's civilisation's voice;
 - the frame loop moves the camera for a Change View sent to everyone or to
   this machine's player.
 

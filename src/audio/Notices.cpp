@@ -6,9 +6,11 @@
 #include <system_error>
 
 #include "audio/InterfaceSounds.h"
+#include "audio/SoundTable.h"
 #include "core/ConfigManager.h"
 #include "core/Profile.h"
 #include "ecs/Diplomacy.h"
+#include "ecs/Players.h"
 #include "ecs/Techs.h"
 #include "ecs/Chat.h"
 #include "ecs/Flares.h"
@@ -38,6 +40,11 @@ bool IsWonder(int unit_id) {
 // A scenario's sound, by the name its trigger gives ("j1a"): the MP3 of that
 // name in Sound/scenario, the names lower case as the disc has them. It is
 // spoken on the narration channel, so a new one takes over from the last.
+int CivOf(const entt::registry& registry, Core::PlayerId player) {
+    const ECS::Players::Player* seat = ECS::Players::Find(registry, player);
+    return seat != nullptr ? seat->civ : -1;
+}
+
 void PlayScenarioSound(const std::string& name) {
     if (name.empty() || g_scenario_sounds.empty()) return;
     std::string file = name;
@@ -201,6 +208,14 @@ void HearMessages(const entt::registry& registry, Core::PlayerId listener) {
             if (line.player != 0 && line.player != listener) continue;
             switch (line.kind) {
             case ECS::Triggers::Show::Sound:
+                // Its file of Sound/scenario, or else the dat's sound it
+                // names, in the listener's civilisation's voice.
+                if (!line.sound.empty()) {
+                    PlayScenarioSound(line.sound);
+                } else if (const int file = TriggerSoundFile(registry, line, listener); file >= 0) {
+                    HAL::Audio::Play(file, 1.0f, 0.0f);
+                }
+                break;
             case ECS::Triggers::Show::Instructions:
             case ECS::Triggers::Show::Chat: PlayScenarioSound(line.sound); break;
             default: break;
@@ -208,6 +223,11 @@ void HearMessages(const entt::registry& registry, Core::PlayerId listener) {
         }
         g_heard_display = latest;
     }
+}
+
+int TriggerSoundFile(const entt::registry& registry, const ECS::Triggers::Shown& line, Core::PlayerId listener) {
+    if (!line.sound.empty() || line.sound_id < 0) return -1;
+    return SoundTable::Pick(line.sound_id, CivOf(registry, listener));
 }
 
 } // namespace Audio::Notices

@@ -5,6 +5,7 @@
 
 #include "core/Types.h"
 #include "ecs/Events.h"
+#include "ecs/Triggers.h"
 
 // The interface's sounds for what passes between players: a trade at the
 // Market (buy.wav, sell.wav), a tribute received (tribute.wav), a chat
@@ -44,5 +45,10 @@ std::string TauntFile(int taunt);
 // Whether a chat line's taunt plays its sound: unless the Options' Allow
 // Audio Taunts is off.
 bool PlaysTaunt(int taunt);
+
+// The sound a trigger's Play Sound plays when it names no file of
+// Sound/scenario: its dat sound in `listener`'s civilisation's voice, as an
+// archive file; -1 for none.
+int TriggerSoundFile(const entt::registry& registry, const ECS::Triggers::Shown& line, Core::PlayerId listener);
 
 } // namespace Audio::Notices

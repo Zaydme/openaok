@@ -241,6 +241,8 @@ public:
     // Advanced commands: the military tasks, the stances, the formations and
     // the mini-map's modes stay hidden until they are turned on.
     static bool AdvancedCommands();
+    // Turns them on, as a scenario's Use Advanced Buttons does.
+    static void ShowAdvancedCommands();
     // Whether the game's Help is on: the rollover help, and the
     // notifications' lines (rendering/Alerts).
     static bool HelpShown();

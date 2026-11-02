@@ -344,6 +344,9 @@ bool CheckStrayArrow();
 // A scenario's Score, Time Limit and Custom victories are played as they
 // say. Prints "scenariovictory=".
 bool CheckScenarioVictory();
+// A scenario's Use Advanced Buttons turns the advanced commands on, and its
+// Play Sound with no file plays its dat sound. Prints "advancedbuttons=".
+bool CheckAdvancedButtons();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

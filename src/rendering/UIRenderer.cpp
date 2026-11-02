@@ -766,6 +766,8 @@ bool UIRenderer::ActivateMinimapButton(int button) {
 }
 
 bool UIRenderer::AdvancedCommands() { return HudState().advanced; }
+
+void UIRenderer::ShowAdvancedCommands() { HudState().advanced = true; }
 bool UIRenderer::HelpShown() { return HudState().help; }
 int UIRenderer::MinimapMode() { return HudState().minimap_mode; }
 void UIRenderer::SetWorldHint(int string_id) { HudState().world_hint = string_id; }

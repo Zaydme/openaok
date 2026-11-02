@@ -310,6 +310,10 @@ void Update(const entt::registry& registry, Core::PlayerId viewer) {
                 if (line.player == 0) Post(line.text);
                 else if (line.player == viewer) Post(line.text, ColourOf(line.player));
                 break;
+            // Use Advanced Buttons: the advanced commands turned on.
+            case ECS::Triggers::Show::AdvancedButtons:
+                UIRenderer::ShowAdvancedCommands();
+                break;
             default:
                 break;
             }
