@@ -309,6 +309,9 @@ bool CheckGarrisonFall();
 // A converted unit's body lies in its new owner's colour. Prints
 // "corpsecolour=".
 bool CheckCorpseColour();
+// Each player's Wonder counts its own years; the relics' count goes on
+// between allies. Prints "wondercount=".
+bool CheckWonderCount();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

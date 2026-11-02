@@ -105,18 +105,43 @@ uint16_t Standing(const entt::registry& registry) {
     return alive;
 }
 
-// The player whose finished Wonder has stood longest, or none.
-Core::PlayerId WonderHolder(const entt::registry& registry, const State& state) {
+// The seats with a finished Wonder standing, a bit each.
+uint16_t WonderHolders(const entt::registry& registry, const State& state) {
     if (state.wonder_id < 0) return 0;
+    uint16_t holders = 0;
     auto buildings = registry.view<const Components::Building, const Components::Identity>();
     for (auto b : buildings) {
         if (buildings.get<const Components::Identity>(b).unit_id != state.wonder_id) continue;
         if (buildings.get<const Components::Building>(b).state != Components::BuildingState::Complete) continue;
         if (!Combat::Alive(registry, b)) continue;
         const Core::PlayerId p = OwnerOf(registry, b);
-        if (p != Core::PLAYER_GAIA && !state.outcome.Defeated(p)) return p;
+        if (p != Core::PLAYER_GAIA && !state.outcome.Defeated(p)) holders |= static_cast<uint16_t>(1u << p);
     }
-    return 0;
+    return holders;
+}
+
+// Counts down every seat's Wonder: started when it has a finished one,
+// stopped when it has none left. The seat whose count has run out first, or
+// none.
+Core::PlayerId CountWonders(const entt::registry& registry, State& state, int32_t dt) {
+    Outcome& o = state.outcome;
+    const uint16_t holders = WonderHolders(registry, state);
+    Core::PlayerId first = 0;
+    for (int p = 1; p < Core::kMaxPlayers; ++p) {
+        const auto seat = static_cast<Core::PlayerId>(p);
+        if (!((holders >> p) & 1u)) {
+            o.wonders &= static_cast<uint16_t>(~(1u << p));
+            o.wonder_ms[p] = 0;
+            continue;
+        }
+        if (!o.CountingWonder(seat)) {
+            o.wonders |= static_cast<uint16_t>(1u << p);
+            o.wonder_ms[p] = state.setup.wonder_years * kYearMs;
+        }
+        o.wonder_ms[p] -= dt;
+        if (o.wonder_ms[p] <= 0 && (first == 0 || o.wonder_ms[p] < o.wonder_ms[first])) first = seat;
+    }
+    return first;
 }
 
 // The player whose side holds every relic on the map in its monasteries, or
@@ -144,17 +169,19 @@ Core::PlayerId RelicHolder(const entt::registry& registry, const State& state) {
     return held == total ? holder : 0;
 }
 
-// Counts down a Wonder or the relics: started when someone takes it, reset
-// when it changes hands or is lost. True once it has run out.
-bool CountDown(Core::PlayerId holder, Core::PlayerId& counted, int32_t& left, int years, int32_t dt) {
+// Counts down the relics: started when a side takes them all, reset when
+// another side takes them or they are lost; passed between players of one
+// side, the count goes on. True once it has run out.
+bool CountRelics(const entt::registry& registry, Core::PlayerId holder, Core::PlayerId& counted, int32_t& left,
+                 int years, int32_t dt) {
     if (holder == 0) {
         counted = 0;
         left = 0;
         return false;
     }
     if (holder != counted) {
+        if (counted == 0 || !OneSide(registry, holder, counted)) left = years * kYearMs;
         counted = holder;
-        left = years * kYearMs;
     }
     left -= dt;
     return left <= 0;
@@ -253,15 +280,13 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
 
     // Wonders and relics count every tick; standing is taken once a second.
     if (state->setup.victory == Core::VictoryKind::Standard) {
-        const Core::PlayerId wonder = WonderHolder(registry, *state);
-        if (CountDown(wonder, state->outcome.wonder_holder, state->outcome.wonder_ms,
-                      state->setup.wonder_years, dt_ms)) {
+        if (const Core::PlayerId wonder = CountWonders(registry, *state, dt_ms); wonder != 0) {
             Win(registry, *state, wonder);
             return;
         }
         const Core::PlayerId relics = RelicHolder(registry, *state);
-        if (CountDown(relics, state->outcome.relic_holder, state->outcome.relic_ms,
-                      state->setup.relic_years, dt_ms)) {
+        if (CountRelics(registry, relics, state->outcome.relic_holder, state->outcome.relic_ms,
+                        state->setup.relic_years, dt_ms)) {
             Win(registry, *state, relics);
             return;
         }

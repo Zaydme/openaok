@@ -306,7 +306,7 @@ bool Outright(const Turn& turn, entt::entity e, int cls, int id, Core::Fixed32& 
         score = holds ? kOutright : Core::Fixed32(999) / Core::Fixed32(10);
         return true;
     }
-    if ((state != nullptr && state->outcome.wonder_holder == owner && id == kWonderUnit) ||
+    if ((state != nullptr && state->outcome.CountingWonder(owner) && id == kWonderUnit) ||
         (id == kMonasteryUnit && Sn(turn, Lang::SN::SpecialAttackType1) == 1)) {
         score = kOutright;
         return true;

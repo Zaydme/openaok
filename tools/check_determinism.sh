@@ -69,6 +69,7 @@ CONNECTIONS="$(echo "$OUTPUT" | grep '^connections=')"
 BACKTOWORK="$(echo "$OUTPUT" | grep '^backtowork=')"
 GARRISONFALL="$(echo "$OUTPUT" | grep '^garrisonfall=')"
 CORPSECOLOUR="$(echo "$OUTPUT" | grep '^corpsecolour=')"
+WONDERCOUNT="$(echo "$OUTPUT" | grep '^wondercount=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -487,6 +488,12 @@ esac
 case "$CORPSECOLOUR" in
     corpsecolour=ok*) echo "corpsecolour OK" ;;
     *) echo "CORPSECOLOUR FAILED" >&2; echo "  $CORPSECOLOUR" >&2; STATUS=1 ;;
+esac
+
+# Each player's Wonder counts its own years; the relics' count goes on between allies.
+case "$WONDERCOUNT" in
+    wondercount=ok*) echo "wondercount OK" ;;
+    *) echo "WONDERCOUNT FAILED" >&2; echo "  $WONDERCOUNT" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

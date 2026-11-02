@@ -847,16 +847,23 @@ void UIRenderer::DrawTimePanels(ECS::Simulation& sim, SDL_Renderer* sdl_r, int w
                       static_cast<long>(seconds % 60), hud.speed_percent / 100.0);
         TimeText(sdl_r, font, TextScaled(4), view_top + TextScaled(4), text, kWhite);
     }
-    // The countdowns: a Wonder standing, the relics held. A year is three
-    // seconds of game time.
+    // The countdowns: each player's Wonder standing, nearest to winning
+    // first, then the relics held. A year is three seconds of game time.
     const ECS::Victory::Outcome* outcome = ECS::Victory::Read(sim.GetRegistry());
-    if (outcome == nullptr) return;
+    if (outcome == nullptr || outcome->over) return;
     struct Count { Core::PlayerId holder; int32_t ms; int line; };
-    const Count counts[2] = {{outcome->wonder_holder, outcome->wonder_ms, 11301},
-                             {outcome->relic_holder, outcome->relic_ms, 11302}};
+    Count counts[Core::kMaxPlayers + 1];
+    int count_n = 0;
+    for (int p = 1; p < Core::kMaxPlayers; ++p) {
+        const auto seat = static_cast<Core::PlayerId>(p);
+        if (outcome->CountingWonder(seat)) counts[count_n++] = {seat, outcome->wonder_ms[p], 11301};
+    }
+    std::stable_sort(counts, counts + count_n, [](const Count& a, const Count& b) { return a.ms < b.ms; });
+    counts[count_n++] = {outcome->relic_holder, outcome->relic_ms, 11302};
     int row = 0;
-    for (const Count& c : counts) {
-        if (c.holder == 0 || outcome->over) continue;
+    for (int i = 0; i < count_n; ++i) {
+        const Count& c = counts[i];
+        if (c.holder == 0) continue;
         const int years = (std::max(0, c.ms) + 2999) / 3000;
         char text[96];
         std::snprintf(text, sizeof(text), Core::Strings::Get(c.line).c_str(), years);
@@ -1112,7 +1119,7 @@ void UIRenderer::DrawScores(ECS::Simulation& sim, SDL_Renderer* sdl_r, int win_w
     for (int i = 0; i < count; ++i) {
         const Line& line = lines[i];
         std::string text;
-        if (outcome != nullptr && outcome->wonder_holder == line.player) text += Core::Strings::Get(3106);
+        if (outcome != nullptr && outcome->CountingWonder(line.player)) text += Core::Strings::Get(3106);
         if (outcome != nullptr && outcome->relic_holder == line.player) text += Core::Strings::Get(3107);
         if (!text.empty()) text += ' ';
         char numbers[48];

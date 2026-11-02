@@ -25,14 +25,18 @@ struct Outcome {
     bool over = false;
     uint16_t defeated = 0;   // a bit per seat
     uint16_t winners = 0;
-    // A Wonder or the relics counting down: whose, and what is left.
-    Core::PlayerId wonder_holder = 0;
-    int32_t wonder_ms = 0;
+    // Each seat's Wonder counting down, from when its first finished Wonder
+    // stood: a bit per seat counting, and what each has left.
+    uint16_t wonders = 0;
+    int32_t wonder_ms[Core::kMaxPlayers] = {};
+    // The relics counting down for the side holding them all: which of its
+    // players, and what is left.
     Core::PlayerId relic_holder = 0;
     int32_t relic_ms = 0;
 
     bool Defeated(Core::PlayerId p) const { return (defeated >> p) & 1u; }
     bool Won(Core::PlayerId p) const { return (winners >> p) & 1u; }
+    bool CountingWonder(Core::PlayerId p) const { return (wonders >> p) & 1u; }
 };
 
 // The module's state in the registry's context. Here rather than in the
