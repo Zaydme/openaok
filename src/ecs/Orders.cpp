@@ -429,6 +429,20 @@ void PutToWork(entt::registry& registry, entt::entity worker_entity, entt::entit
     auto& worker = registry.get<Components::Worker>(worker_entity);
     worker.state = Core::UnitState::Building;
     worker.target_building = site;
+    // The resource it worked before is no longer its job.
+    worker.target_resource = entt::null;
+}
+
+// Sets a worker mending `target`, the job it had dropped.
+void Mend(entt::registry& registry, entt::entity worker_entity, entt::entity target) {
+    DropCurrentJob(registry, worker_entity);
+    registry.remove<Components::Path>(worker_entity);
+    auto& job = registry.get<Components::Worker>(worker_entity);
+    job.state = Core::UnitState::Repairing;
+    job.target_building = target;
+    job.target_resource = entt::null;
+    job.repair_progress = Core::Fixed32(0);
+    job.build_attempts = 0;
 }
 
 void Build(entt::registry& registry, Physics::Grid& grid, const Core::BuildCommand& cmd) {
@@ -506,13 +520,7 @@ void Repair(entt::registry& registry, const Core::RepairCommand& cmd) {
             continue;
         }
         if (!Repairs::CanRepair(registry, worker, cmd.target)) continue;
-        DropCurrentJob(registry, worker);
-        registry.remove<Components::Path>(worker);
-        auto& job = registry.get<Components::Worker>(worker);
-        job.state = Core::UnitState::Repairing;
-        job.target_building = cmd.target;
-        job.repair_progress = Core::Fixed32(0);
-        job.build_attempts = 0;
+        Mend(registry, worker, cmd.target);
     }
 }
 
@@ -786,8 +794,11 @@ void FollowRally(entt::registry& registry, const Physics::Grid& grid, entt::enti
 void Interrupt(entt::registry& registry, entt::entity unit) {
     const auto* worker = registry.try_get<Components::Worker>(unit);
     const bool working = worker != nullptr && worker->state != Core::UnitState::Idle;
-    const Components::Interrupted kept{working ? worker->target_resource : entt::null,
-                                       working ? worker->target_building : entt::null};
+    // A builder or a repairer keeps its building; anyone else its resource.
+    const bool on_site = working && (worker->state == Core::UnitState::Building ||
+                                     worker->state == Core::UnitState::Repairing);
+    const Components::Interrupted kept{working && !on_site ? worker->target_resource : entt::null,
+                                       on_site ? worker->target_building : entt::null};
     DropCurrentJob(registry, unit);
     registry.remove<Components::Path>(unit);
     if (working) registry.emplace<Components::Interrupted>(unit, kept);
@@ -798,10 +809,11 @@ void GoBackToWork(entt::registry& registry, const Physics::Grid& grid, entt::ent
     (void)grid;
     if (!registry.valid(unit) || !registry.all_of<Components::Worker>(unit)) return;
     if (GatherFrom(registry, unit, resource)) return;
-    if (registry.valid(site) && registry.all_of<Components::Building>(site) &&
-        registry.get<Components::Building>(site).state ==
-            Components::BuildingState::UnderConstruction) {
+    if (!registry.valid(site) || !registry.all_of<Components::Building>(site)) return;
+    if (registry.get<Components::Building>(site).state == Components::BuildingState::UnderConstruction) {
         PutToWork(registry, unit, site);
+    } else if (Repairs::CanRepair(registry, unit, site)) {
+        Mend(registry, unit, site);
     }
 }
 

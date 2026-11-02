@@ -24,9 +24,9 @@ void Execute(entt::registry& registry, Physics::Grid& grid, const Core::Command&
 void FollowRally(entt::registry& registry, const Physics::Grid& grid, entt::entity unit,
                  const Components::Vector2D& at, entt::entity target);
 
-// A villager the town bell sent for cover, going back to what it was doing:
-// the resource it was working, or the site it was building. Nothing, if both
-// are gone.
+// A villager going back to the job it broke off, for the town bell or a
+// fight: the resource it was working, or the building it was raising or
+// mending. Nothing, if that is gone (or, for a mend, needs none).
 void GoBackToWork(entt::registry& registry, const Physics::Grid& grid, entt::entity unit,
                   entt::entity resource, entt::entity site);
 

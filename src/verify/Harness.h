@@ -300,6 +300,9 @@ bool CheckOptions();
 // Random maps' connections join every start to every other by land.
 // Prints "connections=".
 bool CheckConnections();
+// A builder that breaks off for a fight, or a repairer for the town bell,
+// goes back to that building. Prints "backtowork=".
+bool CheckBackToWork();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

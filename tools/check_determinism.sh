@@ -66,6 +66,7 @@ QUEUEOVERVIEW="$(echo "$OUTPUT" | grep '^queueoverview=')"
 TERRAINCELL="$(echo "$OUTPUT" | grep '^terraincell=')"
 OPTIONS="$(echo "$OUTPUT" | grep '^options=')"
 CONNECTIONS="$(echo "$OUTPUT" | grep '^connections=')"
+BACKTOWORK="$(echo "$OUTPUT" | grep '^backtowork=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -466,6 +467,12 @@ esac
 case "$CONNECTIONS" in
     connections=ok*) echo "connections OK: ${CONNECTIONS#connections=ok }" ;;
     *) echo "CONNECTIONS FAILED" >&2; echo "  $CONNECTIONS" >&2; STATUS=1 ;;
+esac
+
+# A builder that fought, or a repairer the bell called in, goes back to its building.
+case "$BACKTOWORK" in
+    backtowork=ok*) echo "backtowork OK" ;;
+    *) echo "BACKTOWORK FAILED" >&2; echo "  $BACKTOWORK" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

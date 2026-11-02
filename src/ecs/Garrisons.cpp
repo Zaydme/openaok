@@ -580,7 +580,8 @@ void RingBell(entt::registry& registry, const Physics::Grid& grid, entt::entity 
         Components::Boarding boarding{best->building};
         boarding.bell = true;
         if (const auto* worker = registry.try_get<Components::Worker>(runner.unit)) {
-            if (worker->state == Core::UnitState::Building) {
+            if (worker->state == Core::UnitState::Building ||
+                worker->state == Core::UnitState::Repairing) {
                 boarding.resume_building = worker->target_building;
             } else if (worker->state != Core::UnitState::Idle) {
                 boarding.resume_resource = worker->target_resource;
