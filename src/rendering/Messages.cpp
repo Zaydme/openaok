@@ -337,11 +337,13 @@ void Review(int step) {
     s.review_at = SDL_GetTicks();
 }
 
-void Draw(SDL_Renderer* renderer, int win_w, int win_h) {
+void Draw(SDL_Renderer* renderer, int win_w, int win_h, int below) {
     State& s = S();
     const uint32_t now = SDL_GetTicks();
     const SDL_Color outline{0, 0, 0, 255};
-    const SDL_Rect view = UIRenderer::ViewRect(win_w, win_h);
+    SDL_Rect view = UIRenderer::ViewRect(win_w, win_h);
+    view.y += below;
+    view.h -= below;
     // At the Options' Text size: the faces drawn afresh at it, and the
     // layout's distances grown with them.
     const int percent = UIRenderer::TextPercent();

@@ -270,6 +270,27 @@ public:
     static void ToggleClock();
     static void SetGameSpeed(int percent);
     static void DrawTimePanels(ECS::Simulation& sim, SDL_Renderer* sdl_r, int win_w, int win_h);
+
+    // One thing the player's buildings are making, for the overview: a
+    // technology, or a kind of unit with how many of it are queued; and how
+    // far the one furthest along is, `done` of `total` milliseconds (total 0
+    // when none has started).
+    struct QueueEntry {
+        bool tech = false;
+        int id = -1;
+        int count = 0;
+        int32_t done = 0;
+        int32_t total = 0;
+    };
+    static constexpr int kMaxQueueEntries = 48;
+    // What the viewer's finished buildings are researching and training, the
+    // technologies first, each in the order its building was made: how many
+    // entries, at most `max`, are written to `out`.
+    static int QueueOverview(const entt::registry& registry, QueueEntry* out, int max);
+    // With the Options' Production Queue on, the overview at the map's top
+    // left, below the clock: each entry's icon, its count, and its progress
+    // under it. How far down the map it reaches, 0 when it shows nothing.
+    static int DrawQueueOverview(ECS::Simulation& sim, SDL_Renderer* sdl_r, int win_w, int win_h);
     // The scores (F4, or the mini-map's statistics button) at the view's
     // lower right.
     static void DrawScores(ECS::Simulation& sim, SDL_Renderer* sdl_r, int win_w, int win_h);

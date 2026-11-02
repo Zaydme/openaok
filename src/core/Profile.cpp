@@ -43,6 +43,7 @@ Options Load() {
         else if (key == "graphics_detail") options.graphics_detail = value;
         else if (key == "widescreen") options.widescreen = value != 0;
         else if (key == "no_selection_limit") options.no_selection_limit = value != 0;
+        else if (key == "production_queue") options.production_queue = value != 0;
         else if (key == "top_bar_size") options.top_bar_size = value;
         else if (key == "panel_size") options.panel_size = value;
         else if (key == "text_size") options.text_size = value;
@@ -88,6 +89,7 @@ void Save(const Options& options) {
         << "graphics_detail " << options.graphics_detail << "\n"
         << "widescreen " << (options.widescreen ? 1 : 0) << "\n"
         << "no_selection_limit " << (options.no_selection_limit ? 1 : 0) << "\n"
+        << "production_queue " << (options.production_queue ? 1 : 0) << "\n"
         << "top_bar_size " << options.top_bar_size << "\n"
         << "panel_size " << options.panel_size << "\n"
         << "text_size " << options.text_size << "\n"

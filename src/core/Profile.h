@@ -40,6 +40,9 @@ struct Options {
     // Any number of units selected at once; off, forty at most, as the
     // original allows (InputManager::SelectionLimit).
     bool no_selection_limit = true;
+    // What the player's buildings are researching and training, shown at the
+    // map's top left (UIRenderer::DrawQueueOverview).
+    bool production_queue = true;
     // The game's frame as wide as the screen, the interface reaching its
     // edges (rendering/HudLayout.h). Off, the frame is 4:3.
 #if OPENAOK_HANDHELD

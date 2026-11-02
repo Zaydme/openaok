@@ -867,6 +867,96 @@ void UIRenderer::DrawTimePanels(ECS::Simulation& sim, SDL_Renderer* sdl_r, int w
         ++row;
     }
 }
+int UIRenderer::QueueOverview(const entt::registry& registry, QueueEntry* out, int max) {
+    static std::vector<entt::entity> buildings;
+    buildings.clear();
+    auto view = registry.view<const ECS::Components::ProductionQueue, const ECS::Components::Owner,
+                              const ECS::Components::Building>();
+    for (auto b : view) {
+        if (view.get<const ECS::Components::Owner>(b).player_id != LocalViewer()) continue;
+        if (view.get<const ECS::Components::Building>(b).state != ECS::Components::BuildingState::Complete) continue;
+        if (view.get<const ECS::Components::ProductionQueue>(b).count > 0) buildings.push_back(b);
+    }
+    // EnTT views run newest first.
+    std::reverse(buildings.begin(), buildings.end());
+    int n = 0;
+    for (const bool techs : {true, false}) {
+        for (entt::entity b : buildings) {
+            const auto& queue = registry.get<ECS::Components::ProductionQueue>(b);
+            const int32_t front_ms = ECS::Production::FrontDuration(registry, b);
+            for (int i = 0; i < queue.count; ++i) {
+                const ECS::Components::QueueItem& item = queue.items[i];
+                if (item.tech != techs) continue;
+                int at = 0;
+                while (at < n && (out[at].tech != item.tech || out[at].id != item.id)) ++at;
+                if (at == n) {
+                    if (n == max) continue;
+                    out[n++] = QueueEntry{item.tech, item.id, 0, 0, 0};
+                }
+                QueueEntry& e = out[at];
+                ++e.count;
+                // The further along of two by their shares, done/total.
+                if (i == 0 && front_ms > 0 &&
+                    (e.total == 0 || static_cast<int64_t>(queue.progress_ms) * e.total >
+                                         static_cast<int64_t>(e.done) * front_ms)) {
+                    e.done = queue.progress_ms;
+                    e.total = front_ms;
+                }
+            }
+        }
+    }
+    return n;
+}
+
+int UIRenderer::DrawQueueOverview(ECS::Simulation& sim, SDL_Renderer* sdl_r, int win_w, int win_h) {
+    if (!Core::Profile::Current().production_queue) return 0;
+    static QueueEntry entries[kMaxQueueEntries];
+    const int n = QueueOverview(sim.GetRegistry(), entries, kMaxQueueEntries);
+    if (n == 0) return 0;
+    // Laid as the building panel lays its queue -- a bevelled 40-pixel
+    // button, its icon inside, the count at its top left, a progress bar
+    // under it -- at the top bar's size, below the clock when it is shown.
+    constexpr int kCell = 40, kGap = 2, kBar = 4, kMargin = 4;
+    const HudSpace top = TopSpace(win_w, win_h);
+    auto scaled = [&](int px) { return static_cast<int>(std::lround(px * top.scale)); };
+    const SDL_Rect view = ViewRect(win_w, win_h);
+    int y0 = view.y + scaled(kMargin);
+    if (HudState().clock) {
+        y0 += TextScaled(4) + Text::Height(Text::Scaled(kPanelFont, TextPercent())) + scaled(kMargin);
+    }
+    const int cell = scaled(kCell), gap = scaled(kGap), bar = std::max(1, scaled(kBar));
+    const int pitch_x = cell + gap, pitch_y = cell + gap + bar + scaled(kMargin);
+    const int across = std::max(1, (view.w / 2 - scaled(kMargin)) / pitch_x);
+    const auto& cfg = Core::ConfigManager::Get();
+    const auto& registry = sim.GetRegistry();
+    const int font = Text::Scaled(Text::kArial8, static_cast<int>(std::lround(top.scale * 100.0f)));
+    for (int i = 0; i < n; ++i) {
+        const QueueEntry& e = entries[i];
+        const int x = scaled(kMargin) + (i % across) * pitch_x;
+        const int y = y0 + (i / across) * pitch_y;
+        const SDL_Rect icon = {x + scaled(2), y + scaled(2), cell - scaled(4), cell - scaled(4)};
+        if (e.tech) {
+            if (const auto* tech = Core::Rules::Tech(e.id)) {
+                DrawIcon(sdl_r, cfg.ResearchIconSlp(), tech->icon, icon, LocalViewer(), 255);
+            }
+        } else if (const auto* unit = ECS::Players::UnitOf(registry, LocalViewer(), e.id)) {
+            DrawIcon(sdl_r, IconSheetFor(e.id), unit->icon, icon, LocalViewer(), 255);
+        }
+        Bevel(sdl_r, x, y, cell, cell, false);
+        if (e.count > 1) {
+            Text::DrawShadowed(sdl_r, font, x + scaled(4), y + scaled(3), std::to_string(e.count), kWhite, kBlack);
+        }
+        const int by = y + cell + gap;
+        Fill(sdl_r, x, by, cell, bar, kBlack);
+        if (e.total > 0) {
+            Fill(sdl_r, x, by, static_cast<int>(static_cast<int64_t>(cell) * std::min(e.done, e.total) / e.total),
+                 bar, kHealthGreen);
+        }
+    }
+    const int rows = (n + across - 1) / across;
+    return y0 - view.y + rows * pitch_y;
+}
+
 SDL_Color UIRenderer::PlayerTextColour(Core::PlayerId player) {
     // Blue, red, green, yellow, cyan, magenta, light grey, orange -- each
     // drawn over black.

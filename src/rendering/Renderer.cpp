@@ -168,7 +168,8 @@ void Renderer::Render(ECS::Simulation& sim, HAL::Window& window, float alpha) {
     }
     
     SetZoom(sdl_r, 1.0f);
-    Messages::Draw(sdl_r, win_w, win_h);
+    const int overview = UIRenderer::DrawQueueOverview(sim, sdl_r, win_w, win_h);
+    Messages::Draw(sdl_r, win_w, win_h, overview);
     UIRenderer::DrawTimePanels(sim, sdl_r, win_w, win_h);
     UIRenderer::DrawScores(sim, sdl_r, win_w, win_h);
     UIRenderer::DrawInterface(sim, *this, sdl_r, win_w, win_h);

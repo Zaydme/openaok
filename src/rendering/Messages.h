@@ -31,7 +31,10 @@ void Chat(const entt::registry& registry, Core::PlayerId from, const std::string
 // Turns the simulation's news since the last call into lines for `viewer`.
 void Update(const entt::registry& registry, Core::PlayerId viewer);
 
-void Draw(SDL_Renderer* renderer, int win_w, int win_h);
+// The lines and instructions over the map, `below` pixels further down than
+// their places when something takes the map's top left (the production
+// overview).
+void Draw(SDL_Renderer* renderer, int win_w, int win_h, int below = 0);
 
 // Steps back through, or forward again through, lines already shown: the
 // chat review keys.

@@ -326,7 +326,7 @@ struct OptionsScreen {
     TextField name;
     Button sizes[3];
     Slider music, sound, scroll;
-    CheckBox taunts, one_click, two_button, widescreen, no_selection_limit;
+    CheckBox taunts, one_click, two_button, widescreen, no_selection_limit, production_queue;
     Slider top_bar, panel, text;   // the interface's sizes, 100% to 200%
     Button ok, cancel;
     int chosen_size = 1;
@@ -358,6 +358,7 @@ void OpenOptions() {
     o.top_bar = SizeSlider(SDL_Rect{590, 245, 160, 22}, profile.top_bar_size);
     o.panel = SizeSlider(SDL_Rect{590, 315, 160, 22}, profile.panel_size);
     o.text = SizeSlider(SDL_Rect{590, 385, 160, 22}, profile.text_size);
+    o.production_queue = CheckBox{SDL_Rect{590, 440, 30, 27}, profile.production_queue};
     o.ok = Button{SDL_Rect{37, 551, 160, 35}, "OK", Text::kBlackletter14};
     o.cancel = Button{SDL_Rect{217, 551, 163, 35}, Get(4002), Text::kBlackletter14};
 }
@@ -410,6 +411,11 @@ void DrawOptions(SDL_Renderer* r) {
     DrawSizeSlider(r, theme, o.top_bar, "Top Bar Size");
     DrawSizeSlider(r, theme, o.panel, "Panel Size");
     DrawSizeSlider(r, theme, o.text, "Text Size");
+    // The overview of what is being made (Profile::Options::production_queue),
+    // likewise.
+    DrawCheckBox(r, theme, o.production_queue, S().mx, S().my, S().held);
+    DrawText(r, Text::kGeorgia10B, o.production_queue.box.x + o.production_queue.box.w + 10,
+             o.production_queue.box.y + 5, "Production Queue", ink, ink, Align::Left, false);
     DrawButton(r, theme, o.ok, StateOf(o.ok, S().mx, S().my, S().held));
     DrawButton(r, theme, o.cancel, StateOf(o.cancel, S().mx, S().my, S().held));
     DrawCloseBox(r, theme);
@@ -422,7 +428,8 @@ void OptionsEvent(const SDL_Event& e) {
         for (Slider* s : {&o.music, &o.sound, &o.scroll, &o.top_bar, &o.panel, &o.text}) {
             if (DragSlider(*s, e.button.x, e.button.y)) return;
         }
-        for (CheckBox* c : {&o.taunts, &o.one_click, &o.two_button, &o.widescreen, &o.no_selection_limit}) {
+        for (CheckBox* c : {&o.taunts, &o.one_click, &o.two_button, &o.widescreen, &o.no_selection_limit,
+                            &o.production_queue}) {
             if (Hit(c->box, e.button.x, e.button.y)) { c->checked = !c->checked; Click(); return; }
         }
         o.name.focused = Hit(o.name.rect, e.button.x, e.button.y);
@@ -450,6 +457,7 @@ void OptionsEvent(const SDL_Event& e) {
             profile.two_button_mouse = o.two_button.checked;
             profile.widescreen = o.widescreen.checked;
             profile.no_selection_limit = o.no_selection_limit.checked;
+            profile.production_queue = o.production_queue.checked;
             profile.top_bar_size = SizeOf(o.top_bar);
             profile.panel_size = SizeOf(o.panel);
             profile.text_size = SizeOf(o.text);

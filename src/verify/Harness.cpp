@@ -98,6 +98,7 @@ int Run(int ticks) {
     if (runs("cursor")) ok &= CheckCursor();
     if (runs("fogedge")) ok &= CheckFogEdge();
     if (runs("queuesplit")) ok &= CheckQueueSplit();
+    if (runs("queueoverview")) ok &= CheckQueueOverview();
     if (runs("wolves")) ok &= CheckWolves();
     if (runs("lobby")) ok &= CheckLobby();
     if (runs("formations")) ok &= CheckFormations();

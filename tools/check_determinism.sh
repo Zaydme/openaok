@@ -62,6 +62,7 @@ OUTLINE="$(echo "$OUTPUT" | grep '^outline=')"
 CURSOR="$(echo "$OUTPUT" | grep '^cursor=')"
 FOGEDGE="$(echo "$OUTPUT" | grep '^fogedge=')"
 QUEUESPLIT="$(echo "$OUTPUT" | grep '^queuesplit=')"
+QUEUEOVERVIEW="$(echo "$OUTPUT" | grep '^queueoverview=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -432,6 +433,12 @@ esac
 case "$QUEUESPLIT" in
     queuesplit=ok*) echo "queuesplit OK: ${QUEUESPLIT#queuesplit=ok }" ;;
     *) echo "QUEUESPLIT FAILED" >&2; echo "  $QUEUESPLIT" >&2; STATUS=1 ;;
+esac
+
+# The production overview: research first, units by kind, with its option.
+case "$QUEUEOVERVIEW" in
+    queueoverview=ok*) echo "queueoverview OK: ${QUEUEOVERVIEW#queueoverview=ok }" ;;
+    *) echo "QUEUEOVERVIEW FAILED" >&2; echo "  $QUEUEOVERVIEW" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

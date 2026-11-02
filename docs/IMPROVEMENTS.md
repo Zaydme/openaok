@@ -20,6 +20,11 @@ out of the way of the original's own look and rules.
   text over the world (chat, the game's messages, scores and timers) can each
   be drawn from 100% to 200% of their size (Options, Top Bar Size, Panel Size,
   Text Size).
+- **Production queue.** What the player's buildings are researching and
+  training shows at the map's top left: each technology with its progress,
+  each kind of unit with how many are queued and the progress of the one
+  furthest along (Options, Production Queue, on by default). The game's
+  messages move down below it.
 
 ## Playing
 
@@ -27,6 +32,9 @@ out of the way of the original's own look and rules.
   box, a click with Ctrl or Shift, or a double click. The original's limit of
   forty is still there to turn on: Options, Disable selection limit, which is
   checked by default.
+- **Training from several buildings.** With several buildings of a kind
+  selected, each unit ordered goes to the finished one with the fewest queued,
+  so the queues fill evenly; one still being built takes none.
 - **Larger populations.** Besides the original's limits of 25 to 200, a game
   can be set up with a population limit of 250 to 500 in steps of 50, and of
   600 to 1000 in steps of 100. The computer players' scripts, written for
