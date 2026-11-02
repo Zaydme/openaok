@@ -87,6 +87,7 @@ TOWNSTRUCK="$(echo "$OUTPUT" | grep '^townstruck=')"
 MAPSCRIPTS="$(echo "$OUTPUT" | grep '^mapscripts=')"
 DROPDOWNROWS="$(echo "$OUTPUT" | grep '^dropdownrows=')"
 ANSWERDRAFT="$(echo "$OUTPUT" | grep '^answerdraft=')"
+DROPOFFBEYOND="$(echo "$OUTPUT" | grep '^dropoffbeyond=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -614,6 +615,12 @@ esac
 case "$ANSWERDRAFT" in
     answerdraft=ok*) echo "answerdraft OK" ;;
     *) echo "ANSWERDRAFT FAILED" >&2; echo "  $ANSWERDRAFT" >&2; STATUS=1 ;;
+esac
+
+# A villager with no way to any drop site stands with its load.
+case "$DROPOFFBEYOND" in
+    dropoffbeyond=ok*) echo "dropoffbeyond OK" ;;
+    *) echo "DROPOFFBEYOND FAILED" >&2; echo "  $DROPOFFBEYOND" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

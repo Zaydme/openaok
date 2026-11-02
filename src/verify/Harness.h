@@ -363,6 +363,9 @@ bool CheckDropDownRows();
 // idle or fighting of their own accord, not by those it sent elsewhere.
 // Prints "answerdraft=".
 bool CheckAnswerDraft();
+// A villager with no way to any drop site stands with its load. Prints
+// "dropoffbeyond=".
+bool CheckDropoffBeyond();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

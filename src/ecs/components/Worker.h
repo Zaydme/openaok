@@ -73,6 +73,9 @@ struct Worker {
     // Sent to `target_dropoff` by an order: it stands there after handing
     // over its load, rather than going back to work.
     bool ordered_drop = false;
+    // Carrying a load home: how far off was the drop site it found no way to,
+    // so that it looks only further out; -1 when none.
+    Core::Fixed32 dropoff_beyond = Core::Fixed32(-1);
     // What it is building -- or, Repairing, mending: a building or a unit.
     entt::entity target_building = entt::null;
 

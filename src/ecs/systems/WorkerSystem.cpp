@@ -711,6 +711,7 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
             worker.target_building = entt::null;
             worker.build_attempts = 0;
         }
+        if (worker.state != Core::UnitState::Returning) worker.dropoff_beyond = Core::Fixed32(-1);
 
         switch (worker.state) {
             case Core::UnitState::Idle:
@@ -1004,6 +1005,7 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                         const Core::Fixed32 distance = Core::FixedMath::Distance(
                             transform.position.x - b_trans.position.x,
                             transform.position.y - b_trans.position.y);
+                        if (distance <= worker.dropoff_beyond) continue;
                         if (distance < nearest) {
                             nearest = distance;
                             best_dropoff = b_ent;
@@ -1034,8 +1036,11 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                 case Approach::Waiting:
                     break;
                 case Approach::Unreachable:
-                    // Try another drop site next tick rather than stand here
-                    // holding a full load -- unless sent to this one.
+                    // No way to it: the next tick it tries the nearest drop
+                    // site further out, and with none it stands with its
+                    // load. Sent to this one, it stands now.
+                    worker.dropoff_beyond = Core::FixedMath::Distance(transform.position.x - site_at.position.x,
+                                                                      transform.position.y - site_at.position.y);
                     worker.target_dropoff = entt::null;
                     if (worker.ordered_drop) {
                         worker.ordered_drop = false;
