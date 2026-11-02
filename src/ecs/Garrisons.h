@@ -41,9 +41,12 @@ bool Send(entt::registry& registry, entt::entity unit, entt::entity building);
 // the file says it is there.
 void PutInside(entt::registry& registry, entt::entity unit, entt::entity holder);
 
-// Turns everyone out of `building`, at its door -- or, a transport, lands them
-// at the shore nearest it (Unload).
-void Eject(entt::registry& registry, const Physics::Grid& grid, entt::entity building);
+// Turns everyone out of `building`, at its door, or, a transport, lands them
+// at the shore nearest it (Unload). Anyone with nowhere to stand stays in;
+// with `fallen`, the building is coming down and its ground is already clear,
+// so they stand on that ground instead.
+void Eject(entt::registry& registry, const Physics::Grid& grid, entt::entity building,
+           bool fallen = false);
 
 // Whether `holder` is a transport: a unit, not a building, with room aboard.
 bool IsTransport(const entt::registry& registry, entt::entity holder);

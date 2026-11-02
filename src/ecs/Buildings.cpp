@@ -782,9 +782,7 @@ void Destroy(entt::registry& registry, Physics::Grid& grid, entt::entity buildin
     // Whatever it was making is refunded, and research it held is available
     // to queue elsewhere.
     Production::Abandon(registry, building);
-    // Whoever sheltered in it is turned out.
-    Garrisons::Eject(registry, grid, building);
-    // And the relics it held are left on the ground.
+    // The relics it held are left on the ground.
     Relics::Release(registry, building);
 
     // Anyone building it has nothing left to build.
@@ -808,6 +806,9 @@ void Destroy(entt::registry& registry, Physics::Grid& grid, entt::entity buildin
                 grid.SetWalkable(x, y, true);
             });
         }
+        // Whoever sheltered in it is turned out, onto its ground if there is
+        // nowhere else.
+        Garrisons::Eject(registry, grid, building, true);
         // A farm leaves its field harvested out.
         const R::UnitRules* farm = Players::UnitOf(registry, owner, unit_id);
         if (farm != nullptr && LaysCrop(*farm)) {

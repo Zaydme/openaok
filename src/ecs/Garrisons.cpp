@@ -378,7 +378,7 @@ bool Send(entt::registry& registry, entt::entity unit, entt::entity building) {
     return true;
 }
 
-void Eject(entt::registry& registry, const Physics::Grid& grid, entt::entity building) {
+void Eject(entt::registry& registry, const Physics::Grid& grid, entt::entity building, bool fallen) {
     auto* garrison = registry.try_get<Components::Garrison>(building);
     if (garrison == nullptr) return;
     // A transport has no door: it lands its load at the nearest shore.
@@ -396,10 +396,18 @@ void Eject(entt::registry& registry, const Physics::Grid& grid, entt::entity bui
         const Components::Garrisoned stay = registry.get<Components::Garrisoned>(unit);
         registry.remove<Components::Garrisoned>(unit);
         if (!StepOut(registry, grid, unit, building)) {
-            // Nowhere to stand: it stays in.
-            garrison->inside.push_back(unit);
-            registry.emplace<Components::Garrisoned>(unit, stay);
-            continue;
+            if (fallen && registry.all_of<Components::Transform>(building)) {
+                // Nowhere else to stand: the ground the building held.
+                const Buildings::Bounds ground = GroundOf(registry, building);
+                const Components::Vector2D at{(ground.min_x + ground.max_x) / Core::Fixed32(2),
+                                              (ground.min_y + ground.max_y) / Core::Fixed32(2)};
+                registry.emplace<Components::Transform>(unit, Components::Transform{at, at});
+            } else {
+                // Nowhere to stand: it stays in.
+                garrison->inside.push_back(unit);
+                registry.emplace<Components::Garrisoned>(unit, stay);
+                continue;
+            }
         }
         if (stay.bell) {
             Orders::GoBackToWork(registry, grid, unit, stay.resume_resource,

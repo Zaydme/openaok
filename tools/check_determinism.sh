@@ -67,6 +67,7 @@ TERRAINCELL="$(echo "$OUTPUT" | grep '^terraincell=')"
 OPTIONS="$(echo "$OUTPUT" | grep '^options=')"
 CONNECTIONS="$(echo "$OUTPUT" | grep '^connections=')"
 BACKTOWORK="$(echo "$OUTPUT" | grep '^backtowork=')"
+GARRISONFALL="$(echo "$OUTPUT" | grep '^garrisonfall=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -473,6 +474,12 @@ esac
 case "$BACKTOWORK" in
     backtowork=ok*) echo "backtowork OK" ;;
     *) echo "BACKTOWORK FAILED" >&2; echo "  $BACKTOWORK" >&2; STATUS=1 ;;
+esac
+
+# A fallen building's garrison with nowhere to step out stands on its ground.
+case "$GARRISONFALL" in
+    garrisonfall=ok*) echo "garrisonfall OK" ;;
+    *) echo "GARRISONFALL FAILED" >&2; echo "  $GARRISONFALL" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and
