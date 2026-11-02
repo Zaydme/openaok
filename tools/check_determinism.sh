@@ -78,6 +78,7 @@ IDLEMILITARY="$(echo "$OUTPUT" | grep '^idlemilitary=')"
 SCENARIOVERSION="$(echo "$OUTPUT" | grep '^scenarioversion=')"
 UNFINISHEDDROP="$(echo "$OUTPUT" | grep '^unfinisheddrop=')"
 FARMFIELD="$(echo "$OUTPUT" | grep '^farmfield=')"
+DEADTRAP="$(echo "$OUTPUT" | grep '^deadtrap=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -550,6 +551,12 @@ esac
 case "$FARMFIELD" in
     farmfield=ok*) echo "farmfield OK" ;;
     *) echo "FARMFIELD FAILED" >&2; echo "  $FARMFIELD" >&2; STATUS=1 ;;
+esac
+
+# A fish trap run out leaves its dead unit to build over.
+case "$DEADTRAP" in
+    deadtrap=ok*) echo "deadtrap OK" ;;
+    *) echo "DEADTRAP FAILED" >&2; echo "  $DEADTRAP" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

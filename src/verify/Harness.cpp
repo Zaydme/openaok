@@ -114,6 +114,7 @@ int Run(int ticks) {
     if (runs("scenarioversion")) ok &= CheckScenarioVersion();
     if (runs("unfinisheddrop")) ok &= CheckUnfinishedDrop();
     if (runs("farmfield")) ok &= CheckFarmField();
+    if (runs("deadtrap")) ok &= CheckDeadTrap();
     if (runs("wolves")) ok &= CheckWolves();
     if (runs("lobby")) ok &= CheckLobby();
     if (runs("formations")) ok &= CheckFormations();

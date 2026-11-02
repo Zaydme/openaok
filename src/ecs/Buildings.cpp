@@ -852,10 +852,11 @@ void Destroy(entt::registry& registry, Physics::Grid& grid, entt::entity buildin
         if (rubble && rules != nullptr && rules->dying_graphic >= 0) {
             Mortality::PlayOnce(registry, rules->dying_graphic, at);
         }
-        // A farm run out leaves its dead farm, the owner's to rebuild: a
-        // villager right-clicked on it puts up a new Farm there ("Right-click
-        // to rebuild this Farm.", string 3930).
-        if (rubble && farm != nullptr && LaysCrop(*farm) && farm->dead_unit >= 0) {
+        // A Farm or a fish trap run out leaves its dead unit, the owner's to
+        // rebuild: a villager right-clicked on a dead Farm, or a Fishing Ship
+        // on a dead fish trap, puts up a new one there ("Right-click to
+        // rebuild this Farm.", 3930, "... this Fish Trap.", 3931).
+        if (rubble && farm != nullptr && farm->cls == kFarmClass && farm->dead_unit >= 0) {
             if (remains == entt::null) {
                 remains = registry.create();
                 registry.emplace<Components::Transform>(remains, at, at);

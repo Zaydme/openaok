@@ -13,6 +13,7 @@
 #include "rendering/Placement.h"
 #include "ecs/Animals.h"
 #include "ecs/BuildingGeometry.h"
+#include "ecs/Buildings.h"
 #include "core/IsometricMath.h"
 #include "core/CommandQueue.h"
 #include "ecs/components/Transform.h"
@@ -671,8 +672,9 @@ bool InputManager::HandleMouseKey(int mouse_key, ECS::Simulation& sim,
 
 namespace {
 
-// The player's dead farm under the point (x, y), if any: the Farm that stood
-// there (`farm_unit`) and the tile it stood on, to build it again.
+// The player's dead Farm or fish trap under the point (x, y), if any: the
+// farm that stood there (`farm_unit`) and the tile it stood on, to build it
+// again.
 bool DeadFarmAt(ECS::Simulation& sim, float x, float y, int& farm_unit, int& tile_x, int& tile_y) {
     auto& registry = sim.GetRegistry();
     const auto& rules = Core::Rules::Get();
@@ -807,13 +809,18 @@ void InputManager::UpdateIntent(ECS::Simulation& sim, Rendering::Renderer& rende
         return false;
     };
 
-    // A dead farm, for villagers to rebuild (LANGUAGE.DLL 3930).
-    if (villagers) {
+    // A dead Farm, for villagers to rebuild, or a dead fish trap, for
+    // Fishing Ships (LANGUAGE.DLL 3930, 3931).
+    if (villagers || boats) {
         int farm_unit = -1, fx = 0, fy = 0;
         if (DeadFarmAt(sim, x, y, farm_unit, fx, fy)) {
-            intent = Intent::Work;
-            Rendering::UIRenderer::SetWorldHint(3930);
-            return;
+            const auto* farm = Core::Rules::Unit(farm_unit);
+            const bool crop = farm != nullptr && ECS::Buildings::LaysCrop(*farm);
+            if (crop ? villagers : boats) {
+                intent = Intent::Work;
+                Rendering::UIRenderer::SetWorldHint(crop ? 3930 : 3931);
+                return;
+            }
         }
     }
 
@@ -1692,18 +1699,23 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
                 if (d2 <= nearest_res) { nearest_res = d2; target_res = r; }
             }
 
-            // A dead farm of the player's: the selected villagers put a new
-            // Farm up on it ("Right-click to rebuild this Farm.").
+            // A dead Farm or fish trap of the player's: the selected
+            // villagers put a new Farm up on it, or the Fishing Ships a new
+            // fish trap ("Right-click to rebuild this Farm.", "... this Fish
+            // Trap.").
             if (!on_minimap) {
                 int farm_unit = -1, fx = 0, fy = 0;
                 if (DeadFarmAt(sim, click_x, click_y, farm_unit, fx, fy)) {
+                    const auto* farm = Core::Rules::Unit(farm_unit);
+                    const bool crop = farm != nullptr && ECS::Buildings::LaysCrop(*farm);
                     bool ordered = false;
                     auto crew = registry.view<ECS::Components::Selectable, ECS::Components::Worker,
                                               ECS::Components::Owner>();
                     for (auto member : crew) {
                         if (!crew.get<ECS::Components::Selectable>(member).is_selected) continue;
                         if (crew.get<ECS::Components::Owner>(member).player_id != Core::LocalPlayer()) continue;
-                        if (crew.get<ECS::Components::Worker>(member).gatherer >= 0) continue;
+                        // A villager rebuilds a Farm, a Fishing Ship a trap.
+                        if ((crew.get<ECS::Components::Worker>(member).gatherer >= 0) == crop) continue;
                         CommandQueue::Get().PushCommand(
                             BuildCommand{member, farm_unit, fx, fy, Core::LocalPlayer()});
                         ordered = true;
