@@ -39,25 +39,24 @@ cells of one square pattern: every set has a square number of frames (100, 64,
 cell for its position, so the pattern runs on unbroken from tile to tile and
 the ground shows no seams.
 
-The cell is worked out when a tile is painted as the map is made, by
-`VariantFor` in `core/MapGenerator`, and kept on the tile as
-`texture_variant`:
+The cell is worked out as the tile is drawn, from its place and its terrain's
+frame count, by `TerrainRenderer::PatternCell`; nothing is kept on the tile, so
+a tile whose terrain changes draws its new terrain's cell for its place:
 
 ```cpp
-uint8_t VariantFor(int x, int y, int frame_count) {
+int TerrainRenderer::PatternCell(int x, int y, int frame_count) {
     if (frame_count <= 1) return 0;
     int period = 1;
     while ((period + 1) * (period + 1) <= frame_count) ++period;
-
     const int column = ((x % period) + period) % period;
     const int row = ((-y % period) + period) % period;
-    return static_cast<uint8_t>(column * period + row);
+    return column * period + row;
 }
 ```
 
 The column counts up with the tile's x, the row counts down as its y counts
-up. `TerrainRenderer::GetTerrainTile` takes the cell modulo the terrain's own
-frame count and returns the cell's rectangle on the terrain's texture.
+up. `TerrainRenderer::GetTerrainTile(type, x, y)` returns the rectangle of
+that cell on the terrain's texture.
 
 ## Blending
 
@@ -101,8 +100,8 @@ back to the ordinary edge, mode 0.
 
 ### Drawing a blend
 
-A `Blend` is the neighbour's art, at the cell of this tile's own pattern
-position, and a mask. Each is drawn into a slot of a blend sheet: the tile
+A `Blend` is the neighbour's art, at the cell its own pattern has for this
+tile's place, and a mask. Each is drawn into a slot of a blend sheet: the tile
 copied in, then the mask copied over it with a blend mode that keeps the
 tile's colour and multiplies its alpha by the mask's.
 
@@ -314,11 +313,11 @@ follow the ground as drawn (see [Fog of war](/engine/rendering/fog)).
 
 ## Where it lives in the code
 
-- [`src/rendering/TerrainRenderer.h`](https://github.com/Zaydme/openaok/blob/main/src/rendering/TerrainRenderer.h), [`TerrainRenderer.cpp`](https://github.com/Zaydme/openaok/blob/main/src/rendering/TerrainRenderer.cpp): terrain tiles, blending, chunk bakes, half-size chunks, the overview, hill fans
+- [`src/rendering/TerrainRenderer.h`](https://github.com/Zaydme/openaok/blob/main/src/rendering/TerrainRenderer.h), [`TerrainRenderer.cpp`](https://github.com/Zaydme/openaok/blob/main/src/rendering/TerrainRenderer.cpp): terrain tiles and their pattern cells, blending, chunk bakes, half-size chunks, the overview, hill fans
 - [`src/rendering/Ground.h`](https://github.com/Zaydme/openaok/blob/main/src/rendering/Ground.h), [`Ground.cpp`](https://github.com/Zaydme/openaok/blob/main/src/rendering/Ground.cpp): the ground's surface, its height under a point, its light, picking on hills
-- [`src/core/MapGenerator.cpp`](https://github.com/Zaydme/openaok/blob/main/src/core/MapGenerator.cpp): `VariantFor`, each tile's cell of its terrain's pattern
 - [`src/hal/GraphicCache.cpp`](https://github.com/Zaydme/openaok/blob/main/src/hal/GraphicCache.cpp): the terrain archive and each terrain's atlas
 - [`src/physics/Grid.h`](https://github.com/Zaydme/openaok/blob/main/src/physics/Grid.h): tiles, their terrain and elevation, the log of changes to the ground
 - [`src/ecs/Fog.h`](https://github.com/Zaydme/openaok/blob/main/src/ecs/Fog.h): the ground as each player last saw it
 - [`tools/data/extract_blendmasks.py`](https://github.com/Zaydme/openaok/blob/main/tools/data/extract_blendmasks.py): the blend masks from `blendomatic.dat`, as one sheet
 - [`src/verify/HalveCheck.cpp`](https://github.com/Zaydme/openaok/blob/main/src/verify/HalveCheck.cpp): self-check that halved chunks still overlap where they meet
+- [`src/verify/TerrainCellCheck.cpp`](https://github.com/Zaydme/openaok/blob/main/src/verify/TerrainCellCheck.cpp): self-check that a tile draws its terrain's own cell for its place, its terrain changed or not

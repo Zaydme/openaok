@@ -295,10 +295,11 @@ client shows the message it was given.
 ## From the command line
 
 `--host PORT --players N` opens a game, and `--join HOST:PORT` joins one (the
-port is 27015 when it is left out). There is no lobby and no hello: the host
-seats each client as it connects, in seat order, sends it its seat and the
-game's setup at once, and starts everyone when the table is full. Nothing
-checks the version, so both machines must run the same build.
+port is 27015 when it is left out). There is no lobby: each client says hello
+with its version once it is through, and the host seats it, in seat order,
+sends it its seat and the game's setup at once, and starts everyone when the
+table is full. A client of another version is put out with the lobby's
+message for it (LANGUAGE.DLL 9699), which it prints before it exits.
 
 ## Restoring a saved game
 

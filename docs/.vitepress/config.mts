@@ -65,10 +65,22 @@ export default withMermaid(defineConfig({
           items: [
             { text: 'Entities and systems', link: '/engine/simulation' },
             { text: 'Fixed point and determinism', link: '/engine/determinism' },
-            { text: 'Movement and routes', link: '/engine/pathfinding' },
-            { text: 'Combat', link: '/engine/combat' },
-            { text: 'Computer players', link: '/engine/ai' },
             { text: 'Lockstep multiplayer', link: '/engine/multiplayer' },
+          ],
+        },
+        {
+          text: 'The game',
+          items: [
+            { text: 'Units and their tasks', link: '/engine/units' },
+            { text: 'Movement and routes', link: '/engine/pathfinding' },
+            { text: 'Gathering and the economy', link: '/engine/economy' },
+            { text: 'Buildings and construction', link: '/engine/construction' },
+            { text: 'Training and research', link: '/engine/production' },
+            { text: 'Combat', link: '/engine/combat' },
+            { text: 'Armies and the navy', link: '/engine/war' },
+            { text: 'Victory and diplomacy', link: '/engine/victory' },
+            { text: 'Scenarios, campaigns and saves', link: '/engine/scenarios' },
+            { text: 'Computer players', link: '/engine/ai' },
           ],
         },
         {
@@ -96,6 +108,7 @@ export default withMermaid(defineConfig({
             { text: 'Building from source', link: '/development/' },
             { text: 'Self-checks', link: '/development/verification' },
             { text: 'Performance', link: '/development/performance' },
+            { text: 'Optimizations', link: '/development/optimizations' },
             { text: 'Contributing', link: '/development/contributing' },
           ],
         },

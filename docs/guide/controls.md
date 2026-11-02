@@ -19,6 +19,10 @@ CD's own, read from its `EMPIRES2.EXE` when the data is prepared.
 | Mouse wheel, or `=` and `-` | Zoom in and out about the pointer |
 | Ctrl with the mouse wheel | The original's wheel hotkeys: the Town Center, the next idle villager |
 
+With Two-button mouse interface off in [Options](/guide/options), the left
+button orders as well: with your units selected, a left click gives the order
+the cursor shows, or sends them to open ground, and selects anything else.
+
 The zoom is OpenAoK's own; everything else it adds is listed in
 [Improvements on the original](/guide/improvements).
 

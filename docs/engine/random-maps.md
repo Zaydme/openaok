@@ -8,7 +8,7 @@ kind; Arabia always looks like Arabia, never twice the same.
 
 OpenAoK reads the original scripts and carries them out itself. This page
 covers the script language and its parser, the order in which a map is built,
-each stage (lands, terrains, shores, hills, cliffs, objects), and how the seed
+each stage (lands, terrains, connections, shores, hills, cliffs, objects), and how the seed
 makes the result the same on every machine.
 
 ## Where the scripts come from
@@ -118,17 +118,14 @@ flag such as `set_tight_grouping`) reads as 1.
 
 | Section | What OpenAoK does with it |
 |---|---|
-| `<PLAYER_SETUP>` | Parsed but not used: the players' starts come from the player lands |
+| `<PLAYER_SETUP>` | `random_placement`, the only setup the game's scripts use: the players' starts are placed round the map in a random order, from the player lands |
 | `<LAND_GENERATION>` | `base_terrain`, `create_player_lands` and `create_land`, in `core/LandGenerator` |
 | `<ELEVATION_GENERATION>` | `create_elevation`, in `core/Elevation` |
 | `<CLIFF_GENERATION>` | The cliff figures, in `core/Cliffs` |
 | `<TERRAIN_GENERATION>` | `create_terrain`, in `core/MapGenerator` |
-| `<CONNECTION_GENERATION>` | Parsed, not carried out |
+| `<CONNECTION_GENERATION>` | `create_connect_all_players_land` and `create_connect_teams_lands`, in `core/Connections` |
 | `<OBJECTS_GENERATION>` | `create_object`, in `core/MapGenerator` |
 
-In the original, `<CONNECTION_GENERATION>` lays paths of terrain between the
-players' lands. OpenAoK lays none: lands meet where they grow into each other,
-and players on separate islands stay apart.
 
 ## The order of generation
 
@@ -142,7 +139,8 @@ flowchart TD
     parse --> layers["Passability layers from the dat"]
     layers --> land["Lands: LAND_GENERATION"]
     land --> terrain["Terrains and forests: TERRAIN_GENERATION"]
-    terrain --> beach["Beaches along every shore"]
+    terrain --> connect["Connections: CONNECTION_GENERATION, own random stream"]
+    connect --> beach["Beaches along every shore"]
     beach --> hills["Hills: ELEVATION_GENERATION, own random stream"]
     hills --> cliffs["Cliffs: CLIFF_GENERATION, own random stream"]
     cliffs --> objects["Objects: OBJECTS_GENERATION"]
@@ -234,8 +232,49 @@ ground it replaces. A terrain whose art carries a tree on every tile (a forest)
 has a tree planted on each tile it took, holding the wood the Gaia unit table
 gives that tree.
 
-Painting a tile also chooses its cell of the terrain's tiling pattern from its
-position (`VariantFor`); see [terrain](/engine/rendering/terrain).
+Painting a tile sets its terrain and whether it can be walked; the cell of the
+terrain's tiling pattern it draws follows from its place when it is drawn (see
+[terrain](/engine/rendering/terrain)).
+
+## Connections
+
+A map's lands are made to grow apart: forest closes round each clearing on
+Black Forest, rivers part the players on Rivers. The connections then lay a
+path between every two lands that are to be joined, so they can be reached:
+
+- `create_connect_all_players_land` joins every player's land to every
+  other's, `create_connect_teams_lands` the lands of players on one team.
+- The path runs from one land's origin to the other's the way that costs
+  least, eight ways a step: each tile entered costs its terrain's
+  `terrain_cost`, 1 for a terrain the script names no cost for, and one of 0
+  or less cannot be crossed. So a script that makes water dear and grass cheap
+  gets a path that goes round a lake and fords a river where it is narrow.
+- Round each tile of the path, out to its terrain's `terrain_size` radius
+  (give or take up to the size's variance), every tile whose terrain a
+  `replace_terrain` names becomes the terrain it names after it: forest cut
+  back to grass, water turned to shallows. Each tile's reach comes from its
+  terrain before the path is laid, so a forest keeps its own width even where
+  the tile before has already cut it back.
+- A tree standing on ground turned into one that carries none is felled with
+  it, and its tile freed.
+
+```cpp
+        for (size_t a = 0; a < starts.size(); ++a) {
+            for (size_t b = a + 1; b < starts.size(); ++b) {
+                if (team) {
+                    const int ta = a < teams.size() ? static_cast<int>(teams[a]) : 0;
+                    const int tb = b < teams.size() ? static_cast<int>(teams[b]) : 0;
+                    if (ta == 0 || ta != tb) continue;
+                }
+                Lay(grid, f, Way(grid, f, starts[a], starts[b]), rng, cleared);
+            }
+        }
+```
+
+The search breaks ties by tile index and the variances come from a stream of
+their own, so the same seed lays the same paths on every machine, and laying
+them moves none of the other stages' draws. The connections are laid before
+the beaches, so a ford's shallows meet the land with no beach between.
 
 ## Shores and water
 
@@ -420,6 +459,7 @@ xorshift64* generator), each seeded from the game's seed:
 | Each random block's (`seed` and the block's depth) | Which `percent_chance` branch is kept |
 | The hills' (`seed` with a salt of its own) | Hill clumps |
 | The cliffs' (`seed` with another) | Cliff count, walks, pieces |
+| The connections' (`seed` with a third) | Each path tile's variance |
 
 ```cpp
     if (const RMSSection* cliffs = script.GetSection("CLIFF_GENERATION")) {
@@ -447,9 +487,11 @@ on one tile, and cliffs whose pieces join (see
 - [`src/core/RMSParser.h`](https://github.com/Zaydme/openaok/blob/main/src/core/RMSParser.h), [`RMSParser.cpp`](https://github.com/Zaydme/openaok/blob/main/src/core/RMSParser.cpp): the preprocessor and the parser, scripts into sections and commands
 - [`src/core/MapGenerator.cpp`](https://github.com/Zaydme/openaok/blob/main/src/core/MapGenerator.cpp): the stages in order, passability layers, terrains, beaches, objects, clearing the starts
 - [`src/core/LandGenerator.cpp`](https://github.com/Zaydme/openaok/blob/main/src/core/LandGenerator.cpp): lands, zones and the players' origins
+- [`src/core/Connections.h`](https://github.com/Zaydme/openaok/blob/main/src/core/Connections.h), [`Connections.cpp`](https://github.com/Zaydme/openaok/blob/main/src/core/Connections.cpp): the paths between lands
 - [`src/core/Elevation.cpp`](https://github.com/Zaydme/openaok/blob/main/src/core/Elevation.cpp): hills
 - [`src/core/Cliffs.h`](https://github.com/Zaydme/openaok/blob/main/src/core/Cliffs.h), [`Cliffs.cpp`](https://github.com/Zaydme/openaok/blob/main/src/core/Cliffs.cpp): cliffs, their pieces and the original map frame
 - [`src/core/Random.h`](https://github.com/Zaydme/openaok/blob/main/src/core/Random.h): the random number generator
 - [`src/core/GameSetup.h`](https://github.com/Zaydme/openaok/blob/main/src/core/GameSetup.h): map sizes and their labels, the seed
 - [`src/ecs/Simulation.cpp`](https://github.com/Zaydme/openaok/blob/main/src/ecs/Simulation.cpp): choosing and running the script, the starting units
 - [`src/verify/MapsCheck.cpp`](https://github.com/Zaydme/openaok/blob/main/src/verify/MapsCheck.cpp): the map self-check
+- [`src/verify/ConnectionsCheck.cpp`](https://github.com/Zaydme/openaok/blob/main/src/verify/ConnectionsCheck.cpp): every start reachable from every other on Black Forest and Rivers

@@ -79,7 +79,7 @@ the gate reads. The names below are those the gate prints.
 
 | Line | Checks |
 |---|---|
-| `fixed point` | No `float`, `double` or `ToFloat()` in the simulation's sources |
+| `fixed point` | No `float`, `double`, `ToFloat()` or float literal in the simulation's sources |
 | `determinism` | A golden hash of the world through 3000 ticks of a standard game |
 | `movement` | Every unit given an order reaches it |
 | `planner` | Standing spots spread along a building's sides |
@@ -108,6 +108,7 @@ the gate reads. The names below are those the gate prints.
 | `garrison` | Entering and leaving, refusals, garrison arrows, healing, the town bell; the count inside told for our own only |
 | `animals`, `duties`, `monks` | Herding, fleeing, grazing; patrol, follow, guard; conversion, facing whom they convert, healing, relics |
 | `maps` | Islands, continents, beaches, cliffs and fish across several map scripts |
+| `connections` | A map script's connections: on Black Forest and Rivers, every start reaches every other by land, Town Centers stepped over |
 | `script` | The computer players' rule language: reading, rule passes, every original script loading for every civilisation, difficulty and map, strategic numbers scaled for the difficulty and kept in bounds, civilian explorers, retasking, mining camps and forward builders as the game reckons them, the Hardest's gift of resources, an ally turned on after too many blows, explore groups of one soldier, the scout sent on as sn-consecutive-idle-unit-limit says, Monks fetching relics |
 | `ai`, `pace`, `seven` | Twenty-four minutes of the computer against itself at its hardest, with a twin game that must come out identical; each difficulty's pace; seven computer players, every town grown in three minutes |
 | `crossing`, `landing`, `water`, `fishing`, `navy` | Transport ships, passability on water maps, docks and fishing, warships |
@@ -124,8 +125,10 @@ the gate reads. The names below are those the gate prints.
 | `colours` | A computer player never plays in a person's colour: it takes the lowest colour nobody chose |
 | `buttons`, `help`, `helpbox` | The command buttons with the original's hotkeys (Convert, Heal, Unload, Set Gather Point, Pack and Unpack); a button's rollover help ends with its hotkey; the help's box is as tall as its lines |
 | `pages`, `smalltextures`, `halve` | Many graphics' art shares a page or two, a villager drawn from its page its SLP frame in its player's colours; graphics too tall for a small renderer's textures still draw; halved chunks of ground meet with no gap |
+| `terraincell` | A tile draws its terrain's own pattern cell for its place, and draws the new terrain's cell once its terrain changes |
 | `minimapdead`, `marks`, `outline`, `cursor`, `fogedge` | A soldier struck down leaves the minimap as it falls; a selected thing's outline and hit point bar show zoomed far out; a trebuchet's silhouette shows behind a Castle, not in the open; the pointer over a mine's foot shows a villager's hand zoomed out; black covers the map's unexplored edge, zoomed out |
-| `net` | A host and a client in lockstep over loopback, and a desync caught |
+| `net` | A host and a client in lockstep over loopback, and a desync caught; a client of another version put out of a direct game with the lobby's message |
+| `options` | The Options that change play: Scroll Speed's pace at its slowest, middle and fastest; no taunt sound with Allow Audio Taunts off; with one mouse button a left click over open ground orders a selected villager there |
 | `lobby` | The multiplayer lobby over loopback: the game found, joined, rows, ready checks and chat, a refused start, the game started from the table |
 | `victory`, `modes` | Conquest, Wonders, relics; Regicide, Death Match, starting options |
 | `trade`, `tribute`, `market` | Trade routes and their pay; tribute and its fee; market prices |

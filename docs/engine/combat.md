@@ -46,6 +46,11 @@ The total is then raised by a quarter when the attacker stands on higher ground
 than its target, and lowered by a quarter from lower ground, again never below
 one; a stray missile that hits someone it was not aimed at does half.
 
+A unit's `terrain_defense`, the dat's table of terrain defence bonuses, is
+kept on its rules as the dat and the technologies set it, but the ground a
+unit stands on does not weight the damage it takes: the formula reads attacks
+and armours alone.
+
 ```cpp
 int Damage(const R::ClassAmount* attacks, int attack_count, const R::UnitRules& defender) {
     int total = 0;

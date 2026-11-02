@@ -204,7 +204,8 @@ Conventions the modules share:
 `core/RMSParser` reads a random map script from `gamedata.drs`, with its
 includes and constants. `MapGenerator::SetUpLayers` first builds the grid's
 passability layers from the dat. `core/MapGenerator` then runs the script's
-passes in this order: lands (`core/LandGenerator`), terrain clumps, beaches,
+passes in this order: lands (`core/LandGenerator`), terrain clumps, the
+connections between players' lands (`core/Connections`), beaches,
 hills (`core/Elevation`), cliffs (`core/Cliffs`), and the objects placed by
 the script's rules. Hills run before cliffs because a cliff only runs over
 ground of one height. Hills and cliffs each draw from a random stream of
@@ -271,10 +272,17 @@ game runs them identically. See [Computer players](/engine/ai).
 - [Random maps](/engine/random-maps): the map scripts and the generator's passes
 - [Entities and systems](/engine/simulation): components, systems and the tick
 - [Fixed point and determinism](/engine/determinism): `Core::Fixed32`, the seeded generators, the golden hash
-- [Movement and routes](/engine/pathfinding): passability layers, A*, standing spots
-- [Combat](/engine/combat): attack, armour, missiles and death
-- [Computer players](/engine/ai): the script interpreter and the executor
 - [Lockstep multiplayer](/engine/multiplayer): turns, the lobby, desyncs
+- [Units and their tasks](/engine/units): the unit table, tasks, states, animals, dying
+- [Movement and routes](/engine/pathfinding): passability layers, A*, standing spots
+- [Gathering and the economy](/engine/economy): resources, villagers' jobs, Farms, the Market, trade, tribute
+- [Buildings and construction](/engine/construction): placing, foundations, building, repair, walls and gates
+- [Training and research](/engine/production): queues, prices, the population, technologies and ages
+- [Combat](/engine/combat): attack, armour, missiles and death
+- [Armies and the navy](/engine/war): formations, standing orders, garrisons, relics, ships
+- [Victory and diplomacy](/engine/victory): the victory conditions, stances, teams, the score
+- [Scenarios, campaigns and saves](/engine/scenarios): scenario files, triggers, campaigns, saved games, recordings
+- [Computer players](/engine/ai): the script interpreter and the executor
 - [The frame](/engine/rendering/): what is drawn each frame, in what order
 - [Sprites and texture pages](/engine/rendering/sprites): SLPs, hotspots, player colour, batching
 - [Terrain](/engine/rendering/terrain): chunks, blending, hills
