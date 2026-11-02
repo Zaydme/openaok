@@ -199,7 +199,13 @@ std::vector<std::string> Symbols(const Core::GameSetup& setup, Core::PlayerId se
         }
     }
     if (setup.regicide) out.emplace_back("REGICIDE");
-    out.emplace_back(setup.victory == Core::VictoryKind::Conquest ? "VICTORY-CONQUEST" : "VICTORY-STANDARD");
+    switch (setup.victory) {
+    case Core::VictoryKind::Conquest:  out.emplace_back("VICTORY-CONQUEST"); break;
+    case Core::VictoryKind::TimeLimit: out.emplace_back("VICTORY-TIME-LIMIT"); break;
+    case Core::VictoryKind::Score:     out.emplace_back("VICTORY-SCORE"); break;
+    case Core::VictoryKind::Custom:    out.emplace_back("VICTORY-CUSTOM"); break;
+    default:                           out.emplace_back("VICTORY-STANDARD"); break;
+    }
     if (setup.lock_teams) out.emplace_back("TEAMS-LOCKED");
     out.emplace_back(Lang::CivSymbol(setup.players[seat].civ));
     return out;

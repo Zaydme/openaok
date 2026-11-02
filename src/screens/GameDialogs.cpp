@@ -701,9 +701,13 @@ bool DiplomacyClick(ECS::Simulation& sim, int x, int y, int w, int h) {
 int VictoryText(const entt::registry& registry) {
     const auto* setup = registry.ctx().find<Core::GameSetup>();
     const bool regicide = setup != nullptr && setup->regicide;
-    const bool conquest = setup != nullptr && setup->victory == Core::VictoryKind::Conquest;
-    if (regicide) return conquest ? 9849 : 9846;
-    return conquest ? 9823 : 9820;
+    const Core::VictoryKind kind = setup != nullptr ? setup->victory : Core::VictoryKind::Standard;
+    switch (kind) {
+    case Core::VictoryKind::Conquest:  return regicide ? 9849 : 9823;
+    case Core::VictoryKind::TimeLimit: return regicide ? 9847 : 9821;
+    case Core::VictoryKind::Score:     return regicide ? 9848 : 9822;
+    default:                           return regicide ? 9846 : 9820;
+    }
 }
 
 constexpr SDL_Rect kObjTitle = {40, 18, 396, 40};

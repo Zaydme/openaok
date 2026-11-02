@@ -247,6 +247,7 @@ uint64_t Fingerprint() {
     mix(sizeof(ECS::Players::TechStatus));
     mix(sizeof(Core::Rules::UnitRules));
     mix(sizeof(ECS::Victory::Outcome));
+    mix(sizeof(ECS::Victory::Goal));
     mix(sizeof(ECS::Cheats::Toggles));
     mix(sizeof(AI::Brain));
     mix(sizeof(Core::Random));
@@ -652,6 +653,7 @@ bool Write(const ECS::Simulation& sim, std::vector<uint8_t>& out) {
     w.I32(victory->wonder_id);
     w.I32(victory->relic_id);
     w.I32(victory->king_id);
+    PutPod(w, victory->goal);
     w.I32(vision->width);
     w.I32(vision->height);
     w.U8(static_cast<uint8_t>(vision->reveal));
@@ -761,6 +763,7 @@ bool Read(ECS::Simulation& sim, const std::vector<uint8_t>& in, std::string* err
     victory.wonder_id = r.I32();
     victory.relic_id = r.I32();
     victory.king_id = r.I32();
+    GetPod(r, victory.goal);
     registry.ctx().insert_or_assign(std::move(victory));
     ECS::Vision::Map vision;
     vision.width = r.I32();

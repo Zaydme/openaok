@@ -39,11 +39,26 @@ struct Outcome {
     bool CountingWonder(Core::PlayerId p) const { return (wonders >> p) & 1u; }
 };
 
+// A scenario's own goal, from its Global Victory settings: the score a
+// score game is won at; the time a time limit game ends at, in tenths of a
+// year; and a custom game's conditions, every one of them or any (`all`):
+// conquest, `relics` held by a side, `explored` percent of the map by any of
+// its players (each 0 for none).
+struct Goal {
+    int32_t score = 0;
+    int32_t time = 0;
+    bool conquest = true;
+    int32_t relics = 0;
+    int32_t explored = 0;
+    bool all = false;
+};
+
 // The module's state in the registry's context. Here rather than in the
 // source so the save module can write it out.
 struct State {
     Outcome outcome;
     Core::GameSetup setup;
+    Goal goal;
     int32_t check_ms = 0;
     int wonder_id = -1;
     int relic_id = -1;
@@ -51,6 +66,9 @@ struct State {
 };
 
 void Setup(entt::registry& registry, const Core::GameSetup& setup);
+
+// A scenario's goal (ScenarioWorld), after Setup.
+void SetGoal(entt::registry& registry, const Goal& goal);
 
 // Once a tick. In a Regicide game a player whose King is dead -- or is not
 // its own any more -- is out, everything it has destroyed as a resigning

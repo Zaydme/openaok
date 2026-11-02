@@ -403,7 +403,7 @@ bool Test(Turn& turn, const Script::Expr& e) {
     case Fact::StartingAge:       return setup != nullptr && Compare(setup->starting_age, a[0], a[1]);
     case Fact::StartingResources: return setup != nullptr && Compare(StartingResources(*setup), a[0], a[1]);
     case Fact::VictoryCondition:
-        return setup != nullptr && a[0] == (setup->victory == Core::VictoryKind::Conquest ? 1 : 0);
+        return setup != nullptr && a[0] == static_cast<int>(setup->victory);
     case Fact::MapType:
         return setup != nullptr && SameLetters(setup->map_script, Lang::MapTypeName(a[0]));
     case Fact::MapSize: {

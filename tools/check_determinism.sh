@@ -80,6 +80,7 @@ UNFINISHEDDROP="$(echo "$OUTPUT" | grep '^unfinisheddrop=')"
 FARMFIELD="$(echo "$OUTPUT" | grep '^farmfield=')"
 DEADTRAP="$(echo "$OUTPUT" | grep '^deadtrap=')"
 STRAYARROW="$(echo "$OUTPUT" | grep '^strayarrow=')"
+SCENARIOVICTORY="$(echo "$OUTPUT" | grep '^scenariovictory=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -564,6 +565,12 @@ esac
 case "$STRAYARROW" in
     strayarrow=ok*) echo "strayarrow OK" ;;
     *) echo "STRAYARROW FAILED" >&2; echo "  $STRAYARROW" >&2; STATUS=1 ;;
+esac
+
+# A scenario's Score, Time Limit and Custom victories play as they say.
+case "$SCENARIOVICTORY" in
+    scenariovictory=ok*) echo "scenariovictory OK" ;;
+    *) echo "SCENARIOVICTORY FAILED" >&2; echo "  $SCENARIOVICTORY" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

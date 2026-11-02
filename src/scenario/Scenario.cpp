@@ -780,8 +780,13 @@ void SetupFor(const File& file, Core::GameSetup& setup) {
     }
     setup.starting_age = 0;
     setup.resources = Core::StartingResources::Standard;
-    setup.victory = file.victory.mode == VictoryMode::Standard ? Core::VictoryKind::Standard
-                                                               : Core::VictoryKind::Conquest;
+    switch (file.victory.mode) {
+    case VictoryMode::Conquest: setup.victory = Core::VictoryKind::Conquest; break;
+    case VictoryMode::Score:    setup.victory = Core::VictoryKind::Score; break;
+    case VictoryMode::Timed:    setup.victory = Core::VictoryKind::TimeLimit; break;
+    case VictoryMode::Custom:   setup.victory = Core::VictoryKind::Custom; break;
+    default:                    setup.victory = Core::VictoryKind::Standard; break;
+    }
     setup.regicide = false;
     setup.all_techs = file.all_techs;
     // The file has no Lock Teams; its stances are for its triggers to change.

@@ -20,6 +20,7 @@
 #include "ecs/Techs.h"
 #include "ecs/Triggers.h"
 #include "ecs/Units.h"
+#include "ecs/Victory.h"
 #include "ecs/Vision.h"
 #include "ecs/components/Building.h"
 #include "ecs/components/Capturable.h"
@@ -451,6 +452,16 @@ void Simulation::InitScenario() {
         }
         table.allied_victory[p] = file.players[p].allied_victory;
     }
+
+    // Its Global Victory settings, for a score, time limit or custom game.
+    Victory::Goal goal;
+    goal.score = file.victory.score;
+    goal.time = file.victory.time;
+    goal.conquest = file.victory.conquest;
+    goal.relics = file.victory.relics;
+    goal.explored = file.victory.explored;
+    goal.all = file.victory.all;
+    Victory::SetGoal(registry, goal);
 
     // The ground.
     grid.Resize(file.width, file.height);

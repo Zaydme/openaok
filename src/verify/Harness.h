@@ -341,6 +341,9 @@ bool CheckFarmField();
 bool CheckDeadTrap();
 // A stray arrow hurts an enemy and never an ally. Prints "strayarrow=".
 bool CheckStrayArrow();
+// A scenario's Score, Time Limit and Custom victories are played as they
+// say. Prints "scenariovictory=".
+bool CheckScenarioVictory();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

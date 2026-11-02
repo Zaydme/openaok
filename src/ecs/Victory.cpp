@@ -169,6 +169,95 @@ Core::PlayerId RelicHolder(const entt::registry& registry, const State& state) {
     return held == total ? holder : 0;
 }
 
+// The players still in the game, in seat order.
+std::vector<Core::PlayerId> StillIn(const State& state) {
+    std::vector<Core::PlayerId> in;
+    for (int p = 1; p < Core::kMaxPlayers; ++p) {
+        const auto player = static_cast<Core::PlayerId>(p);
+        if (state.setup.players[p].active && !state.outcome.Defeated(player)) in.push_back(player);
+    }
+    return in;
+}
+
+int32_t TotalOf(const entt::registry& registry, Core::PlayerId player) {
+    const Score::Sheet* sheet = Score::Of(registry, player);
+    return sheet != nullptr ? sheet->total : 0;
+}
+
+// A score game: the first player still in, in seat order, whose score has
+// reached the goal's; or none.
+Core::PlayerId Scored(const entt::registry& registry, const State& state) {
+    if (state.goal.score <= 0) return 0;
+    for (Core::PlayerId p : StillIn(state)) {
+        if (TotalOf(registry, p) >= state.goal.score) return p;
+    }
+    return 0;
+}
+
+// The player still in with the highest score, the lower seat on a tie.
+Core::PlayerId Highest(const entt::registry& registry, const State& state) {
+    Core::PlayerId best = 0;
+    int32_t best_score = 0;
+    for (Core::PlayerId p : StillIn(state)) {
+        const int32_t score = TotalOf(registry, p);
+        if (best == 0 || score > best_score) {
+            best = p;
+            best_score = score;
+        }
+    }
+    return best;
+}
+
+// The relics `player`'s side holds: in its Monasteries and carried by its
+// Monks.
+int RelicsOfSide(const entt::registry& registry, Core::PlayerId player) {
+    int held = 0;
+    auto shrines = registry.view<const Components::RelicShrine, const Components::Owner>();
+    for (auto e : shrines) {
+        if (OneSide(registry, player, shrines.get<const Components::Owner>(e).player_id)) {
+            held += static_cast<int>(shrines.get<const Components::RelicShrine>(e).relics.size());
+        }
+    }
+    auto bearers = registry.view<const Components::RelicBearer, const Components::Owner>();
+    for (auto e : bearers) {
+        if (OneSide(registry, player, bearers.get<const Components::Owner>(e).player_id)) ++held;
+    }
+    return held;
+}
+
+// A custom game: the first player still in, in seat order, whose side meets
+// the goal's conditions, every one of them or any, as the goal asks; or
+// none. Conquest is met when nobody else is left off the side.
+Core::PlayerId Custom(const entt::registry& registry, const State& state) {
+    const Goal& g = state.goal;
+    const std::vector<Core::PlayerId> in = StillIn(state);
+    for (Core::PlayerId p : in) {
+        int asked = 0, met = 0;
+        if (g.conquest) {
+            ++asked;
+            bool alone = true;
+            for (Core::PlayerId q : in) alone = alone && OneSide(registry, p, q);
+            met += alone ? 1 : 0;
+        }
+        if (g.relics > 0) {
+            ++asked;
+            met += RelicsOfSide(registry, p) >= g.relics ? 1 : 0;
+        }
+        if (g.explored > 0) {
+            ++asked;
+            bool explored = false;
+            for (Core::PlayerId q : in) {
+                if (!OneSide(registry, p, q)) continue;
+                const Score::Sheet* sheet = Score::Of(registry, q);
+                explored = explored || (sheet != nullptr && sheet->map_explored >= g.explored);
+            }
+            met += explored ? 1 : 0;
+        }
+        if (asked > 0 && (g.all ? met == asked : met > 0)) return p;
+    }
+    return 0;
+}
+
 // Counts down the relics: started when a side takes them all, reset when
 // another side takes them or they are lost; passed between players of one
 // side, the count goes on. True once it has run out.
@@ -211,6 +300,10 @@ void Win(entt::registry& registry, State& state, Core::PlayerId side_of) {
 }
 
 } // namespace
+
+void SetGoal(entt::registry& registry, const Goal& goal) {
+    if (State* state = registry.ctx().find<State>()) state->goal = goal;
+}
 
 void Setup(entt::registry& registry, const Core::GameSetup& setup) {
     State state;
@@ -290,6 +383,38 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
             Win(registry, *state, relics);
             return;
         }
+    }
+
+    // A scenario's own goal: a score reached, the highest score at its time
+    // limit, or its custom conditions met.
+    switch (state->setup.victory) {
+    case Core::VictoryKind::Score:
+        if (const Core::PlayerId p = Scored(registry, *state); p != 0) {
+            Win(registry, *state, p);
+            return;
+        }
+        break;
+    case Core::VictoryKind::TimeLimit: {
+        const auto* score = registry.ctx().find<Score::Table>();
+        const int64_t limit = static_cast<int64_t>(state->goal.time) * kYearMs / 10;
+        if (score != nullptr && state->goal.time > 0 && score->clock_ms >= limit) {
+            if (const Core::PlayerId p = Highest(registry, *state); p != 0) {
+                Win(registry, *state, p);
+            } else {
+                state->outcome.over = true;
+            }
+            return;
+        }
+        break;
+    }
+    case Core::VictoryKind::Custom:
+        if (const Core::PlayerId p = Custom(registry, *state); p != 0) {
+            Win(registry, *state, p);
+            return;
+        }
+        break;
+    default:
+        break;
     }
 
     state->check_ms -= dt_ms;

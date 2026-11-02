@@ -52,9 +52,11 @@ inline constexpr MapSize kMapSizes[] = {
     {"normal", 200, "LARGE_MAP"},  {"large", 220, "HUGE_MAP"},  {"giant", 240, "GIGANTIC_MAP"},
 };
 
-// How a game is won: standard victory (conquest, a Wonder or the relics) or
-// conquest alone.
-enum class VictoryKind : uint8_t { Standard, Conquest };
+// How a game is won: standard victory (conquest, a Wonder or the relics),
+// conquest alone, or, a scenario's, the highest score at a time limit, a
+// score reached, or its custom conditions. Numbered as the computer players'
+// victory-condition fact numbers them.
+enum class VictoryKind : uint8_t { Standard = 0, Conquest = 1, TimeLimit = 2, Score = 3, Custom = 4 };
 
 // The population limits the game setup offers: 25 to 200 in steps of 25,
 // then on to 500 in 50s and to 1000 in 100s.

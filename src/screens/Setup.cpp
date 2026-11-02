@@ -353,7 +353,8 @@ std::vector<std::string> SummaryLines(const Setup& s) {
         if (game.map_script == kScripts[i]) map = i;
     }
     lines.push_back(Format(9654, Get(kMapNames + map)));
-    lines.push_back(Format(9660, Get(game.victory == Core::VictoryKind::Conquest ? 4321 : 4327)));
+    static constexpr int kVictoryNames[] = {4327, 4321, 4329, 4330, 4331};
+    lines.push_back(Format(9660, Get(kVictoryNames[std::min<size_t>(static_cast<size_t>(game.victory), 4)])));
     static const int kAges[4] = {4332, 4202, 4203, 4204};
     lines.push_back(Format(9700, Get(kAges[std::clamp(game.starting_age, 0, 3)])));
     if (!game.death_match) {
