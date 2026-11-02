@@ -274,6 +274,7 @@ struct Prospect {
     bool wall = false;      // a wall or gate
     Core::Fixed32 kill;     // seconds the group takes to destroy it, kNever if it cannot
     Core::Fixed32 defence;  // seconds its defenders take to kill the group, kNever if none
+                            // (counted only until one differs from the first's)
     Core::Fixed32 distance; // from the group's middle to its edge
     Core::Fixed32 score;
     int tier = 0;
@@ -424,7 +425,9 @@ std::vector<Prospect> Weigh(const Turn& turn, const Group& group, bool sea, Core
     // How long what could shoot at each prospect's spot would take to kill
     // the group, one soldier after another. The soldiers alike in their
     // defending table, hit points and whose Monks could convert them (a bit
-    // for each of `converting`) are taken together.
+    // for each of `converting`) are taken together. The score asks only
+    // whether every prospect's is alike, so the count stops at the first
+    // that differs from the first's.
     struct Body {
         int table;   // an index into `tables`
         Core::Fixed32 hp;
@@ -466,7 +469,7 @@ std::vector<Prospect> Weigh(const Turn& turn, const Group& group, bool sea, Core
     std::vector<int> near_monks(converting.size(), 0);
     std::vector<int> met;
     std::vector<Core::Fixed32> base(tables.size());
-    for (Prospect& p : out) {
+    auto count_defence = [&](Prospect& p) {
         const Vector2D& at = Where(registry, p.e);
         for (int k : met) near[static_cast<size_t>(k)] = 0;
         met.clear();
@@ -486,7 +489,7 @@ std::vector<Prospect> Weigh(const Turn& turn, const Group& group, bool sea, Core
         }
         if (!any) {
             p.defence = kNever;
-            continue;
+            return;
         }
         for (size_t t = 0; t < tables.size(); ++t) {
             Core::Fixed32 rate{};
@@ -509,12 +512,17 @@ std::vector<Prospect> Weigh(const Turn& turn, const Group& group, bool sea, Core
             if (monks > 0) rate = rate + Core::Fixed32(monks) * (b.hp / Core::Fixed32(10));
             if (rate > Core::Fixed32(0)) p.defence = p.defence + Core::Fixed32(b.count) * (b.hp / rate);
         }
+    };
+    bool alike = true;
+    for (size_t i = 0; i < out.size() && alike; ++i) {
+        count_defence(out[i]);
+        alike = out[i].defence == out.front().defence;
     }
 
-    Core::Fixed32 low[3] = {kNever, kNever, kNever}, high[3] = {Core::Fixed32(-1), Core::Fixed32(-1), Core::Fixed32(-1)};
+    Core::Fixed32 low[2] = {kNever, kNever}, high[2] = {Core::Fixed32(-1), Core::Fixed32(-1)};
     for (const Prospect& p : out) {
-        const Core::Fixed32 v[3] = {p.kill, p.defence, p.distance};
-        for (int i = 0; i < 3; ++i) {
+        const Core::Fixed32 v[2] = {p.kill, p.distance};
+        for (int i = 0; i < 2; ++i) {
             low[i] = std::min(low[i], v[i]);
             high[i] = std::max(high[i], v[i]);
         }
@@ -525,8 +533,8 @@ std::vector<Prospect> Weigh(const Turn& turn, const Group& group, bool sea, Core
         const int id = registry.get<ECS::Components::Identity>(p.e).unit_id;
         if (p.kill == kNever || !Outright(turn, p.e, cls, id, p.score)) {
             const Core::Fixed32 kill = Part(p.kill, low[0], high[0]);
-            const Core::Fixed32 defence = high[1] - low[1] <= Core::Fixed32(0) ? kPart : kill;
-            p.score = kill + defence + Part(p.distance, low[2], high[2]) + (p.zone ? kPart : Core::Fixed32{});
+            const Core::Fixed32 defence = alike ? kPart : kill;
+            p.score = kill + defence + Part(p.distance, low[1], high[1]) + (p.zone ? kPart : Core::Fixed32{});
             if (cls == kWallClass && p.score >= kOutright) p.score = kWallCap;
         }
         p.tier = p.score >= kOutright ? 0 : (p.zone ? 1 : 4) + (p.wall ? 2 : (p.economic ? 1 : 0));
