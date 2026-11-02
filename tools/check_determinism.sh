@@ -59,6 +59,7 @@ HELPBOX="$(echo "$OUTPUT" | grep '^helpbox=')"
 MARKS="$(echo "$OUTPUT" | grep '^marks=')"
 SMALLTEXTURES="$(echo "$OUTPUT" | grep '^smalltextures=')"
 OUTLINE="$(echo "$OUTPUT" | grep '^outline=')"
+CURSOR="$(echo "$OUTPUT" | grep '^cursor=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -411,6 +412,12 @@ esac
 case "$OUTLINE" in
     outline=ok*) echo "outline OK: ${OUTLINE#outline=ok }" ;;
     *) echo "OUTLINE FAILED" >&2; echo "  $OUTLINE" >&2; STATUS=1 ;;
+esac
+
+# The pointer over a mine's foot shows a villager's hand zoomed out.
+case "$CURSOR" in
+    cursor=ok*) echo "cursor OK" ;;
+    *) echo "CURSOR FAILED" >&2; echo "  $CURSOR" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

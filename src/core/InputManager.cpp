@@ -710,8 +710,10 @@ void InputManager::UpdateIntent(ECS::Simulation& sim, Rendering::Renderer& rende
     }
 
     auto& registry = sim.GetRegistry();
-    const auto wc = Rendering::Ground::Pick(sim.GetGrid(), renderer.camera_x + mx,
-                                            renderer.camera_y + my);
+    // The pointer in the world's unzoomed pixels, as a click takes it.
+    const float zoom = renderer.camera_zoom > 0.0f ? renderer.camera_zoom : 1.0f;
+    const auto wc = Rendering::Ground::Pick(sim.GetGrid(), renderer.camera_x + static_cast<float>(mx) / zoom,
+                                            renderer.camera_y + static_cast<float>(my) / zoom);
     const float x = static_cast<float>(wc.first);
     const float y = static_cast<float>(wc.second);
 
@@ -786,7 +788,6 @@ void InputManager::UpdateIntent(ECS::Simulation& sim, Rendering::Renderer& rende
     // What is under the pointer by its art, as a click finds it, before
     // anything near it on the ground. Units are found only by their art.
     {
-        const float zoom = renderer.camera_zoom > 0.0f ? renderer.camera_zoom : 1.0f;
         const entt::entity art = Rendering::EntityRenderer::PickAt(registry, mx / zoom, my / zoom);
         if (art != entt::null && ECS::Vision::Shows(registry, Core::LocalPlayer(), art)) nearest = art;
     }

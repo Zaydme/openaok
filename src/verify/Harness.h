@@ -278,6 +278,9 @@ bool CheckSmallTextures();
 // A trebuchet shows its silhouette behind a Castle, not in the open.
 // Prints "outline=".
 bool CheckOutline();
+// The pointer over a mine's foot shows a villager's hand zoomed out.
+// Prints "cursor=".
+bool CheckCursor();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();
