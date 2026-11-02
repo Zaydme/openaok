@@ -25,6 +25,7 @@ struct Census {
         entt::entity victim = entt::null;
         entt::entity attacker = entt::null;
         ECS::Components::Vector2D at{};
+        bool in_town = false;   // within the town's size and four tiles of the Town Center
     };
     std::vector<Strike> strikes;
 

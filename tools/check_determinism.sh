@@ -86,6 +86,7 @@ LOBBYVICTORY="$(echo "$OUTPUT" | grep '^lobbyvictory=')"
 TOWNSTRUCK="$(echo "$OUTPUT" | grep '^townstruck=')"
 MAPSCRIPTS="$(echo "$OUTPUT" | grep '^mapscripts=')"
 DROPDOWNROWS="$(echo "$OUTPUT" | grep '^dropdownrows=')"
+ANSWERDRAFT="$(echo "$OUTPUT" | grep '^answerdraft=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -606,6 +607,13 @@ esac
 case "$DROPDOWNROWS" in
     dropdownrows=ok*) echo "dropdownrows OK" ;;
     *) echo "DROPDOWNROWS FAILED" >&2; echo "  $DROPDOWNROWS" >&2; STATUS=1 ;;
+esac
+
+# A blow in a computer player's town drafts the soldiers that are free or
+# fighting of their own accord, never those sent elsewhere.
+case "$ANSWERDRAFT" in
+    answerdraft=ok*) echo "answerdraft OK" ;;
+    *) echo "ANSWERDRAFT FAILED" >&2; echo "  $ANSWERDRAFT" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and

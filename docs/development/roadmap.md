@@ -43,8 +43,9 @@ polish.
 ## Next
 
 1. **Computer players**
-   - The priority of their units' orders (sn-zero-priority-distance), which
-     needs order priorities in the units' own behaviour.
+   - Their units on the way somewhere turning on an attacker they would
+     choose as a target, after which the priority of the order they were on
+     (sn-zero-priority-distance) decides whether a response may take them.
    - Their economy on water maps: more wood in the Feudal Age, and more
      warships.
 2. **Performance on phones and the Switch**: fewer draw calls for the

@@ -1068,29 +1068,58 @@ void CallForHelp(Turn& turn, Core::PlayerId foe) {
     }
 }
 
-// The blows of this pass answered: of the idle soldiers at home within
-// sn-enemy-sighted-response-distance of the one struck,
-// sn-percent-enemy-sighted-response percent -- whole soldiers, rounded down
-// -- go for whoever struck it.
+// Whether a soldier may be sent to answer a blow: when idle, at a wall, at
+// nothing left, or fighting of its own accord. One on its way somewhere, or
+// attacking what its player sent it at, is left to it: the player's own
+// attack orders carry the highest order priority.
+bool Answerable(const entt::registry& registry, entt::entity u) {
+    const auto* combat = registry.try_get<ECS::Components::Combat>(u);
+    if (combat == nullptr || combat->state == ECS::Components::CombatState::Idle) return Idle(registry, u);
+    if (!ECS::Combat::Alive(registry, combat->target)) return true;
+    const auto* rules = ECS::Combat::DefendingRules(registry, combat->target);
+    return (rules != nullptr && rules->cls == kWallClass) || !combat->ordered;
+}
+
+// The blows of this pass answered, each attacker once, by the soldiers at
+// home that may be sent (Answerable) and are not cut off from the attacker on
+// their own ground. A blow in the town or to a building sends all of them.
+// One elsewhere sends sn-percent-enemy-sighted-response percent of them,
+// whole soldiers rounded down, taking only those within
+// sn-enemy-sighted-response-distance of the one struck. After a blow in the
+// town, those elsewhere that pass go unanswered.
 void Answer(Turn& turn) {
     const entt::registry& registry = *turn.registry;
     std::vector<entt::entity> answered;
+    std::vector<entt::entity> sent;
+    std::vector<entt::entity> able;
     const Core::Fixed32 reach(Sn(turn, Lang::SN::EnemySightedResponseDistance));
     const int pct = std::max(0, Sn(turn, Lang::SN::PercentEnemySightedResponse));
+    bool alarm = false;
     for (const Census::Strike& s : turn.census->strikes) {
         if (Contains(answered, s.attacker) || !ECS::Combat::Alive(registry, s.attacker)) continue;
         const auto* owner = registry.try_get<ECS::Components::Owner>(s.attacker);
         if (owner == nullptr || (owner->player_id != Core::PLAYER_GAIA && !Hostile(turn, s.attacker))) continue;
         if (Unanswered(turn, s.victim)) continue;
+        alarm |= s.in_town;
+        if (alarm && !s.in_town) continue;
         answered.push_back(s.attacker);
         if (owner->player_id != Core::PLAYER_GAIA) CallForHelp(turn, owner->player_id);
-        std::vector<entt::entity> idle;
+        const bool all = s.in_town || registry.all_of<ECS::Components::Building>(s.victim);
+        const Ground target = GroundOf(turn, s.attacker);
+        able.clear();
         for (entt::entity e : Defenders(turn)) {
-            if (e != s.victim && Idle(registry, e) && Distance(Where(registry, e), s.at) <= reach) idle.push_back(e);
+            if (e == s.victim || Contains(sent, e) || !Answerable(registry, e)) continue;
+            const Ground ground = GroundOf(turn, e);
+            if (ground.layer == target.layer && ground.region != target.region) continue;
+            able.push_back(e);
         }
-        const size_t send = idle.size() * static_cast<size_t>(pct) / 100;
-        for (size_t i = 0; i < send; ++i) {
-            Give(*turn.registry, *turn.grid, Core::AttackCommand{idle[i], s.attacker, turn.player});
+        const size_t send = all ? able.size() : able.size() * static_cast<size_t>(pct) / 100;
+        size_t sending = 0;
+        for (size_t i = 0; i < able.size() && sending < send; ++i) {
+            if (!all && Distance(Where(registry, able[i]), s.at) > reach) continue;
+            Give(*turn.registry, *turn.grid, Core::AttackCommand{able[i], s.attacker, turn.player});
+            sent.push_back(able[i]);
+            ++sending;
         }
     }
 }

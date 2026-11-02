@@ -359,6 +359,10 @@ bool CheckMapScripts();
 // Every choice of a long drop-down list can be clicked. Prints
 // "dropdownrows=".
 bool CheckDropDownRows();
+// A blow in a computer player's town is answered by its soldiers that are
+// idle or fighting of their own accord, not by those it sent elsewhere.
+// Prints "answerdraft=".
+bool CheckAnswerDraft();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();
