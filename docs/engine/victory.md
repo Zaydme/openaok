@@ -391,9 +391,9 @@ code goes out as a `CheatCommand` instead of chat, and `Cheats::Apply` carries
 it out inside the tick for the player who typed it. Case and the spaces round
 the line do not matter; the words do.
 
-Whether cheats are allowed is `GameSetup::cheats`. A single-player lobby game
-always allows them, a network lobby has a box for them, and a scenario's game
-allows them only when `--cheats` is given on the command line. `Apply` checks
+Whether cheats are allowed is `GameSetup::cheats`. Every game played offline
+allows them, a single-player lobby's, a scenario's or a campaign's, and a saved
+one taken up again; a network lobby has a box for them. `Apply` checks
 it again, so a code from a game that does not allow cheats does nothing on any
 machine.
 

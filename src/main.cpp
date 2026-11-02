@@ -2079,8 +2079,6 @@ int main(int argc, char* argv[]) {
                     break;
                 }
                 setup.difficulty = request.setup.difficulty;
-                // The command line's --cheats, as for a game from its lobby.
-                setup.cheats = launch.setup.cheats;
                 bool won = false;
                 Play play;
                 play.won = &won;
