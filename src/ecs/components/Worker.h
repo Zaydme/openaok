@@ -76,6 +76,14 @@ struct Worker {
     // What it is building -- or, Repairing, mending: a building or a unit.
     entt::entity target_building = entt::null;
 
+    // A farmer works on its Farm's field (`field_of`), at one spot of it
+    // after another: `field_spot`, the `field_step`th, a new one after each
+    // unit of food it takes. `on_field` once it has first worked there.
+    entt::entity field_of = entt::null;
+    Vector2D field_spot{};
+    uint32_t field_step = 0;
+    bool on_field = false;
+
     // Failed attempts to reach `target_building`, so a site walled in by its
     // own crew is given up rather than re-routed to forever.
     int build_attempts = 0;

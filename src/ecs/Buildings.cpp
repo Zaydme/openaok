@@ -284,15 +284,6 @@ bool FoundationGround(const R::UnitRules& rules, Core::TerrainType& out) {
            Core::ConfigManager::Get().TerrainForRmsId(rules.foundation_terrain, out);
 }
 
-// A farm that lays a crop: the dat gives it a foundation terrain, planted
-// farmland, and its ground goes through the construction stages to it and
-// lies harvested out after. The fish trap is a farm too (the farm class) and
-// has none: it stands in the water as it is.
-bool LaysCrop(const R::UnitRules& rules) {
-    Core::TerrainType ground;
-    return rules.cls == kFarmClass && FoundationGround(rules, ground);
-}
-
 // A building that holds a gatherable resource is worked from on top rather
 // than walked around: a farm. Returns the stock it starts with, or false.
 //
@@ -336,6 +327,15 @@ void Arm(entt::registry& registry, entt::entity building) {
 }
 
 } // namespace
+
+// A farm that lays a crop: the dat gives it a foundation terrain, planted
+// farmland, and its ground goes through the construction stages to it and
+// lies harvested out after. The fish trap is a farm too (the farm class) and
+// has none: it stands in the water as it is.
+bool LaysCrop(const Core::Rules::UnitRules& rules) {
+    Core::TerrainType ground;
+    return rules.cls == kFarmClass && FoundationGround(rules, ground);
+}
 
 // Units standing where a building has just been placed step off its ground,
 // to the nearest spot beside it, so none is walled inside.

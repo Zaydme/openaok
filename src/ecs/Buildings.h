@@ -45,6 +45,10 @@ Site Check(const entt::registry& registry, const Physics::Grid& grid, Core::Play
 Site CheckAboveGround(const entt::registry& registry, Core::PlayerId player, int unit_id, int tile_x,
                       int tile_y, Ask ask, entt::entity self = entt::null);
 
+// Whether a farm lays a crop: a Farm, whose ground goes through planted
+// farmland to harvested out, and not a fish trap, which stands in the water.
+bool LaysCrop(const Core::Rules::UnitRules& rules);
+
 // Whether `building` holds its ground: anything finished, and a foundation
 // once worked on.
 bool Begun(const entt::registry& registry, entt::entity building);

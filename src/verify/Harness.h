@@ -333,6 +333,9 @@ bool CheckScenarioVersion();
 // A load is taken to a finished drop site, never to a foundation. Prints
 // "unfinisheddrop=".
 bool CheckUnfinishedDrop();
+// A farmer works standing on its Farm's field, at one spot of it after
+// another. Prints "farmfield=".
+bool CheckFarmField();
 // A computer player's scout set on two wolves in its town: every swing it
 // begins at one wounds it. Prints "wolves=".
 bool CheckWolves();

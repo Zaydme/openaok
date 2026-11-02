@@ -294,6 +294,56 @@ Approach ApproachGround(entt::registry& registry, const Physics::Grid& grid,
     return Approach::Walking;
 }
 
+// How far in from a Farm's edges a farmer's spots on the field lie, and how
+// near one it has to be to work there, in tiles.
+const Core::Fixed32 kFieldMargin = Core::Fixed32(3) / Core::Fixed32(10);
+const Core::Fixed32 kFieldNear = Core::Fixed32(1) / Core::Fixed32(2);
+
+// Whether a resource is worked standing on it: a Farm's field, which lays a
+// crop (a fish trap is worked from beside it).
+bool OnField(const entt::registry& registry, entt::entity resource) {
+    const auto* id = registry.try_get<Components::Identity>(resource);
+    if (id == nullptr || !registry.all_of<Components::Building, Components::Resource>(resource)) return false;
+    const Core::Rules::UnitRules* rules = Core::Rules::Unit(id->unit_id);
+    return rules != nullptr && ECS::Buildings::LaysCrop(*rules);
+}
+
+// A farmer's `step`th spot on `farm`'s field: a point inside it, kFieldMargin
+// in from its edges, drawn from the farmer, the farm and the step alone, so
+// it is the same on every machine and moves no random stream.
+Components::Vector2D FieldSpot(const entt::registry& registry, entt::entity farm, entt::entity self,
+                               uint32_t step) {
+    const auto ground = ECS::Buildings::FootprintBounds(registry.get<Components::Transform>(farm).position,
+                                                       registry.get<Components::Identity>(farm).unit_id);
+    uint64_t h = (static_cast<uint64_t>(entt::to_integral(self)) << 32) ^ entt::to_integral(farm) ^
+                 (static_cast<uint64_t>(step) * 0x9E3779B97F4A7C15ull);
+    h ^= h >> 33;
+    h *= 0xFF51AFD7ED558CCDull;
+    h ^= h >> 33;
+    h *= 0xC4CEB9FE1A85EC53ull;
+    h ^= h >> 33;
+    const Core::Fixed32 across = Core::FixedMath::Max(Core::Fixed32(0), ground.max_x - ground.min_x - kFieldMargin - kFieldMargin);
+    const Core::Fixed32 down = Core::FixedMath::Max(Core::Fixed32(0), ground.max_y - ground.min_y - kFieldMargin - kFieldMargin);
+    const Core::Fixed32 fx = Core::Fixed32(static_cast<int>(h & 0xFFFFu)) / Core::Fixed32(65536);
+    const Core::Fixed32 fy = Core::Fixed32(static_cast<int>((h >> 16) & 0xFFFFu)) / Core::Fixed32(65536);
+    return {ground.min_x + kFieldMargin + across * fx, ground.min_y + kFieldMargin + down * fy};
+}
+
+// Walks a farmer to its spot on the field (`worker.field_spot`): there once
+// its walk is over within kFieldNear of the spot.
+Approach WalkOnField(entt::registry& registry, const Physics::Grid& grid, entt::entity self,
+                     const Components::Worker& worker, const Components::Transform& transform) {
+    const auto* route = registry.try_get<Components::Path>(self);
+    if (route && route->current_waypoint_index < route->waypoints.size()) return Approach::Walking;
+    const auto& at = transform.position;
+    const Core::Fixed32 off = Core::FixedMath::Distance(worker.field_spot.x - at.x, worker.field_spot.y - at.y);
+    if (off <= kFieldNear) return Approach::Arrived;
+    auto path = Navigation::Route(registry, grid, self, at, worker.field_spot, entt::null, Core::Fixed32(0));
+    if (path.waypoints.empty()) return Approach::Unreachable;
+    registry.emplace_or_replace<Components::Path>(self, std::move(path));
+    return Approach::Walking;
+}
+
 // The dat's work range for `rules`' tasks of `action`: how near the job has
 // to be done from, box to box. Zero when none says.
 Core::Fixed32 TaskRange(const Core::Rules::UnitRules* rules, std::initializer_list<int> actions) {
@@ -518,6 +568,8 @@ bool FarmTaken(const entt::registry& registry, entt::entity self, entt::entity f
         const auto& w = workers.get<const Components::Worker>(other);
         if (w.target_resource != farm) continue;
         if (w.state == Core::UnitState::Gathering || w.state == Core::UnitState::Returning) return true;
+        // Stepping from one spot of the field to the next.
+        if (w.state == Core::UnitState::Moving && w.on_field && w.field_of == farm) return true;
     }
     return false;
 }
@@ -726,6 +778,32 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                     break;
                 }
 
+                // A Farm is worked standing on its field, at one spot of it
+                // after another.
+                if (OnField(registry, worker.target_resource)) {
+                    if (worker.field_of != worker.target_resource) {
+                        worker.field_of = worker.target_resource;
+                        worker.on_field = false;
+                        worker.field_spot = FieldSpot(registry, worker.field_of, entity, worker.field_step);
+                    }
+                    switch (WalkOnField(registry, grid, entity, worker, transform)) {
+                    case Approach::Walking:
+                    case Approach::Waiting:
+                        break;
+                    case Approach::Unreachable:
+                        worker.target_resource = entt::null;
+                        worker.state = Core::UnitState::Idle;
+                        break;
+                    case Approach::Arrived:
+                        worker.state = Core::UnitState::Gathering;
+                        worker.working = true;
+                        worker.on_field = true;
+                        registry.remove<Components::Path>(entity);
+                        break;
+                    }
+                    break;
+                }
+
                 // Up to the resource's own box -- a tree's tile, a carcass's
                 // body -- within the job's range.
                 const auto ground = Combat::BoxOf(registry, worker.target_resource);
@@ -869,6 +947,14 @@ void WorkerSystem::Update(entt::registry& registry, Physics::Grid& grid, int32_t
                     // villager home even if it has room for gold.
                     else if (worker.carried[slot] >= capacity) {
                         worker.state = Core::UnitState::Returning;
+                    }
+                    // A farmer steps to another spot of the field after each
+                    // unit it takes.
+                    else if (taken > 0 && OnField(registry, worker.target_resource)) {
+                        ++worker.field_step;
+                        worker.field_spot = FieldSpot(registry, worker.target_resource, entity, worker.field_step);
+                        worker.state = Core::UnitState::Moving;
+                        worker.working = false;
                     }
                 }
                 break;

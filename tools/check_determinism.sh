@@ -77,6 +77,7 @@ FARMORDER="$(echo "$OUTPUT" | grep '^farmorder=')"
 IDLEMILITARY="$(echo "$OUTPUT" | grep '^idlemilitary=')"
 SCENARIOVERSION="$(echo "$OUTPUT" | grep '^scenarioversion=')"
 UNFINISHEDDROP="$(echo "$OUTPUT" | grep '^unfinisheddrop=')"
+FARMFIELD="$(echo "$OUTPUT" | grep '^farmfield=')"
 COLOURS="$(echo "$OUTPUT" | grep '^colours=')"
 BUTTONS="$(echo "$OUTPUT" | grep '^buttons=')"
 SEARCH="$(echo "$OUTPUT" | grep '^search=')"
@@ -543,6 +544,12 @@ esac
 case "$UNFINISHEDDROP" in
     unfinisheddrop=ok*) echo "unfinisheddrop OK" ;;
     *) echo "UNFINISHEDDROP FAILED" >&2; echo "  $UNFINISHEDDROP" >&2; STATUS=1 ;;
+esac
+
+# A farmer works on its Farm's field, at one spot after another.
+case "$FARMFIELD" in
+    farmfield=ok*) echo "farmfield OK" ;;
+    *) echo "FARMFIELD FAILED" >&2; echo "  $FARMFIELD" >&2; STATUS=1 ;;
 esac
 
 # Villagers sent at a sheep kill it, take its food within the dat's range and
