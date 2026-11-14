@@ -33,6 +33,7 @@
 #include "core/Hotkeys.h"
 #include "core/Strings.h"
 #include "core/Treeman.h"
+#include "core/Gorynych.h"
 #include "core/TrojanHorse.h"
 #include "ecs/TransportCombat.h"
 #include "ecs/Garrisons.h"
@@ -943,8 +944,9 @@ void InputManager::UpdateIntent(ECS::Simulation& sim, Rendering::Renderer& rende
         }
         return;
     }
-    if (identity != nullptr && identity->unit_id == treeman::wildUnitId && gaia) {
-        Rendering::UIRenderer::setWorldUnitHint(treeman::wildUnitId);
+    if (identity != nullptr && gaia &&
+        (identity->unit_id == treeman::wildUnitId || identity->unit_id == gorynych::wildUnitId)) {
+        Rendering::UIRenderer::setWorldUnitHint(identity->unit_id);
         return;
     }
     // Sheep, Gaia's or the player's: villagers herd them in for food.
@@ -1715,6 +1717,14 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
                     const auto& at = registry.get<ECS::Components::Transform>(art).position;
                     click_x = at.x.ToFloat();
                     click_y = at.y.ToFloat();
+                    const auto* identity = registry.try_get<ECS::Components::Identity>(art);
+                    const auto* owner = registry.try_get<ECS::Components::Owner>(art);
+                    if (identity != nullptr && identity->unit_id == gorynych::wildUnitId &&
+                        owner != nullptr && owner->player_id == Core::PLAYER_GAIA)
+                    {
+                      // Approach the dragon's ground position, not the lifted sprite's screen position.
+                      wc = {click_x, click_y};
+                    }
                 }
             }
             int gx = static_cast<int>(std::floor(wc.first + 0.5));
@@ -2030,6 +2040,11 @@ void InputManager::ProcessEvent(const SDL_Event& event, ECS::Simulation& sim, Re
                 // Never one's own: that takes a force-attack.
                 if (const auto* owner = registry.try_get<ECS::Components::Owner>(h)) {
                     if (owner->player_id == Core::LocalPlayer()) continue;
+                    if (owner->player_id == Core::PLAYER_GAIA)
+                    {
+                      const auto* identity = registry.try_get<ECS::Components::Identity>(h);
+                      if (identity != nullptr && identity->unit_id == gorynych::wildUnitId) continue;
+                    }
                 }
                 auto& t = hp_view.get<ECS::Components::Transform>(h);
                 const float dx = click_x - t.position.x.ToFloat();

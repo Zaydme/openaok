@@ -1,10 +1,11 @@
-#include "ecs/Navigation.h"
+﻿#include "ecs/Navigation.h"
 
 #include <algorithm>
 
 #include "core/FixedMath.h"
 #include "ecs/BuildingGeometry.h"
 #include "ecs/Combat.h"
+#include "ecs/Flight.h"
 #include "ecs/Players.h"
 #include "ecs/components/Animation.h"
 #include "ecs/components/Building.h"
@@ -37,6 +38,7 @@ Physics::Layer LayerOf(const entt::registry& registry, const Physics::Grid& grid
 
 bool CanStand(const entt::registry& registry, const Physics::Grid& grid,
               entt::entity entity, Components::Vector2D at) {
+    if (flight::isFlying(registry, entity)) return grid.InBounds(Physics::TileOf(at.x), Physics::TileOf(at.y));
     return grid.Passable(LayerOf(registry, grid, entity), Physics::TileOf(at.x),
                          Physics::TileOf(at.y));
 }
@@ -139,7 +141,7 @@ void Survey(entt::registry& registry, const Physics::Grid& grid) {
     const Players::Table* table = Players::TableOf(registry);
     auto units = registry.view<const Components::Transform, const Components::Animation>();
     for (auto e : units) {
-        if (buildings.contains(e) || dying.contains(e) || corpses.contains(e)) continue;
+        if (buildings.contains(e) || dying.contains(e) || corpses.contains(e) || flight::isFlying(registry, e)) continue;
         const auto& at = units.get<const Components::Transform>(e).position;
         if (!grid.InBounds(Physics::TileOf(at.x), Physics::TileOf(at.y))) continue;
         // RadiusOf, from the storages and the table found above.
@@ -213,6 +215,16 @@ Core::Fixed32 GapAt(const entt::registry& registry, entt::entity entity, Compone
 Components::Path Route(const entt::registry& registry, const Physics::Grid& grid,
                        entt::entity entity, Components::Vector2D from,
                        Components::Vector2D to, entt::entity target, Core::Fixed32 range) {
+    if (flight::isFlying(registry, entity))
+    {
+      Components::Path path;
+      path.goal = Toward(registry, grid, entity, to);
+      path.waypoints.push_back(path.goal);
+      path.has_goal = true;
+      path.target = target;
+      path.range = range;
+      return path;
+    }
     static std::vector<Pathfinding::Standing> standing;
     standing.clear();
     if (const Traffic* traffic = TrafficOf(registry)) {
@@ -239,6 +251,7 @@ Components::Path Route(const entt::registry& registry, const Physics::Grid& grid
 Components::Path RouteBeside(entt::registry& registry, const Physics::Grid& grid,
                              entt::entity entity, Components::Vector2D from,
                              Components::Vector2D to) {
+    if (flight::isFlying(registry, entity)) return Route(registry, grid, entity, from, to);
     const Physics::Layer layer = LayerOf(registry, grid, entity);
     const Core::Fixed32 radius = RadiusOf(registry, entity);
     auto& walks = registry.ctx().emplace<SharedWalks>().walks;
@@ -262,6 +275,12 @@ Components::Path RouteBeside(entt::registry& registry, const Physics::Grid& grid
 
 Components::Vector2D Toward(const entt::registry& registry, const Physics::Grid& grid,
                             entt::entity entity, Components::Vector2D to) {
+    if (flight::isFlying(registry, entity))
+    {
+      const Core::Fixed32 edge(0);
+      return {std::clamp(to.x, edge, Core::Fixed32(grid.GetWidth() - 1)),
+        std::clamp(to.y, edge, Core::Fixed32(grid.GetHeight() - 1))};
+    }
     const auto* at = registry.try_get<Components::Transform>(entity);
     const Physics::Layer layer = LayerOf(registry, grid, entity);
     const int region = at != nullptr ? RegionOf(registry, grid, entity) : -1;

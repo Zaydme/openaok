@@ -1,10 +1,11 @@
-#include "MovementSystem.h"
+﻿#include "MovementSystem.h"
 
 #include <algorithm>
 #include <cstdlib>
 
 #include "core/FixedMath.h"
 #include "ecs/Combat.h"
+#include "ecs/Flight.h"
 #include "ecs/Navigation.h"
 #include "ecs/Players.h"
 #include "ecs/components/Identity.h"
@@ -282,6 +283,7 @@ void MovementSystem::Update(entt::registry& registry, const Physics::Grid& grid,
                                 : Physics::Keyed(rules != nullptr ? grid.LayerOf(rules->terrain_restriction) : Physics::kLand,
                                                  owner != nullptr ? owner->player_id : Core::PLAYER_GAIA);
         const Core::Fixed32 radius = rules != nullptr ? rules->size_x : Core::Fixed32(0);
+        const bool isFlying = flight::isFlying(registry, entity);
 
         // Near a corner with the next one in sight, the corner is cut.
         if (path.current_waypoint_index + 1 < path.waypoints.size()) {
@@ -317,7 +319,7 @@ void MovementSystem::Update(entt::registry& registry, const Physics::Grid& grid,
             return gap.value == 0 || gap + kInside <= path.range;
         };
         const Navigation::Body* occupant =
-            !aimed && traffic != nullptr ? OnTheGoal(*traffic, entity, path.goal, radius) : nullptr;
+            !isFlying && !aimed && traffic != nullptr ? OnTheGoal(*traffic, entity, path.goal, radius) : nullptr;
 
         Components::Vector2D at = transform.position;
         Components::Vector2D heading{};
@@ -346,7 +348,7 @@ void MovementSystem::Update(entt::registry& registry, const Physics::Grid& grid,
             if (distance > step) {
                 next = {at.x + to_x * step / distance, at.y + to_y * step / distance};
             }
-            if (!Pathfinding::AStar::MiddleClear(grid, at, next, layer)) {
+            if (!isFlying && !Pathfinding::AStar::MiddleClear(grid, at, next, layer)) {
                 closed = true;
                 break;
             }
@@ -363,7 +365,7 @@ void MovementSystem::Update(entt::registry& registry, const Physics::Grid& grid,
         // Kept off the others about it, but for a step that comes up
         // against whoever stands on its goal (OnTheGoal). A walk to something
         // that is kept out of reach of it walks on.
-        if (traffic != nullptr && !blocked) {
+        if (!isFlying && traffic != nullptr && !blocked) {
             at = KeptApart(*traffic, grid, layer, entity, path.target, transform.position, at, radius);
             if (aimed) arrived = in_range(at);
         }

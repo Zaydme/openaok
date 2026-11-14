@@ -1,0 +1,29 @@
+{
+  "graphics": {
+    "59020": {
+      "frame_ms": 160,
+      "replay_ms": 0,
+      "sequence": 3
+    },
+    "59021": {
+      "frame_ms": 160,
+      "replay_ms": 0,
+      "sequence": 3
+    },
+    "59022": {
+      "frame_ms": 160,
+      "replay_ms": 0,
+      "sequence": 3
+    },
+    "59023": {
+      "frame_ms": 160,
+      "replay_ms": 0,
+      "sequence": 11
+    },
+    "59024": {
+      "frame_ms": 160,
+      "replay_ms": 0,
+      "sequence": 2
+    }
+  }
+}

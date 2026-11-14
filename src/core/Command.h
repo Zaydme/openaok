@@ -372,7 +372,7 @@ struct DisbandCommand {
     PlayerId player;
 };
 
-enum class WorldJobKind : uint8_t { PlantTree = 1, RaiseGround, DigDitch, RestoreGround, DigChannel, DigLake, GrowTreeman, DigRiver, DigWaterMoat, BuildTransport };
+enum class WorldJobKind : uint8_t { PlantTree = 1, RaiseGround, DigDitch, RestoreGround, DigChannel, DigLake, GrowTreeman, DigRiver, DigWaterMoat, BuildTransport, GrowGorynych };
 
 constexpr bool isWaterwork(WorldJobKind kind)
 {
@@ -413,7 +413,7 @@ constexpr bool isEarthwork(WorldJobKind kind)
 
 constexpr bool isUnitConstruction(WorldJobKind kind)
 {
-  return kind == WorldJobKind::GrowTreeman || kind == WorldJobKind::BuildTransport;
+  return kind == WorldJobKind::GrowGorynych || kind == WorldJobKind::GrowTreeman || kind == WorldJobKind::BuildTransport;
 }
 
 constexpr bool isWorldJobKind(WorldJobKind kind)

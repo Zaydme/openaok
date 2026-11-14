@@ -27,6 +27,8 @@
 #include "ecs/BuildingGeometry.h"
 #include "ecs/Walls.h"
 #include "ecs/Players.h"
+#include "ecs/Flight.h"
+#include "ecs/components/Projectile.h"
 #include "ecs/Vision.h"
 #include "core/ConfigManager.h"
 #include "core/Media.h"
@@ -242,8 +244,10 @@ std::vector<Marker>& Markers() {
     return markers;
 }
 
-// Хранит геометрию, порядок рисования, выделение и видимость объекта кадра.
-struct RenderEntry {
+// Хранит геометрию, наземный или воздушный слой, выделение и видимость объекта кадра.
+struct RenderEntry
+{
+    bool m_airborne = false;
     float depth;
     entt::entity ent;
     void* tex_ptr;
@@ -582,6 +586,9 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
                 m.ry = ui->outline_y;
                 m.round = ui->obstruction == 5;
                 m.bar_height = ui->hp_bar_height;
+                if (Core::gorynych::isUnit(id->unit_id))
+                    if (const auto* sprite = registry.try_get<ECS::Components::Sprite>(entity))
+                        m.bar_height += static_cast<float>(sprite->lift_px) / (Core::IsometricMath::TILE_HEIGHT / 2.0f);
                 m.bar = ui->selection_effect == 0 || ui->selection_effect == 1 ||
                         ui->selection_effect == 5;
             }
@@ -643,6 +650,10 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
         
         RenderEntry e{};
         e.depth = lx + ly;
+        if (const auto* identity = registry.try_get<ECS::Components::Identity>(entity))
+            e.m_airborne = Core::gorynych::isUnit(identity->unit_id) && sprite.lift_px > 0;
+        if (const auto* shot = registry.try_get<ECS::Components::Projectile>(entity))
+            e.m_airborne = shot->m_fromLift > 0 || shot->m_toLift > 0;
         e.ent = entity;
         e.fogged = in_fog(entity);
         e.is_selected = registry.any_of<ECS::Components::Selectable>(entity) && registry.get<ECS::Components::Selectable>(entity).is_selected;
@@ -1120,6 +1131,7 @@ void EntityRenderer::DrawGroundLevel(ECS::Simulation& sim, Renderer& renderer, S
     // tiles tie exactly and batch by texture -- then entity id, so the order
     // is stable from frame to frame.
     std::sort(entries.begin(), entries.end(), [](const RenderEntry& a, const RenderEntry& b) {
+        if (a.m_airborne != b.m_airborne) return !a.m_airborne;
         if (a.depth != b.depth) return a.depth < b.depth;
         if (a.sort_bias != b.sort_bias) return a.sort_bias < b.sort_bias;
         if (a.tex_ptr != b.tex_ptr) return a.tex_ptr < b.tex_ptr;

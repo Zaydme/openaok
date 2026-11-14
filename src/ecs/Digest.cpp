@@ -18,6 +18,7 @@
 #include "ecs/components/WorldJob.h"
 #include "ecs/Fog.h"
 #include "ecs/components/Worker.h"
+#include "ecs/components/Projectile.h"
 
 namespace ECS::Digest {
 
@@ -66,6 +67,21 @@ uint64_t Of(const entt::registry& registry) {
     const auto* toggles = registry.ctx().find<Cheats::Toggles>();
     mix(toggles != nullptr ? toggles->aegis : 0u);
     mix(toggles != nullptr ? toggles->nature : 0u);
+    all.clear();
+    for (const auto entity : registry.view<const Components::Projectile>()) all.push_back(entity);
+    std::sort(all.begin(), all.end());
+    for (const auto entity : all)
+    {
+      const auto& shot = registry.get<Components::Projectile>(entity);
+      mix(entt::to_integral(entity));
+      mix(entt::to_integral(shot.shooter)); mix(entt::to_integral(shot.target));
+      mix(shot.owner); mix(shot.unit_id);
+      mix(shot.from.x.value); mix(shot.from.y.value); mix(shot.to.x.value); mix(shot.to.y.value);
+      mix(shot.length.value); mix(shot.travelled.value); mix(shot.speed.value); mix(shot.arc.value);
+      mix(shot.m_fromLift); mix(shot.m_toLift); mix(shot.on_target);
+      mix(shot.attack_count); mix(shot.blast_width.value); mix(shot.blast_level);
+      for (int i = 0; i < shot.attack_count; ++i) { mix(shot.attacks[i].cls); mix(shot.attacks[i].amount); }
+    }
     return hash;
 }
 

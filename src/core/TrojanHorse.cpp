@@ -8,6 +8,7 @@
 #include "core/ConfigManager.h"
 #include "core/Rules.h"
 #include "core/Treeman.h"
+#include "core/Gorynych.h"
 #include "hal/SlpFile.h"
 
 namespace Core::trojan_horse
@@ -187,7 +188,7 @@ namespace Core::trojan_horse
 
   bool canCarry(int passengerId, int unitClass)
   {
-    if (passengerId == treeman::unitId || passengerId == treeman::wildUnitId) return false;
+    if (gorynych::isUnit(passengerId) || passengerId == treeman::unitId || passengerId == treeman::wildUnitId) return false;
     switch (unitClass)
     {
     case 4: case 0: case 6: case 44: case 45: case 46: case 50: case 56:

@@ -1,4 +1,4 @@
-#include "ecs/Units.h"
+﻿#include "ecs/Units.h"
 
 #include <algorithm>
 #include <string>
@@ -8,6 +8,7 @@
 #include "core/Rules.h"
 #include "ecs/Animals.h"
 #include "ecs/Combat.h"
+#include "ecs/Flight.h"
 #include "ecs/Players.h"
 #include "ecs/Score.h"
 #include "ecs/components/Animation.h"
@@ -50,6 +51,7 @@ entt::entity Spawn(entt::registry& registry, int unit_id, Core::PlayerId player,
     sprite.heading = Core::FixedMath::HeadingOf(Core::Direction::SouthEast);
     sprite.width = 0;   // read off the graphic on first draw
     sprite.height = 0;
+    if (Core::gorynych::isUnit(unit_id)) sprite.lift_px = Core::gorynych::flightLift;
 
     // Every animation is its own graphic, with its own frame timing from the
     // dat; the animation system takes it from here.

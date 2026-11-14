@@ -1,6 +1,7 @@
 ﻿#include "ecs/Buildings.h"
 #include "ecs/TransportCombat.h"
 #include "ecs/Combat.h"
+#include "ecs/Flight.h"
 #include "ecs/Nearby.h"
 
 #include <algorithm>
@@ -168,6 +169,7 @@ Core::Fixed32 SearchReach(const R::UnitRules& rules, bool building) {
 // building whose walls touch it.
 bool CanReach(const entt::registry& registry, const Physics::Grid& grid, entt::entity self,
               entt::entity other, const R::UnitRules& rules) {
+    if (flight::isFlying(registry, other) && !Shoots(rules)) return false;
     if (Shoots(rules)) return true;
     const Physics::Layer layer = Navigation::LayerOf(registry, grid, self);
     const auto& at = registry.get<Components::Transform>(other).position;
@@ -669,6 +671,12 @@ bool PlanChase(entt::registry& registry, const Physics::Grid& grid, entt::entity
                entt::entity target, const R::UnitRules& rules) {
     const auto& from = registry.get<Components::Transform>(self).position;
     const auto& at = registry.get<Components::Transform>(target).position;
+    if (flight::isFlying(registry, self))
+    {
+      registry.emplace_or_replace<Components::Path>(self,
+        Navigation::Route(registry, grid, self, from, at, target, Reach(rules)));
+      return true;
+    }
     const Physics::Layer layer = Navigation::LayerOf(registry, grid, self);
     // Far off, a route another planned this pass from beside it.
     const bool far = Gap(registry, self, target) > kChaseNear;
@@ -780,6 +788,7 @@ void MeleeBlast(const entt::registry& registry, const Physics::Grid& grid, entt:
     auto all = registry.view<const Components::Transform, const Components::Health>();
     for (auto other : all) {
         if (other == self || other == target || !Alive(registry, other)) continue;
+        if (flight::isFlying(registry, other)) continue;
         if (Friendly(registry, self, other)) continue;
         if (OwnerOf(registry, other) == Core::PLAYER_GAIA && !Hostile(registry, self, other)) {
             continue;
@@ -950,6 +959,8 @@ void Engage(entt::registry& registry, entt::entity attacker, entt::entity target
             bool ordered) {
     auto* combat = registry.try_get<Combat>(attacker);
     if (combat == nullptr || attacker == target || !registry.valid(target)) return;
+    const auto* attackRules = FightingRules(registry, attacker);
+    if (flight::isFlying(registry, target) && (attackRules == nullptr || !Shoots(*attackRules))) return;
     if (!combat->has_post || combat->state == CombatState::Idle) {
         combat->post = registry.get<Components::Transform>(attacker).position;
         combat->has_post = true;

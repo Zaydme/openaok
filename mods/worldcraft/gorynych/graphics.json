@@ -1,0 +1,42 @@
+{
+  "59020": {
+    "name": "GORYNYCH_IDLE",
+    "filename": "ZG_IDLE",
+    "slp_id": 59020,
+    "frame_count": 4,
+    "angle_count": 8,
+    "layer": 20
+  },
+  "59021": {
+    "name": "GORYNYCH_FLY",
+    "filename": "ZG_FLY",
+    "slp_id": 59021,
+    "frame_count": 4,
+    "angle_count": 8,
+    "layer": 20
+  },
+  "59022": {
+    "name": "GORYNYCH_ATTACK",
+    "filename": "ZG_ATTACK",
+    "slp_id": 59022,
+    "frame_count": 4,
+    "angle_count": 8,
+    "layer": 20
+  },
+  "59023": {
+    "name": "GORYNYCH_DIE",
+    "filename": "ZG_DIE",
+    "slp_id": 59023,
+    "frame_count": 4,
+    "angle_count": 8,
+    "layer": 20
+  },
+  "59024": {
+    "name": "GORYNYCH_CORPSE",
+    "filename": "ZG_CORPSE",
+    "slp_id": 59024,
+    "frame_count": 1,
+    "angle_count": 8,
+    "layer": 20
+  }
+}

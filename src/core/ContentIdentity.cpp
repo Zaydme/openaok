@@ -83,6 +83,8 @@ namespace Core::content
       "../mods/worldcraft/treeman/unit.json", "../mods/worldcraft/treeman/graphics.json",
       "../mods/worldcraft/transport/unit.json", "../mods/worldcraft/transport/graphics.json",
       "../mods/worldcraft/transport/animations.json", "../mods/worldcraft/transport/trojan-horse.drs",
+      "../mods/worldcraft/gorynych/unit.json", "../mods/worldcraft/gorynych/graphics.json",
+      "../mods/worldcraft/gorynych/animations.json", "../mods/worldcraft/gorynych/gorynych.drs",
       "../mods/worldcraft/treeman/animations.json", "../mods/worldcraft/treeman/walking-tree.drs"
     };
     Identity candidate;
