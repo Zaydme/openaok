@@ -152,6 +152,7 @@ The game's data is a folder made on a computer and chosen on the phone:
 
 ```sh
 python3 android/package.py     # writes android/build/OpenAoK-data/; --out DIR for another place
+python3 android/package.py --no-sound --no-movies   # the same without sound or movies, half the size
 ```
 
 How the app copies and checks it is in [Platforms](/engine/platforms#the-data-folder-for-phones-and-the-switch);

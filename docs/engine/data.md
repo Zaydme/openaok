@@ -409,6 +409,12 @@ tree is:
   check against the version they were built for;
 - `manifest.txt`, one line per file: its CRC-32, its size and its path.
 
+`android/package.py --no-sound` leaves out everything heard (`sounds.drs`, the
+taunts, the scenarios' and campaigns' narration, the music), and
+`--no-movies` the movies; the manifest lists only what is there, and the game
+plays on without them. A file left out is removed from the destination if an
+earlier run put it there.
+
 Files already in the destination with the same size and time (to FAT's two
 seconds) are not copied again. The Android and iOS apps check every file
 against the manifest as they copy the folder into their own storage; the

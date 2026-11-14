@@ -39,7 +39,8 @@ import java.util.zip.CRC32;
  * own storage, checking every file against the folder's manifest.txt (its
  * CRC-32, size and path), then starts the game. Data of another version than
  * this build plays from (BuildConfig.DATA_VERSION, the folder's version.txt)
- * is asked for again.
+ * is asked for again. A folder chosen replaces the whole of the copy before
+ * it, so one made without sound or movies frees the space they took.
  */
 public class CopyActivity extends Activity {
     private static final int kChooseFolder = 1;
@@ -248,6 +249,13 @@ public class CopyActivity extends Activity {
 
         File game = game();
         marker().delete();
+        // The old copy, all but the folder the game runs in.
+        File[] old = game.listFiles();
+        if (old != null) {
+            for (File item : old) {
+                if (!item.getName().equals("build")) remove(item);
+            }
+        }
         new File(game, "build").mkdirs();
         byte[] buffer = new byte[1 << 20];
         long done = 0;
@@ -285,6 +293,15 @@ public class CopyActivity extends Activity {
         try (FileWriter w = new FileWriter(marker())) {
             w.write(Integer.toString(BuildConfig.DATA_VERSION));
         }
+    }
+
+    // A file, or a folder and all it holds.
+    private static void remove(File file) {
+        File[] inside = file.listFiles();
+        if (inside != null) {
+            for (File item : inside) remove(item);
+        }
+        file.delete();
     }
 
     private void play() {

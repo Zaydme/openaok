@@ -7,6 +7,9 @@ music, campaigns and bonus scenario under original_game_1999/, Arial under
 fonts/, an empty build/ to run in, version.txt (the data's version, which the
 game checks against its own) and manifest.txt (every file's CRC-32, size and
 path, which the game checks on its first start).
+
+A player who plays without sound or movies can leave them out (`SOUND`,
+`MOVIES`); the game plays on without them.
 """
 import os
 import shutil
@@ -23,6 +26,13 @@ import prepare_data  # noqa: E402
 # What the engine reads, from where the source tree keeps it.
 ASSETS = ['extracted_data', 'original', 'sprites/terrain/blendmasks.png']
 CD = ['SYSTEM/FONTS', 'GOODIES', 'GAME/AVI', 'GAME/SOUND', 'GAME/CAMPAIGN']
+
+# What may be left out, by its path in the folder: everything heard (the sound
+# effects, the taunts, the scenarios' and campaigns' narration, the music),
+# and the movies.
+SOUND = ['assets/original/Data/sounds.drs', 'assets/original/Sound', 'assets/original/Taunt',
+         'original_game_1999/GAME/SOUND']
+MOVIES = ['original_game_1999/GAME/AVI']
 
 # Arial, which the CD does not carry: the computer's own, or Liberation Sans,
 # which has Arial's metrics.
@@ -42,13 +52,15 @@ ARIAL = [
 
 class Packer:
     """Copies files into a folder, leaving alone those already there and
-    unchanged, and keeps the list of what it wrote for the manifest."""
+    unchanged, and keeps the list of what it wrote for the manifest.
+    `leave_out` names paths in the folder not to copy (`SOUND`, `MOVIES`)."""
 
-    def __init__(self):
+    def __init__(self, leave_out=()):
         self.copied = 0
         self.kept = 0
         self.size = 0
         self.written = []   # (destination, source) of every file
+        self.leave_out = list(leave_out)
 
     def copy(self, src, dst):
         """One file, unless an identical one is there. FAT keeps a file's time
@@ -66,7 +78,9 @@ class Packer:
         os.utime(dst, (info.st_atime, info.st_mtime))
         self.copied += 1
 
-    def copy_tree(self, src, dst):
+    def copy_tree(self, src, dst, game):
+        if self.left_out(dst, game):
+            return
         if os.path.isfile(src):
             self.copy(src, dst)
             return
@@ -75,16 +89,31 @@ class Packer:
                 if name == '.DS_Store' or name.startswith('._'):
                     continue
                 path = os.path.join(folder, name)
-                self.copy(path, os.path.join(dst, os.path.relpath(path, src)))
+                target = os.path.join(dst, os.path.relpath(path, src))
+                if not self.left_out(target, game):
+                    self.copy(path, target)
+
+    def left_out(self, dst, game):
+        """Whether `dst` lies in something left out of `game`."""
+        rel = os.path.relpath(dst, game).replace(os.sep, '/')
+        return any(rel == item or rel.startswith(item + '/') for item in self.leave_out)
 
     def lay_out(self, game):
-        """The game's data into `game`, with version.txt and manifest.txt."""
+        """The game's data into `game`, with version.txt and manifest.txt.
+        What is left out is removed from `game` if an earlier run put it
+        there."""
+        for item in self.leave_out:
+            path = os.path.join(game, item)
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+            elif os.path.isfile(path):
+                os.remove(path)
         for item in ASSETS:
-            self.copy_tree(os.path.join(ROOT, 'assets', item), os.path.join(game, 'assets', item))
+            self.copy_tree(os.path.join(ROOT, 'assets', item), os.path.join(game, 'assets', item), game)
         for item in CD:
             src = os.path.join(ROOT, 'original_game_1999', item)
             if os.path.exists(src):
-                self.copy_tree(src, os.path.join(game, 'original_game_1999', item))
+                self.copy_tree(src, os.path.join(game, 'original_game_1999', item), game)
         arial = next((pair for pair in ARIAL if all(os.path.exists(p) for p in pair)), None)
         if arial is not None:
             self.copy(arial[0], os.path.join(game, 'fonts', 'Arial.ttf'))
@@ -114,6 +143,19 @@ class Packer:
     def summary(self, folder):
         return '%s: %d files copied, %d already there, %d MB in all' % (
             folder, self.copied, self.kept, self.size // (1024 * 1024))
+
+
+def add_leave_out(parser):
+    """The command line's --no-sound and --no-movies."""
+    parser.add_argument('--no-sound', action='store_true',
+                        help='leave out the sound effects, narration and music (about 120 MB): the game plays silent')
+    parser.add_argument('--no-movies', action='store_true',
+                        help='leave out the movies (about 47 MB)')
+
+
+def leave_out(args):
+    """What the command line's --no-sound and --no-movies leave out."""
+    return (SOUND if args.no_sound else []) + (MOVIES if args.no_movies else [])
 
 
 def checksum(path):

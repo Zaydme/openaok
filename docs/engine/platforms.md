@@ -161,11 +161,12 @@ each platform does to get there:
   `build/`. `PrefPath` is SDL's preference folder for OpenAoK.
 - **Android.** The APK holds none of the game. Its launcher activity,
   `CopyActivity`, asks for the data folder with the system's folder picker,
-  copies it into the app's own storage under `game/`, checking every file
-  against the folder's manifest, and then starts `GameActivity`, SDL's activity
-  running the engine as `libmain.so`. `main()` enters `game/build` in the app's
-  internal storage, and sends what the engine prints to the system log, where
-  `adb logcat -s OpenAoK` shows it. `GameActivity` also hands the back gesture
+  copies it into the app's own storage under `game/`, in place of the copy
+  before it, checking every file against the folder's manifest (a folder made
+  with `--no-sound` or `--no-movies` lists only what it holds), and then
+  starts `GameActivity`, SDL's activity running the engine as `libmain.so`.
+  `main()` enters `game/build` in the app's internal storage, and sends what
+  the engine prints to the system log, where `adb logcat -s OpenAoK` shows it. `GameActivity` also hands the back gesture
   to the engine as the back key (Escape) and tells it whether a mouse is
   plugged in.
 - **iPhone and iPad.** `Start` calls `HAL::iOS::Start` in

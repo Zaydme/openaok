@@ -23,6 +23,9 @@ itself, the one holding `manifest.txt` and `version.txt`.
 **"Game data of version N."** The folder was made by another release's source
 code. Make it with the same release as the app.
 
+**No sound or no movies on an Android phone.** The folder was made with
+`--no-sound` or `--no-movies`. Make it again without them and choose it.
+
 **A file is named as damaged on the Switch.** Copy the folder to the card again,
 through another card reader or Hekate's USB mass storage: some USB card readers
 damage what they write to large cards.

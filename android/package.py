@@ -3,12 +3,15 @@ of the game.
 
 Copy the CD's files into original_game_1999/ (see the main README), then run:
 
-    python3 android/package.py [--out DIR]
+    python3 android/package.py [--out DIR] [--no-sound] [--no-movies]
 
 It prepares the game's data as build.sh does, and writes DIR/OpenAoK-data/:
 the game's data, laid out as the source tree is, with manifest.txt, every
 file's checksum, size and path, which the app checks as it copies it in
 (tools/data/package_data.py). DIR is android/build by default.
+
+--no-sound leaves out the sound effects, narration and music, and --no-movies
+the movies, for a smaller folder: the game plays on without them.
 
 Copy OpenAoK-data to the phone, anywhere it can be found, such as Download,
 then open OpenAoK and choose the folder. The app copies it into its own
@@ -30,11 +33,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--out', default=os.path.join(HERE, 'build'),
                         help='where to write OpenAoK-data/')
+    package_data.add_leave_out(parser)
     args = parser.parse_args()
 
     package_data.prepare()
     folder = os.path.join(args.out, 'OpenAoK-data')
-    packer = package_data.Packer()
+    packer = package_data.Packer(package_data.leave_out(args))
     packer.lay_out(folder)
     package_data.remove_apple_double(folder)
     print('==> ' + packer.summary(folder))

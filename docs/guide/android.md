@@ -44,7 +44,10 @@ python3 android/package.py
 It prepares the game's data as `build.sh` does and writes
 `android/build/OpenAoK-data/`: about 350 MB, with `manifest.txt` (every file's
 checksum, size and path) and `version.txt` (which version of the data it is).
-`--out DIR` writes `DIR/OpenAoK-data/` instead.
+`--out DIR` writes `DIR/OpenAoK-data/` instead. `--no-sound` leaves out the
+sound effects, narration and music (about 120 MB), and `--no-movies` the
+movies (about 47 MB): the game plays on without them, silent or with no
+movies.
 
 ## 3. Copy it to the phone
 
@@ -58,7 +61,8 @@ Open OpenAoK. It says it needs the game's data; tap Choose folder, open
 Download, then `OpenAoK-data` itself (Android does not let an app take Download
 as a whole), and tap Use this folder, then Allow. The app copies the data in,
 checking every file against the manifest, and starts the game. The copy on the
-phone can then be deleted.
+phone can then be deleted. A folder chosen replaces the whole of the data the
+app had, so one made with `--no-sound` frees the space the sound took.
 
 After an update that plays from newer data, the app says so on its first
 start: make the folder again with that release's source code and choose it, or
