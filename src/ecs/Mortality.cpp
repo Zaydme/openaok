@@ -1,4 +1,4 @@
-#include "ecs/Mortality.h"
+﻿#include "ecs/Mortality.h"
 #include "ecs/Formations.h"
 
 #include "ecs/Events.h"
@@ -8,6 +8,7 @@
 
 #include "core/ConfigManager.h"
 #include "core/Rules.h"
+#include "core/Gorynych.h"
 #include "ecs/Buildings.h"
 #include "ecs/Players.h"
 #include "ecs/Score.h"
@@ -192,6 +193,13 @@ void Update(entt::registry& registry, Physics::Grid& /*grid*/, int32_t dt_ms) {
     for (auto e : dying) {
         auto& d = dying.get<Components::Dying>(e);
         d.remaining_ms -= dt_ms;
+        const auto* identity = registry.try_get<Components::Identity>(e);
+        if (identity != nullptr && Core::gorynych::isUnit(identity->unit_id))
+          if (auto* sprite = registry.try_get<Components::Sprite>(e))
+          {
+            constexpr int fallMs = 4 * 160;
+            sprite->lift_px = Core::gorynych::flightLift * std::max(0, d.remaining_ms) / fallMs;
+          }
         if (d.remaining_ms <= 0) done.push_back(e);
     }
     for (auto e : done) {

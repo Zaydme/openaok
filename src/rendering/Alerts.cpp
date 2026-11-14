@@ -12,6 +12,7 @@
 #include "core/Rules.h"
 #include "core/Strings.h"
 #include "core/Treeman.h"
+#include "core/Gorynych.h"
 #include "ecs/BuildingGeometry.h"
 #include "ecs/Events.h"
 #include "ecs/Flares.h"
@@ -167,8 +168,8 @@ void Take(const entt::registry& registry, const ECS::Events::Event& event, Core:
         if (event.player != viewer || out) return;
         const auto* identity = registry.try_get<ECS::Components::Identity>(event.subject);
         if (identity != nullptr && (identity->unit_id == Core::treeman::unitId ||
-            identity->unit_id == Core::treeman::wildUnitId)) {
-            if (UIRenderer::HelpShown()) Messages::Post(Core::treeman::settings().m_claimedNotice);
+            identity->unit_id == Core::treeman::wildUnitId || Core::gorynych::isUnit(identity->unit_id))) {
+            if (UIRenderer::HelpShown()) Messages::Post(Core::gorynych::isUnit(identity->unit_id) ? Core::gorynych::settings().m_claimedNotice : Core::treeman::settings().m_claimedNotice);
         } else {
             Caption(kSheepFound);
         }

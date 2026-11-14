@@ -6,6 +6,7 @@
 #include "ecs/Fog.h"
 #include "ecs/Navigation.h"
 #include "ecs/Players.h"
+#include "ecs/Flight.h"
 #include "ecs/Vision.h"
 #include "ecs/components/Animation.h"
 #include "ecs/components/Building.h"
@@ -110,6 +111,7 @@ namespace ECS::earthworks
       for (const auto entity : registry.view<const c::Transform>())
       {
         if (registry.any_of<c::Building, c::PartOf, c::Dying, c::Corpse, c::Doppelganger>(entity)) continue;
+        if (flight::isFlying(registry, entity)) continue;
         if (const auto* job = registry.try_get<c::WorldJob>(entity); job && job->phase == c::WorldJobPhase::Working) continue;
         const bool tree = isTree(registry, grid, entity);
         const auto& at = registry.get<c::Transform>(entity).position;

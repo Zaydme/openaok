@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <cstdint>
 
 #include <entt/entt.hpp>
@@ -17,12 +17,15 @@ namespace ECS::Components {
 // walks out of the way is missed, and whoever is standing where it lands can
 // be hit instead. The shooter's attack is copied in when it is loosed, so an
 // arrow still hurts if the archer dies while it is in the air.
+// Хранит полёт снаряда, высоты концов траектории и урон после смерти стрелка.
 struct Projectile {
     entt::entity shooter = entt::null;
     entt::entity target = entt::null;
     Core::PlayerId owner = Core::PLAYER_GAIA;
     int unit_id = -1;
 
+    int32_t m_fromLift = 0;
+    int32_t m_toLift = 0;
     Vector2D from{};
     Vector2D to{};
     Core::Fixed32 length{};

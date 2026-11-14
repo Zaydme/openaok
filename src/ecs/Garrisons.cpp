@@ -10,6 +10,7 @@
 #include "ecs/BuildingGeometry.h"
 #include "ecs/Buildings.h"
 #include "ecs/Combat.h"
+#include "ecs/Flight.h"
 #include "ecs/DropSites.h"
 #include "ecs/Navigation.h"
 #include "ecs/Orders.h"
@@ -372,6 +373,7 @@ int Capacity(const entt::registry& registry, entt::entity building) {
 
 bool Accepts(const entt::registry& registry, entt::entity building, entt::entity unit) {
     if (!registry.valid(building) || !registry.valid(unit) || building == unit) return false;
+    if (flight::isFlying(registry, unit)) return false;
     const bool ship = isMobileHolder(registry, building);
     const auto* state = registry.try_get<Components::Building>(building);
     if (!ship && (state == nullptr || state->state != Components::BuildingState::Complete)) {

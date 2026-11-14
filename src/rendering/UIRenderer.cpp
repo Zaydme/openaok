@@ -38,6 +38,7 @@
 #include "ecs/components/WorldJob.h"
 #include "core/Treeman.h"
 #include "core/TrojanHorse.h"
+#include "core/Gorynych.h"
 #include "core/Worldcraft.h"
 #include "ecs/BuildingGeometry.h"
 #include "ecs/Buildings.h"
@@ -1732,6 +1733,16 @@ int UIRenderer::BuildCommands(ECS::Simulation& sim, int win_w, int win_h,
                 ECS::Players::Stock(*player, Core::ResourceType::Wood) >= horse.m_woodCost &&
                 ECS::Players::Stock(*player, Core::ResourceType::Gold) >= horse.m_goldCost;
             }
+            if (auto* command = order(14, CommandKind::PlantTree, kIconRepair, -1))
+            {
+              command->jobKind = Core::WorldJobKind::GrowGorynych;
+              command->choice = static_cast<int>(Core::PlantShape::Line);
+              const auto* player = ECS::Players::Find(registry, LocalViewer());
+              const auto& dragon = Core::gorynych::settings();
+              command->affordable = player != nullptr &&
+                ECS::Players::Stock(*player, Core::ResourceType::Wood) >= dragon.m_woodCost &&
+                ECS::Players::Stock(*player, Core::ResourceType::Gold) >= dragon.m_goldCost;
+            }
         } else if (page == waterworkPage) {
             constexpr int widths[3] = {1, 3, 5};
             for (int i = 0; i < 3; ++i)
@@ -2355,6 +2366,7 @@ void DrawCommandPanel(SDL_Renderer* sdl_r, ECS::Simulation& sim, int win_w, int 
         if (cmd.kind == UIRenderer::CommandKind::PlantTree && Core::isUnitConstruction(cmd.jobKind)) {
             Fill(sdl_r, x + 3, y + 3, 34, 34, kBlack);
             drawAddonIcon(sdl_r, SDL_Rect{x + 3, y + 3, 34, 34}, LocalViewer(), cmd.enabled ? 255 : 110,
+                cmd.jobKind == Core::WorldJobKind::GrowGorynych ? Core::gorynych::idleGraphic :
                 cmd.jobKind == Core::WorldJobKind::BuildTransport ? Core::trojan_horse::idleGraphic : Core::treeman::idleGraphic);
         } else if (cmd.kind == UIRenderer::CommandKind::PlantTree || cmd.kind == UIRenderer::CommandKind::Earthwork ||
             cmd.kind == UIRenderer::CommandKind::EarthworkHeight || cmd.kind == UIRenderer::CommandKind::WaterWidth ||
@@ -2481,7 +2493,7 @@ void DrawUnitPanel(SDL_Renderer* sdl_r, ECS::Simulation& sim, int win_w, int win
             ? (worldJob->workedMs * Core::Fixed32(100) / Core::Fixed32(worldJob->workMs)).ToInt()
             : 100 - worldJob->growthLeftMs * 100 / Core::worldcraft::plantRules().growthMs;
         const std::string label = Core::isUnitConstruction(worldJob->kind) && progress == 100
-            ? (worldJob->kind == Core::WorldJobKind::BuildTransport ? Core::trojan_horse::settings().m_populationWait : Core::treeman::settings().populationWait) : std::to_string(progress) + "%";
+            ? (worldJob->kind == Core::WorldJobKind::GrowGorynych ? Core::gorynych::settings().m_populationWait : worldJob->kind == Core::WorldJobKind::BuildTransport ? Core::trojan_horse::settings().m_populationWait : Core::treeman::settings().populationWait) : std::to_string(progress) + "%";
         Text::Draw(sdl_r, Text::kArial8, layout.stat_text.x, layout.stat_text.y, label, kBlack);
     }
 
@@ -2496,6 +2508,8 @@ void DrawUnitPanel(SDL_Renderer* sdl_r, ECS::Simulation& sim, int win_w, int win
             static_cast<float>(layout.portrait.y + 22), 0.5f);
     else if (unit_id == Core::trojan_horse::unitId)
         drawAddonIcon(sdl_r, SDL_Rect{layout.portrait.x, layout.portrait.y, 36, 36}, owner, 255, Core::trojan_horse::idleGraphic);
+    else if (Core::gorynych::isUnit(unit_id))
+        drawAddonIcon(sdl_r, SDL_Rect{layout.portrait.x, layout.portrait.y, 36, 36}, owner, 255, Core::gorynych::idleGraphic);
     else if (unit_id == Core::treeman::unitId || unit_id == Core::treeman::wildUnitId)
         drawAddonIcon(sdl_r, SDL_Rect{layout.portrait.x, layout.portrait.y, 36, 36}, owner);
     else DrawIcon(sdl_r, IconSheetFor(unit_id), ui->icon,
@@ -2655,6 +2669,8 @@ void DrawSelectionCards(SDL_Renderer* sdl_r, ECS::Simulation& sim, int win_w, in
         if (ui) {
             if (unit_id == Core::trojan_horse::unitId)
                 drawAddonIcon(sdl_r, SDL_Rect{r.x + 2, r.y + 2, r.w - 4, r.h - 4}, owner, 255, Core::trojan_horse::idleGraphic);
+            else if (Core::gorynych::isUnit(unit_id))
+                drawAddonIcon(sdl_r, SDL_Rect{r.x + 2, r.y + 2, r.w - 4, r.h - 4}, owner, 255, Core::gorynych::idleGraphic);
             else if (unit_id == Core::treeman::unitId || unit_id == Core::treeman::wildUnitId)
                 drawAddonIcon(sdl_r, SDL_Rect{r.x + 2, r.y + 2, r.w - 4, r.h - 4}, owner);
             else DrawIcon(sdl_r, IconSheetFor(unit_id), ui->icon,
@@ -2694,6 +2710,8 @@ std::string UIRenderer::CommandHelp(ECS::Simulation& sim, const Command& command
             (Core::isWaterwork(command.jobKind) && command.choice == static_cast<int>(Core::PlantShape::Line) ?
                 Core::worldcraft::text("water_width") + ": " + std::to_string(command.m_width) + ". " : "") +
             Core::worldcraft::earthworkHelp(command.jobKind);
+    if (command.kind == CommandKind::PlantTree && command.jobKind == Core::WorldJobKind::GrowGorynych)
+        return Core::gorynych::settings().m_grow + ". " + Core::gorynych::settings().m_help;
     if (command.kind == CommandKind::PlantTree && command.jobKind == Core::WorldJobKind::BuildTransport)
         return Core::trojan_horse::settings().m_build + ". " + Core::trojan_horse::settings().m_help;
     if (command.kind == CommandKind::PlantTree && command.jobKind == Core::WorldJobKind::GrowTreeman)

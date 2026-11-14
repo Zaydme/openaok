@@ -18,7 +18,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TICKS=3000
-GOLDEN="entities=1980 ticks=3000 hash=81c5afed8b236eaa"
+GOLDEN="entities=1990 ticks=3000 hash=a8903b7d4ab8f9dd"
 
 # Build first; stop on failure.
 if ! "$ROOT/build.sh" >/dev/null 2>&1; then
@@ -1194,6 +1194,12 @@ fi
 TRANSPORT=$(echo "$OUTPUT" | grep '^transport=')
 if [ "$TRANSPORT" != "transport=ok" ]; then
     echo "TRANSPORT FAILED: $TRANSPORT" >&2
+    STATUS=1
+fi
+
+GORYNYCH=$(echo "$OUTPUT" | grep '^gorynych=')
+if [ "$GORYNYCH" != "gorynych=ok" ]; then
+    echo "GORYNYCH FAILED: $GORYNYCH" >&2
     STATUS=1
 fi
 

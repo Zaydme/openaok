@@ -14,6 +14,7 @@
 #include "ecs/Navigation.h"
 #include "ecs/Orders.h"
 #include "ecs/Players.h"
+#include "ecs/Flight.h"
 #include "ecs/Vision.h"
 #include "ecs/Walls.h"
 #include "ecs/components/Building.h"
@@ -56,12 +57,13 @@ namespace ECS::world_jobs
     {
       const auto& config = Core::ConfigManager::Get();
       const auto art = config.GetUnitGraphicById(unit, "idle_graphic0");
+      const bool isCustomUnit = unit == Core::treeman::unitId || unit == Core::trojan_horse::unitId || Core::gorynych::isUnit(unit);
       c::Sprite sprite;
       sprite.slp_id = art.slp_id;
       sprite.still = true;
-      sprite.angles = (unit == Core::treeman::unitId || unit == Core::trojan_horse::unitId) ? art.angle_count : 1;
-      sprite.frames_per_angle = (unit == Core::treeman::unitId || unit == Core::trojan_horse::unitId) ? art.frame_count : 1;
-      sprite.is_file_sprite = (unit == Core::treeman::unitId || unit == Core::trojan_horse::unitId);
+      sprite.angles = isCustomUnit ? art.angle_count : 1;
+      sprite.frames_per_angle = isCustomUnit ? art.frame_count : 1;
+      sprite.is_file_sprite = isCustomUnit;
       registry.emplace_or_replace<c::Sprite>(entity, sprite);
       registry.emplace_or_replace<c::Identity>(entity, unit);
     }
@@ -110,7 +112,7 @@ namespace ECS::world_jobs
         if (ground.min_x < other.max_x && ground.max_x > other.min_x &&
             ground.min_y < other.max_y && ground.max_y > other.min_y) return false;
       }
-      else if (registry.all_of<c::Health>(entity) && !registry.any_of<c::Dying, c::Corpse>(entity) &&
+      else if (!flight::isFlying(registry, entity) && registry.all_of<c::Health>(entity) && !registry.any_of<c::Dying, c::Corpse>(entity) &&
           ground.DistanceFrom(position) <= Navigation::RadiusOf(registry, entity)) return false;
     }
     return true;
@@ -388,7 +390,7 @@ namespace ECS::world_jobs
         {
           // Buildings reserve their rectangular footprint in the grid. Their
           // unit radius can cover unrelated free tiles beside the building.
-          if (registry.any_of<c::Dying, c::Corpse, c::Building>(unit)) continue;
+          if (registry.any_of<c::Dying, c::Corpse, c::Building>(unit) || flight::isFlying(registry, unit)) continue;
           if (ground.DistanceFrom(registry.get<c::Transform>(unit).position) < Navigation::RadiusOf(registry, unit))
             isOccupied = true;
         }

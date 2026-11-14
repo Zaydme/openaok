@@ -10,6 +10,7 @@
 #include "core/Rules.h"
 #include "core/Treeman.h"
 #include "core/TrojanHorse.h"
+#include "core/Gorynych.h"
 
 namespace Core::worldcraft
 {
@@ -130,16 +131,23 @@ namespace Core::worldcraft
 
   int builtUnit(WorldJobKind kind)
   {
+    if (kind == WorldJobKind::GrowGorynych) return gorynych::unitId;
     return kind == WorldJobKind::BuildTransport ? trojan_horse::unitId : treeman::unitId;
   }
 
   int builtPopulation(WorldJobKind kind)
   {
+    if (kind == WorldJobKind::GrowGorynych) return gorynych::settings().m_population;
     return kind == WorldJobKind::BuildTransport ? trojan_horse::settings().m_population : treeman::settings().population;
   }
 
   WorkRules workRules(WorldJobKind kind)
   {
+    if (kind == WorldJobKind::GrowGorynych)
+    {
+      const auto& unit = gorynych::settings();
+      return {unit.m_woodCost, unit.m_workMs, unit.m_goldCost};
+    }
     if (kind == WorldJobKind::GrowTreeman)
     {
       const auto& unit = treeman::settings();
@@ -160,6 +168,7 @@ namespace Core::worldcraft
   {
     switch (kind)
     {
+    case WorldJobKind::GrowGorynych: return gorynych::settings().m_grow;
     case WorldJobKind::BuildTransport: return trojan_horse::settings().m_build;
     case WorldJobKind::GrowTreeman: return treeman::settings().grow;
     case WorldJobKind::RaiseGround: return text("raise_ground");

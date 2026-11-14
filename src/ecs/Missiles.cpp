@@ -10,6 +10,7 @@
 #include "core/Random.h"
 #include "ecs/BuildingGeometry.h"
 #include "ecs/Combat.h"
+#include "ecs/Flight.h"
 #include "ecs/Diplomacy.h"
 #include "ecs/Garrisons.h"
 #include "ecs/Mortality.h"
@@ -20,6 +21,7 @@
 #include "ecs/components/Identity.h"
 #include "ecs/components/Owner.h"
 #include "ecs/components/Projectile.h"
+#include "ecs/components/Path.h"
 #include "ecs/components/Garrison.h"
 #include "ecs/components/Resource.h"
 #include "ecs/components/Sprite.h"
@@ -38,6 +40,9 @@ const Core::Fixed32 kHitSlack = Core::Fixed32(25) / Core::Fixed32(100);
 // A missile with no arc of its own in the dat still climbs a little, so it
 // reads as thrown rather than sliding along the ground.
 const Core::Fixed32 kLeastArc = Core::Fixed32(1) / Core::Fixed32(10);
+constexpr int kDragonMouthHeight = 96;
+constexpr int kDragonBodyHeight = 64;
+constexpr int kHeadHeightStep = 8;
 
 // Sixteen directions, as fixed-point unit vectors scaled by 1024, for placing
 // a miss without trigonometry inside the tick.
@@ -52,9 +57,9 @@ Core::PlayerId OwnerOf(const entt::registry& registry, entt::entity e) {
 }
 
 void LooseOne(entt::registry& registry, entt::entity shooter, entt::entity target,
-              const R::UnitRules& rules, int missile_id, const R::UnitRules& missile) {
+              const R::UnitRules& rules, int missile_id, const R::UnitRules& missile, int head = 0) {
     const Core::PlayerId owner = OwnerOf(registry, shooter);
-    const auto& from = registry.get<Components::Transform>(shooter).position;
+    auto from = registry.get<Components::Transform>(shooter).position;
     Components::Vector2D to = registry.get<Components::Transform>(target).position;
 
     // The accuracy roll, from the simulation's own generator. A miss lands
@@ -72,7 +77,20 @@ void LooseOne(entt::registry& registry, entt::entity shooter, entt::entity targe
         to.y = to.y + off * Core::Fixed32(kSin[direction]) / Core::Fixed32(1024);
     }
 
+    const bool isDragonFire = missile_id == Core::gorynych::projectileId;
+    if (isDragonFire)
+    {
+      const auto side = Core::FixedMath::NormalizeAndScale(from.y - to.y, to.x - from.x,
+        Core::Fixed32(head - 1) / Core::Fixed32(3));
+      const auto forward = Core::FixedMath::NormalizeAndScale(to.x - from.x, to.y - from.y,
+        Core::Fixed32(3) / Core::Fixed32(5));
+      from.x = from.x + side.x + forward.x;
+      from.y = from.y + side.y + forward.y;
+    }
     Components::Projectile flight;
+    flight.m_fromLift = ECS::flight::isFlying(registry, shooter) ? Core::gorynych::flightLift : 0;
+    if (isDragonFire) flight.m_fromLift += kDragonMouthHeight + (head - 1) * kHeadHeightStep;
+    flight.m_toLift = ECS::flight::isFlying(registry, target) ? Core::gorynych::flightLift + kDragonBodyHeight : 0;
     flight.shooter = shooter;
     flight.target = target;
     flight.owner = owner;
@@ -93,6 +111,7 @@ void LooseOne(entt::registry& registry, entt::entity shooter, entt::entity targe
     registry.emplace<Components::Transform>(arrow, from, from);
     // The missile's own graphic, turned to face along its flight.
     Components::Sprite sprite{};
+    sprite.lift_px = flight.m_fromLift;
     const auto art = Core::ConfigManager::Get().GetUnitGraphicById(
         Players::ArtOf(registry, owner, missile_id), "idle_graphic0");
     if (art.Valid()) {
@@ -163,6 +182,10 @@ void Victims(const entt::registry& registry, const Components::Projectile& fligh
         for (auto e : all) {
             if (far(e, flight.blast_width)) continue;
             if (e == flight.shooter || !Combat::Alive(registry, e)) continue;
+            if (flight.unit_id == Core::gorynych::projectileId &&
+                Diplomacy::StanceOf(registry, flight.owner, OwnerOf(registry, e)) != Diplomacy::Stance::Enemy) continue;
+            // A blast only reaches the altitude it was aimed at.
+            if (ECS::flight::isFlying(registry, e) != (flight.m_toLift > 0)) continue;
             if (near(e, flight.blast_width)) out.emplace_back(e, false);
         }
         if (flight.blast_level <= kBlastFellsTrees) {
@@ -179,7 +202,7 @@ void Victims(const entt::registry& registry, const Components::Projectile& fligh
         }
         return;
     }
-    if (Combat::Alive(registry, flight.target) && near(flight.target, kHitSlack)) {
+    if (Combat::Alive(registry, flight.target) && ECS::flight::isFlying(registry, flight.target) == (flight.m_toLift > 0) && near(flight.target, kHitSlack)) {
         out.emplace_back(flight.target, false);
         return;
     }
@@ -190,6 +213,7 @@ void Victims(const entt::registry& registry, const Components::Projectile& fligh
     for (auto e : all) {
         if (far(e, Core::Fixed32(0))) continue;
         if (e == arrow || !Combat::Alive(registry, e)) continue;
+        if (ECS::flight::isFlying(registry, e) != (flight.m_toLift > 0)) continue;
         if (Diplomacy::StanceOf(registry, flight.owner, all.get<const Components::Owner>(e).player_id) ==
             Diplomacy::Stance::Ally) {
             continue;
@@ -218,7 +242,7 @@ Volley VolleyOf(const entt::registry& registry, entt::entity shooter) {
         }
       return volley;
     }
-    volley.own = rules->projectile >= 0 ? 1 : 0;
+    volley.own = rules->projectile == Core::gorynych::projectileId ? Core::gorynych::heads : (rules->projectile >= 0 ? 1 : 0);
     if (!registry.all_of<Components::Building>(shooter)) return volley;
     const int secondary = rules->secondary_projectile >= 0 ? rules->secondary_projectile
                                                            : rules->projectile;
@@ -251,6 +275,9 @@ void Fire(entt::registry& registry, const Physics::Grid& grid, entt::entity shoo
       }
       return;
     }
+    if (ECS::flight::isFlying(registry, shooter))
+      if (const auto* path = registry.try_get<Components::Path>(shooter);
+          path != nullptr && path->current_waypoint_index < path->waypoints.size()) return;
     // Its missiles are those of the table it plays by.
     const Core::PlayerId owner = Players::RulesPlayer(registry, shooter);
     const Volley volley = VolleyOf(registry, shooter);
@@ -258,7 +285,7 @@ void Fire(entt::registry& registry, const Physics::Grid& grid, entt::entity shoo
     if (volley.own > 0) {
         if (const R::UnitRules* missile = Players::UnitOf(registry, owner, rules->projectile)) {
             for (int i = 0; i < volley.own; ++i) {
-                LooseOne(registry, shooter, target, *rules, rules->projectile, *missile);
+                LooseOne(registry, shooter, target, *rules, rules->projectile, *missile, i);
             }
         }
     }
@@ -331,7 +358,8 @@ void Update(entt::registry& registry, Physics::Grid& grid, int32_t dt_ms) {
         // only: the flight itself is on the ground track above.
         const Core::Fixed32 height =
             flight.arc * flight.length * Core::Fixed32(4) * t * (Core::Fixed32(1) - t);
-        sprite.lift_px = (height * Core::Fixed32(Core::IsometricMath::TILE_HEIGHT)).ToInt();
+        sprite.lift_px = (height * Core::Fixed32(Core::IsometricMath::TILE_HEIGHT) +
+          Core::Fixed32(flight.m_fromLift) * (Core::Fixed32(1) - t) + Core::Fixed32(flight.m_toLift) * t).ToInt();
     }
 
     for (auto arrow : landed) registry.destroy(arrow);
