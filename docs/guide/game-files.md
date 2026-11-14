@@ -46,6 +46,7 @@ contains your game data. The Android APK, the iOS app and the Switch's
 
 ::: warning SafeDisc
 The default hotkeys are read from the CD's `GAME/EMPIRES2.EXE`. On a CD
-protected by SafeDisc that file's code is encrypted, so they cannot be read:
-the build says so and goes on, and the game plays without hotkeys.
+protected by SafeDisc that file's code is encrypted, or the file is only a
+small loader, so they cannot be read: the build says so and goes on, and the
+game plays without hotkeys.
 :::

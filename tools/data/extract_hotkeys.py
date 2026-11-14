@@ -27,8 +27,9 @@ Monastery, 11 the Market, 12 the military commands, 13 the Castle. Control
 groups (Ctrl and a digit makes one, the digit selects it) are not in the table.
 
 A copy of the game protected by SafeDisc keeps the executable's code
-encrypted on the disc, so none of this can be read from it: the table is then
-written empty, and the game plays without default hotkeys.
+encrypted on the disc, or only a small loader in EMPIRES2.EXE, so none of this
+can be read from it: the table is then written empty, and the game plays
+without default hotkeys.
 
 Usage:  python3 tools/data/extract_hotkeys.py
 """
@@ -86,10 +87,13 @@ def calls(blob, target, start, end):
 
 
 def sections(blob):
-    """The names of the executable's sections."""
-    pe = struct.unpack_from('<I', blob, 0x3c)[0]
-    count = struct.unpack_from('<H', blob, pe + 6)[0]
-    first = pe + 24 + struct.unpack_from('<H', blob, pe + 20)[0]
+    """The names of the executable's sections; none if it is cut short."""
+    try:
+        pe = struct.unpack_from('<I', blob, 0x3c)[0]
+        count = struct.unpack_from('<H', blob, pe + 6)[0]
+        first = pe + 24 + struct.unpack_from('<H', blob, pe + 20)[0]
+    except struct.error:
+        return []
     return [blob[first + 40 * i:first + 40 * i + 8].rstrip(b'\0').decode('latin-1')
             for i in range(count)]
 
@@ -103,8 +107,8 @@ def write(defaults):
 def main():
     blob = open(EXE, 'rb').read()
     strings = json.load(open(STRINGS, encoding='utf-8'))
-    # The hotkey set-up code, in .text.
-    start, end = 0x139000, 0x13d000
+    # The hotkey set-up code, in .text; a shorter file holds none of it.
+    start, end = 0x139000, min(0x13d000, len(blob))
     names = {}
     for args in calls(blob, NAME_ITEM, start, end):
         if len(args) >= 3:
