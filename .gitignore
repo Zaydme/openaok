@@ -37,3 +37,6 @@ __pycache__/
 /docs/node_modules/
 /docs/.vitepress/cache/
 /docs/.vitepress/dist/
+
+# The web page's list of data files, made by web/make_manifest.py.
+web/data.json

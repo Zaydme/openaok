@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenAoK</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; color: #ddd; font: 14px system-ui, sans-serif; }
+  #stage { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
+  canvas { display: none; outline: none; }
+  #status { padding: 1em; text-align: center; }
+  progress { width: 320px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="status"><div id="msg">Starting</div><progress id="bar" value="0" max="1"></progress></div>
+  <canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+</div>
+<script>
+const msg = document.getElementById('msg');
+const bar = document.getElementById('bar');
+const canvas = document.getElementById('canvas');
+const stats = { fetched: 0, files: 0, fetchMs: 0 };
+
+// Writes one fetched file into the file system, making its folders.
+function put(FS, path, bytes) {
+  const parts = path.split('/');
+  let dir = '';
+  for (let i = 0; i < parts.length - 1; i++) {
+    dir += '/' + parts[i];
+    try { FS.mkdir(dir); } catch (e) { /* exists */ }
+  }
+  FS.writeFile('/' + path, bytes);
+}
+
+// Fetches every file the manifest lists, a few at a time.
+async function loadData(FS) {
+  const t0 = performance.now();
+  const list = await (await fetch('data.json')).json();
+  const total = list.reduce((n, f) => n + f.size, 0);
+  stats.files = list.length;
+  let next = 0;
+  async function worker() {
+    while (next < list.length) {
+      const f = list[next++];
+      const res = await fetch(f.path);
+      if (!res.ok) throw new Error(f.path + ': ' + res.status);
+      put(FS, f.path, new Uint8Array(await res.arrayBuffer()));
+      stats.fetched += f.size;
+      bar.value = stats.fetched / total;
+      msg.textContent = 'Loading the game data: ' + (stats.fetched >> 20) + ' of ' + (total >> 20) + ' MB';
+    }
+  }
+  await Promise.all(Array.from({ length: 6 }, worker));
+  stats.fetchMs = Math.round(performance.now() - t0);
+  FS.mkdir('/build');
+  FS.chdir('/build');
+}
+
+var Module = {
+  canvas,
+  // More flags from the address: index.html?args=--fps,--menu,name
+  arguments: ['--windowed', '--no-movies'].concat(
+    (new URLSearchParams(location.search).get('args') || '').split(',').filter(Boolean)),
+  print: (s) => console.log(s),
+  printErr: (s) => console.warn(s),
+  preRun: [function () {
+    Module.addRunDependency('data');
+    loadData(Module.FS || FS).then(() => {
+      Module.removeRunDependency('data');
+      document.getElementById('status').style.display = 'none';
+      canvas.style.display = 'block';
+      canvas.focus();
+    }).catch((e) => { msg.textContent = 'Failed: ' + e.message; console.error(e); });
+  }],
+};
+window.openaokStats = stats;
+
+// Scales the canvas to the largest size that fits the window with the game's
+// proportions, as the game's frame changes between the menus and a game.
+function fit() {
+  const w = canvas.width, h = canvas.height;
+  if (w && h) {
+    const scale = Math.min(innerWidth / w, innerHeight / h);
+    canvas.style.width = Math.floor(w * scale) + 'px';
+    canvas.style.height = Math.floor(h * scale) + 'px';
+  }
+  requestAnimationFrame(fit);
+}
+fit();
+</script>
+<script src="OpenAoK.js"></script>
+</body>
+</html>

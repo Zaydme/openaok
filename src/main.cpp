@@ -1835,6 +1835,11 @@ int main(int argc, char* argv[]) {
     SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengles2");
     HAL::Touch::Enable();
     HAL::Pad::Enable();
+#elif defined(__EMSCRIPTEN__)
+    // The browser has WebGL, which SDL reaches as OpenGL ES. The game's data
+    // was written into the page's file system under "/", laid out as the
+    // source tree is, and the page entered build/ (web/README.md).
+    SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengles2");
 #elif defined(__IPHONEOS__)
     // iOS has no desktop OpenGL: SDL picks its Metal renderer, or OpenGL ES,
     // by itself. Held sideways, either way up, and played with the fingers as
