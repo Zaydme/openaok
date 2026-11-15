@@ -46,16 +46,23 @@ else()
         add_compile_options(-Wno-missing-field-initializers -Wno-psabi)
         add_link_options(-Wno-psabi)
     endif()
+    # Clang names the same warning for designated initializers.
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        add_compile_options(-Wno-missing-designated-field-initializers)
+    endif()
 endif()
 
 # Vendored libraries (third_party/: EnTT 3.12.2 and others) are SYSTEM
 # includes, so -Werror applies only to the engine's own code.
 
-# Find SDL2 core
-find_package(SDL2 REQUIRED)
-# FreeType renders the original's own fonts the way GDI did: hinted, one bit
-# per pixel. It ships with every Linux desktop and with Homebrew.
-find_package(Freetype REQUIRED)
+# Find SDL2 core. Emscripten (web/README.md) brings SDL2 and FreeType as ports,
+# switched on by flags instead of found.
+if(NOT EMSCRIPTEN)
+    find_package(SDL2 REQUIRED)
+    # FreeType renders the original's own fonts the way GDI did: hinted, one bit
+    # per pixel. It ships with every Linux desktop and with Homebrew.
+    find_package(Freetype REQUIRED)
+endif()
 
 file(GLOB_RECURSE SOURCES "src/*.cpp")
 file(GLOB_RECURSE HEADERS "src/*.h" "src/*.hpp")
@@ -72,7 +79,12 @@ target_include_directories(OpenAoK SYSTEM PRIVATE third_party)
 
 # SDL2's imported targets where its CMake package provides them; otherwise the
 # variables an older FindSDL2 module sets.
-if(TARGET SDL2::SDL2)
+if(EMSCRIPTEN)
+    target_compile_options(OpenAoK PRIVATE -sUSE_SDL=2 -sUSE_FREETYPE=1)
+    target_link_options(OpenAoK PRIVATE -sUSE_SDL=2 -sUSE_FREETYPE=1
+        -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=512MB -sMAXIMUM_MEMORY=2GB
+        -sASYNCIFY -sFORCE_FILESYSTEM=1 -lidbfs.js -lnodefs.js)
+elseif(TARGET SDL2::SDL2)
     target_link_libraries(OpenAoK PRIVATE SDL2::SDL2)
     # SDL2main is a no-op shim on Linux but wires up the real entry point on
     # macOS and Windows; link it whenever the package ships it.
@@ -84,11 +96,13 @@ else()
 endif()
 # The sources include SDL as <SDL2/...>: the directory above SDL's headers,
 # which the package lists beside them.
-if(SDL2_INCLUDE_DIRS)
+if(SDL2_INCLUDE_DIRS AND NOT EMSCRIPTEN)
     target_include_directories(OpenAoK SYSTEM PRIVATE ${SDL2_INCLUDE_DIRS})
 endif()
 
-target_link_libraries(OpenAoK PRIVATE Freetype::Freetype)
+if(NOT EMSCRIPTEN)
+    target_link_libraries(OpenAoK PRIVATE Freetype::Freetype)
+endif()
 
 # Windows: the sockets library, and the C and C++ runtimes linked in so the
 # executable needs only SDL2.dll beside it.
