@@ -1,6 +1,7 @@
 #include "hal/Net.h"
 
 #include <cstring>
+#include <string>
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -28,6 +29,7 @@ constexpr size_t kHeader = 4;
 // saved game); anything claiming more is garbage.
 constexpr uint32_t kMaxMessage = 64u << 20;
 
+#ifndef __EMSCRIPTEN__
 void Startup() {
 #ifdef _WIN32
     static bool started = false;
@@ -71,9 +73,11 @@ void CloseSocket(Socket s) {
     close(static_cast<int>(s));
 #endif
 }
+#endif // __EMSCRIPTEN__
 
 } // namespace
 
+#ifndef __EMSCRIPTEN__
 Socket Listen(uint16_t port) {
     Startup();
     const Socket s = static_cast<Socket>(socket(AF_INET, SOCK_STREAM, 0));
@@ -198,6 +202,7 @@ void Close(Connection& connection) {
 }
 
 void CloseListener(Socket listener) { CloseSocket(listener); }
+#endif // __EMSCRIPTEN__
 
 void Send(Connection& connection, const std::vector<uint8_t>& message) {
     const uint32_t length = static_cast<uint32_t>(message.size());
@@ -207,6 +212,7 @@ void Send(Connection& connection, const std::vector<uint8_t>& message) {
     connection.outgoing.insert(connection.outgoing.end(), message.begin(), message.end());
 }
 
+#ifndef __EMSCRIPTEN__
 void Pump(Connection& connection) {
     if (connection.socket == kNoSocket) return;
     while (!connection.outgoing.empty()) {
@@ -234,6 +240,7 @@ void Pump(Connection& connection) {
         return;
     }
 }
+#endif // __EMSCRIPTEN__
 
 bool Receive(Connection& connection, std::vector<uint8_t>& message) {
     if (connection.incoming.size() < kHeader) return false;
@@ -251,6 +258,7 @@ bool Receive(Connection& connection, std::vector<uint8_t>& message) {
     return true;
 }
 
+#ifndef __EMSCRIPTEN__
 Socket OpenDatagram(uint16_t port) {
     Startup();
     const Socket s = static_cast<Socket>(socket(AF_INET, SOCK_DGRAM, 0));
@@ -332,5 +340,6 @@ std::string LocalAddress() {
     CloseSocket(s);
     return address;
 }
+#endif // __EMSCRIPTEN__
 
 } // namespace HAL::Net

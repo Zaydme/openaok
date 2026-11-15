@@ -83,7 +83,7 @@ if(EMSCRIPTEN)
     target_compile_options(OpenAoK PRIVATE -sUSE_SDL=2 -sUSE_FREETYPE=1)
     target_link_options(OpenAoK PRIVATE -sUSE_SDL=2 -sUSE_FREETYPE=1
         -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=512MB -sMAXIMUM_MEMORY=2GB
-        -sASYNCIFY -sFORCE_FILESYSTEM=1 -lidbfs.js -lnodefs.js)
+        -sASYNCIFY -sFORCE_FILESYSTEM=1 -lidbfs.js -lnodefs.js -lwebsocket.js)
 elseif(TARGET SDL2::SDL2)
     target_link_libraries(OpenAoK PRIVATE SDL2::SDL2)
     # SDL2main is a no-op shim on Linux but wires up the real entry point on
