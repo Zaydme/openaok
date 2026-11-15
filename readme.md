@@ -1,63 +1,126 @@
 # AgeOfEmpire2-openaok — Worldcraft
 
-Развитие [OpenAoK](https://github.com/Zaydme/openaok) на C++20: жители сажают
-деревья по одному, линией или прямоугольной областью. Есть предварительный вид
-при перетаскивании мышью, очередь через Shift, совместная работа, оплата,
-отмена, рост и обычная рубка выросшего леса. Поддерживаются одиночная игра,
-сетевые команды, сохранения и повторы. В Worldcraft 0.4.0 жители также создают
-высокие горы со склонами, выкапывают сухие рвы, канавы и озёра и восстанавливают исходный рельеф.
-Для каждой работы доступны линия и область; пологие склоны проходимы,
-крутые склоны и рвы закрывают проход. Доступны три высоты горы. Препятствия
-смещаются в свободное место, вода при сухих работах заменяется песком;
-основания зданий сохраняются даже при строительстве вплотную к ним.
+[Русская версия](readme_ru.md)
 
-Ветка `transport` добавляет «Троянского коня»: житель строит наземный транспорт
-на 12 жителей и пеших бойцов. Кнопка — третья в третьем ряду команд жителя;
-посадка — правой кнопкой по своему коню, высадка — командой транспорта с выбором места.
-Посаженные лучники и копейщики стреляют общим залпом с остановки; работают
-автоматический огонь и приказ атаковать. Копья летят на 4 клетки без бонуса против конницы.
-Параметры, ограничения и совместимость: [транспорт](mods/worldcraft/transport/README.txt).
+## Terrain and earthworks
 
-Дополнение добавляет «Ходячее дерево»: житель выращивает управляемого
-бойца ближнего боя. Кнопка — первая в третьем ряду команд жителя. Требуются
-200 древесины, 50 золота, 60 секунд работы и 3 свободных места населения.
-Есть собственные анимации ходьбы, атаки, гибели и останков; настройки находятся
-в `mods/worldcraft/treeman/unit.json`.
+An extension of [OpenAoK](https://github.com/Zaydme/openaok) in C++20: villagers
+plant trees individually, in a line, or across a rectangular area. Features
+include a preview while dragging, Shift queuing, shared work, resource costs,
+cancellation, growth, and normal woodcutting once the forest has grown.
+Single-player, network commands, saves, and replays are supported. In
+Worldcraft 0.5.0, villagers also create tall mountains with slopes, dig dry
+moats, ditches, and lakes, and restore the original terrain.
+Each task supports lines and areas; gentle slopes are traversable, while
+steep slopes and moats block movement. Three mountain heights are available.
+Obstacles move to a free location, and dry terrain work replaces water with
+sand; building foundations remain intact even when work takes place right
+next to them.
 
-На каждой новой случайной карте появляются 10 мирных диких древней.
-Подведите своего жителя или бойца на расстояние трёх клеток: древень бесплатно
-присоединится к вам и станет обычным бойцом. Приближением чужих юнитов его
-больше не переманить. Приручённый древень занимает 3 места населения, даже
-если текущий лимит уже заполнен. Выращивание жителем остаётся доступным.
+<p align="center">
+  <img src="docs/public/images/worldcraft/mountains.png" width="820" alt="A mountain with slopes created by villagers">
+</p>
 
-- [Управление и настройки дополнения](mods/worldcraft/README.txt).
-- [Восстановление проверенного рабочего каталога Windows](local-support/README.txt).
-- [Состояние проекта и результаты проверок](local-support/CHECKPOINT.txt).
+*Mountains: villagers raise the terrain and shape its slopes.*
 
-Контрольная точка от 11 ноября 2026 года: целевые проверки **20/20**, общий
-прогон **127/130**. Сохраняются три прежние неудачи: позднее развитие ИИ и две
-проверки без `DEMO.SCN`. [Проверка рек](local-support/RIVERS-VERIFICATION.txt)
-описывает строительство, плавание, засыпку, сохранения, повторы, TCP и
-наблюдение о единичном сбое при автоматическом выходе после снимка.
-[Проверка древней](local-support/TREEMAN-VERIFICATION.txt) охватывает их
-приручение, выращивание и бой.
-Реки и водяные рвы доступны во второй кнопке третьего ряда команд жителя.
-Выберите ширину линии 1/3/5 клеток, затем протяните реку, ров или область.
-Готовые клетки заполняются водой; течение реки направлено от начала линии
-к концу и отображается визуально. Реки доступны кораблям при достаточной
-ширине, водяные рвы закрывают путь и сухопутным юнитам, и кораблям.
-Восстановление возвращает исходный рельеф. Другие задуманные существа
-пока не реализованы.
-[Упаковка Windows](windows/installer/README.txt) создаёт локальный
-установщик для запуска без средств разработки.
+<p align="center">
+  <img src="docs/public/images/worldcraft/ditches.png" width="820" alt="A dry ditch dug near the town center">
+</p>
 
-Для игры нужны собственные файлы **The Age of Kings (1999)**. Исходные данные
-игры, извлечённые ресурсы, шрифты, сохранения и локальные сборки в репозиторий
-не включены. У сетевых игроков должны совпадать сборка и пакет `mods/worldcraft`.
-Сохранения предыдущей версии автоматически не преобразуются.
+*Ditches: villagers lower the terrain to create dry obstacles.*
 
-Ниже сохранено описание исходного проекта OpenAoK. Его ссылки на готовые
-загрузки относятся к upstream, а не к сборкам этого дополнения.
+## Trojan Horse
+
+The package includes the Trojan Horse: a villager builds a land transport
+for 12 villagers and infantry units. Its button is the third in the
+villager's third command row; right-click your own horse to board it, and
+use the transport's unload command to choose a destination.
+Embarked archers and spearmen fire a combined volley while stationary;
+both automatic fire and attack orders are supported. Spears have a range
+of 4 tiles and no bonus against cavalry. Parameters, restrictions, and
+compatibility: [transport](mods/worldcraft/transport/README.txt).
+
+<p align="center">
+  <img src="docs/public/images/worldcraft/trojan-horse.png" width="820" alt="The Trojan Horse land transport in the game">
+</p>
+
+*Trojan Horse: a land transport for villagers and infantry.*
+
+## Gorynych
+
+Gorynych flies over obstacles and attacks a single target with fire from
+all three heads. Each new random map starts with 10 neutral dragons that
+can be tamed by approaching within 3 tiles. A villager raises Gorynych
+using the fourth button in the third row: 400 wood, 300 gold, 120 seconds,
+and 5 population slots. Parameters and artwork:
+[Gorynych](mods/worldcraft/gorynych/README.txt).
+
+<p align="center">
+  <img src="docs/public/images/worldcraft/gorynych.png" width="820" alt="The three-headed Gorynych breathing fire over a forest">
+</p>
+
+*Gorynych: flight over obstacles and fire from three heads.*
+
+## Walking Tree
+
+The mod adds a Walking Tree: a villager grows a controllable melee fighter.
+Its button is the first in the villager's third command row. It requires
+200 wood, 50 gold, 60 seconds of work, and 3 free population slots.
+It has its own walking, attack, death, and remains animations; settings
+are in `mods/worldcraft/treeman/unit.json`.
+
+Each new random map starts with 10 neutral wild treants.
+Bring a villager or fighter within three tiles: the treant joins you for
+free and becomes a normal combat unit. Enemy units can no longer win it
+over by approaching. A tamed treant uses 3 population slots even if the
+current limit is already full. Villagers can still grow treants.
+
+<p align="center">
+  <img src="docs/public/images/worldcraft/treant.png" width="820" alt="A controllable Walking Tree beside the town center">
+</p>
+
+*Treant: a melee fighter grown or tamed by the player.*
+
+## Rivers and water moats
+
+Rivers and water moats are available through the second button in the
+villager's third command row. Choose a line width of 1/3/5 tiles, then drag
+out a river, moat, or area. Completed tiles fill with water; river flow runs
+from the start of the line to its end and is shown visually.
+Ships can use rivers that are wide enough; water moats block both land
+units and ships. Restoration returns the original terrain. Other planned
+creatures have not yet been implemented.
+
+<p align="center">
+  <img src="docs/public/images/worldcraft/water.png" width="820" alt="A man-made river with a ship and a separate water moat">
+</p>
+
+*Water: a navigable river and a water moat made by villagers.*
+
+## Project status and packaging
+
+- [Mod controls and settings](mods/worldcraft/README.txt).
+- [Restoring the verified Windows working directory](local-support/README.txt).
+- [Project status and verification results](local-support/CHECKPOINT.txt).
+
+Checkpoint from November 11, 2026: targeted checks **20/20**, full run
+**127/130**. Three existing failures remain: late-game AI development and
+two checks without `DEMO.SCN`. [River verification](local-support/RIVERS-VERIFICATION.txt)
+covers construction, sailing, filling in water, saves, replays, TCP, and an
+observation of a single crash during automatic exit after a screenshot.
+[Treant verification](local-support/TREEMAN-VERIFICATION.txt) covers taming,
+growing, and combat.
+[Windows packaging](windows/installer/README.txt) creates a local installer
+that runs without development tools.
+
+You need your own **The Age of Kings (1999)** game files to play. Original
+game data, extracted assets, fonts, saves, and local builds are not included
+in the repository. Network players must use the same build and
+`mods/worldcraft` package. Saves from the previous version are not
+automatically converted.
+
+The original OpenAoK project description is preserved below. Its download
+links refer to upstream releases, not builds of this mod.
 
 ---
 
